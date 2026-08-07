@@ -92,6 +92,7 @@ app/src/main/
 | `blocks_{yyyy-MM-dd}_instagram` | Int | O güne ait Instagram engelleme |
 | `blocks_{yyyy-MM-dd}_tiktok` | Int | O güne ait TikTok engelleme |
 | `blocks_{yyyy-MM-dd}_youtube` | Int | O güne ait YouTube engelleme |
+| `blocks_{yyyy-MM-dd}_hour_{HH}` | Int | O güne ve saate ait engelleme (Heatmap için) |
 | `instagram_daily_time_ms` | Long | Instagram'da geçirilen günlük süre (ms) |
 | `onboarding_completed` | Boolean | Kurulum tamamlandı mı |
 
@@ -110,9 +111,9 @@ MainActivity
     │   ├── OnboardingStepThree - Ne yapabilir, ne yapamaz
     │   └── OnboardingStepFour  - İzin kurulumu
     └── MainNavigationDashboard (4 sekmeli ana menü)
-        ├── HomeScreen          - Kalkan durumu, kurtarılan zaman
+        ├── HomeScreen          - Kalkan durumu, kurtarılan zaman, ⚡ Kritik Saat kartı
         ├── ModesAndAppsScreen  - Hedef uygulama toggleları
-        ├── ProgressStatusScreen - Haftalık grafik, rozetler, istatistikler
+        ├── ProgressStatusScreen - Haftalık grafik, 🕒 24-saat heatmap, rozetler, istatistikler
         └── AboutScreen         - Hakkında, uyumluluk, geri bildirim
 ```
 
@@ -176,4 +177,5 @@ android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagInclu
 3. **Yeni uygulama desteği:** `accessibility_service_config.xml` `packageNames` listesine eklenmeli; `AntiScrollService.kt` içine yeni bir `if (packageName == "...")` bloğu yazılmalı.
 4. **BETA uygulamalar:** TikTok ve YouTube `CyberTargetAppCard` bileşeninde `isBeta = true` ile işaretlidir. Stabil olduğunda `isBeta = false` yapılabilir.
 5. **Derleme:** Gradlew projede `./gradlew.bat` dosyası yoktur. Android Studio üzerinden derleme yapılır. ADB için tam yol: `C:\Users\Desktop\AppData\Local\Android\Sdk\platform-tools\adb.exe`
+7. **Heatmap Mimarisi:** `DoomscrollHourlyHeatmap` composable'ı `ProgressStatusScreen` içinde yer alır. Veriler `blocks_{yyyy-MM-dd}_hour_{HH}` anahtarlarından okunur. Gerçek veri yoksa otomatik demo mock data gösterilir. `HomeScreen`'deki ⚡ Kritik Saat kartı günün en yoğun saatini hesaplar ve bağlamsal uyarı mesajı gösterir.
 6. **Test cihazı:** Samsung Galaxy (RFCW30GNQXK) — One UI yüklü. Diğer cihazlar test edilmemiştir.

@@ -840,12 +840,19 @@ class AntiScrollService : AccessibilityService() {
         logList.add(0, newLog)
         val updatedLogs = logList.take(10).joinToString(";")
 
+        // Saatlik istatistik kaydı - Heatmap için
+        val hourFormat = java.text.SimpleDateFormat("HH", java.util.Locale.getDefault())
+        val currentHour = hourFormat.format(java.util.Date())
+        val hourlyBlocksKey = "blocks_${currentDayString}_hour_${currentHour}"
+        val currentHourlyBlocks = prefs.getInt(hourlyBlocksKey, 0)
+
         prefs.edit()
             .putInt("total_blocks", currentBlocks + 1)
             .putLong("user_xp", currentXp + 3L)
             .putInt(dailyBlocksKey, currentDailyBlocks + 1)
             .putInt(appBlocksKey, currentAppBlocks + 1)
             .putInt(dailyAppKey, currentDailyAppBlocks + 1)
+            .putInt(hourlyBlocksKey, currentHourlyBlocks + 1)
             .putInt("streak_days", streakDays)
             .putString("last_active_day", currentDayString)
             .putString("recent_shield_logs", updatedLogs)

@@ -2762,8 +2762,86 @@ fun HomeScreen(onReopenOnboarding: () -> Unit, prefs: android.content.SharedPref
             }
         }
 
+        // ⚡ Günün Kritik Saati Kartı
+        val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
+        val peakHour = remember(totalBlocks) {
+            var maxBlocks = 0
+            var peakH = -1
+            for (h in 0..23) {
+                val key = "blocks_${todayStr}_hour_${h.toString().padStart(2, '0')}"
+                val count = prefs.getInt(key, 0)
+                if (count > maxBlocks) { maxBlocks = count; peakH = h }
+            }
+            Pair(peakH, maxBlocks)
+        }
+
+        if (peakHour.first >= 0 && peakHour.second >= 1) {
+            Spacer(modifier = Modifier.height(16.dp))
+            val h = peakHour.first
+            val cnt = peakHour.second
+            val savedMinsH = cnt * 2
+            val timeRange = "${h.toString().padStart(2, '0')}:00 - ${(h + 1).toString().padStart(2, '0')}:00"
+            val peakMsg = if (isEn)
+                "⚡ Peak hour today: $timeRange — $cnt blocks, ~${savedMinsH} min saved!"
+            else
+                "⚡ Bugünün zirve saati: $timeRange — $cnt engelleme, ~${savedMinsH} dk kurtarıldı!"
+            val warningMsg = if (isEn) {
+                when {
+                    h in 22..23 || h == 0 -> "Late-night scroll risk. Protect your sleep! 🌙"
+                    h in 6..9 -> "Morning scroll trap spotted. Start fresh! ☀️"
+                    h in 12..14 -> "Lunch break vulnerability. Stay sharp! 💪"
+                    else -> "Watch out for this hour tomorrow. 🎯"
+                }
+            } else {
+                when {
+                    h in 22..23 || h == 0 -> "Gece geç saatte scroll riski. Uykunuzu koruyun! 🌙"
+                    h in 6..9 -> "Sabah scroll tuzağı saptandı. Güne temiz başlayın! ☀️"
+                    h in 12..14 -> "Öğle arası savunmasızlığı. Odaklanın! 💪"
+                    else -> "Yarın bu saate dikkat edin. 🎯"
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF0F1523),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFF0055).copy(alpha = 0.7f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⚡", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isEn) "PEAK VULNERABILITY HOUR" else "GÜNÜN KRİTİK SAATİ",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFFF0055),
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = peakMsg,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = warningMsg,
+                        fontSize = 11.5.sp,
+                        color = Color(0xFFFFB703),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Canlı Kalkan Günlüğü Kartı
         CyberShieldActivityLogCard(prefs = prefs)
+
 
         Spacer(modifier = Modifier.height(30.dp))
 
@@ -3845,6 +3923,13 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 24-Saatlik Doomscroll Isı Haritası
+        DoomscrollHourlyHeatmap(isEn = isEn, prefs = prefs)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         // Uygulama Bazlı Temiz Özet Kartı
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -3896,6 +3981,178 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+
+
+@Composable
+fun DoomscrollHourlyHeatmap(
+    isEn: Boolean = false,
+    prefs: android.content.SharedPreferences
+) {
+    val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
+
+    // Bugünün saatlik blok verilerini oku
+    val hourlyData = remember {
+        (0..23).map { h ->
+            val key = "blocks_${todayStr}_hour_${h.toString().padStart(2, '0')}"
+            prefs.getInt(key, 0)
+        }
+    }
+
+    // Gerçek veri yoksa demo mock data kullan (ilk açılışta canlı görünüm)
+    val hasRealData = hourlyData.any { it > 0 }
+    val displayData = if (hasRealData) hourlyData else listOf(
+        0, 0, 1, 0, 0, 0, 2, 4, 3, 1, 0, 2,
+        5, 3, 1, 0, 2, 4, 8, 6, 3, 9, 5, 2
+    )
+
+    val maxVal = displayData.maxOrNull()?.takeIf { it > 0 } ?: 1
+
+    var selectedHour by remember { mutableIntStateOf(-1) }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFF0F1523),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.3f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Başlık
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("🕒", fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isEn) "24-HOUR DOOMSCROLL HEATMAP" else "24 SAATLİK DOOMSCROLL ISI HARİTASI",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF00F2FE),
+                        letterSpacing = 0.8.sp
+                    )
+                    if (!hasRealData) {
+                        Text(
+                            text = if (isEn) "Demo preview — blocks will appear here" else "Demo önizleme — engellemeler burada görünecek",
+                            fontSize = 9.sp,
+                            color = Color(0xFFFFB703).copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Seçili saat detay bilgisi
+            if (selectedHour >= 0) {
+                val sH = selectedHour
+                val sBlocks = displayData[sH]
+                val sSaved = sBlocks * 2
+                val sRange = "${sH.toString().padStart(2, '0')}:00 - ${(sH + 1).toString().padStart(2, '0')}:00"
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF070A12),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "🕒 $sRange  |  ${if (isEn) "$sBlocks Blocks  |  ~${sSaved} Min Saved" else "$sBlocks Engelleme  |  ~${sSaved} Dk Kurtarıldı"}",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // 24 Hücrelik Grid (4 satır × 6 sütun)
+            val rows = listOf(
+                (0..5).toList(),
+                (6..11).toList(),
+                (12..17).toList(),
+                (18..23).toList()
+            )
+            val rowLabels = listOf("00–05", "06–11", "12–17", "18–23")
+
+            rows.forEachIndexed { rowIdx, hours ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = rowLabels[rowIdx],
+                        fontSize = 8.5.sp,
+                        color = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.width(32.dp)
+                    )
+                    hours.forEach { h ->
+                        val count = displayData[h]
+                        val intensity = count.toFloat() / maxVal.toFloat()
+                        val cellColor = when {
+                            count == 0 -> Color(0xFF0F1523)
+                            count <= 3 -> Color(0xFF00F2FE).copy(alpha = 0.20f + intensity * 0.30f)
+                            count <= 7 -> Color(0xFF00FF87).copy(alpha = 0.40f + intensity * 0.30f)
+                            else -> Color(0xFFFF0055).copy(alpha = 0.65f + intensity * 0.35f)
+                        }
+                        val borderColor = if (selectedHour == h) Color(0xFFFFB703) else Color(0xFF1E2A40)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(2.dp)
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(cellColor)
+                                .border(
+                                    width = if (selectedHour == h) 1.5.dp else 0.5.dp,
+                                    color = borderColor,
+                                    shape = RoundedCornerShape(5.dp)
+                                )
+                                .clickable { selectedHour = if (selectedHour == h) -1 else h },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = h.toString().padStart(2, '0'),
+                                fontSize = 7.5.sp,
+                                color = if (count > 0) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
+                                fontWeight = if (count > 3) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+                if (rowIdx < rows.size - 1) Spacer(modifier = Modifier.height(3.dp))
+            }
+
+            // Renk Lejantı
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    Triple(Color(0xFF0F1523), Color(0xFF1E2A40), if (isEn) "Clean" else "Temiz"),
+                    Triple(Color(0xFF00F2FE).copy(alpha = 0.35f), Color(0xFF00F2FE).copy(alpha = 0.5f), "1–3"),
+                    Triple(Color(0xFF00FF87).copy(alpha = 0.6f), Color(0xFF00FF87).copy(alpha = 0.7f), "4–7"),
+                    Triple(Color(0xFFFF0055).copy(alpha = 0.8f), Color(0xFFFF0055), "8+")
+                ).forEach { (bg, border, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(bg)
+                                .border(0.5.dp, border, RoundedCornerShape(2.dp))
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(label, fontSize = 9.sp, color = Color.White.copy(alpha = 0.55f))
+                    }
+                }
+            }
+        }
     }
 }
 
