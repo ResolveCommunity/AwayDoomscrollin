@@ -4,8 +4,8 @@ Categories:
 License: GPL-3.0-only
 SourceCode: https://gitlab.com/resolve-community/AwayDoomscrollin
 IssueTracker: https://gitlab.com/resolve-community/AwayDoomscrollin/-/issues
-Changelog: https://gitlab.com/resolve-community/AwayDoomscrollin/-/releases
 
+AutoName: AwayDoomscrollin'
 Summary: Break the endless scrolling addiction on Instagram, TikTok & Shorts
 Description: |-
   AwayDoomscrollin' is an open-source, privacy-first Android app that helps
@@ -34,11 +34,10 @@ Builds:
   - versionName: 1.0.0
     versionCode: 1
     commit: v1.0.0
-    subdir: app
     gradle:
       - yes
 
-AutoUpdateMode: Version v%v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: 1.0.0
 CurrentVersionCode: 1

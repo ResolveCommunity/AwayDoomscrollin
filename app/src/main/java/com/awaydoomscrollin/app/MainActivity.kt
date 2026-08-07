@@ -2151,7 +2151,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                     // ÜÇÜNCÜL BUTON: GITHUB
                     OutlinedButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/awaydoomscrollin/AwayDoomscrolling"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ResolveCommunity/AwayDoomscrollin"))
                             context.startActivity(intent)
                         },
                         modifier = Modifier.fillMaxWidth(),

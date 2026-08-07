@@ -23,7 +23,7 @@ data class RemoteConfig(
     val configVersion: Int = 1,
     val latestVersionCode: Int = 1,
     val latestVersionName: String = "1.0.0",
-    val updateUrl: String = "https://github.com/awaydoomscrollin/AwayDoomscrolling/releases",
+    val updateUrl: String = "https://github.com/ResolveCommunity/AwayDoomscrollin/releases",
     val isForceUpdate: Boolean = false,
     val updateChangelog: String = "",
     val announcementMessage: String = "",
@@ -40,7 +40,7 @@ object RemoteRuleManager {
     private const val KEY_LAST_FETCH = "remote_rules_last_fetch_ms"
 
     // Varsayılan Remote Rules URL (GitHub Raw veya özel sunucu)
-    private const val DEFAULT_RULES_URL = "https://raw.githubusercontent.com/awaydoomscrollin/rules/main/rules.json"
+    private const val DEFAULT_RULES_URL = "https://raw.githubusercontent.com/ResolveCommunity/rules/main/rules.json"
 
     // Varsayılan Çevrimdışı Kurallar (İnternet olmasa da çalışan yedek)
     private val DEFAULT_CONFIG = RemoteConfig(
@@ -140,7 +140,7 @@ object RemoteRuleManager {
         val version = root.optInt("configVersion", 1)
         val latestVerCode = root.optInt("latestVersionCode", 1)
         val latestVerName = root.optString("latestVersionName", "1.0.0")
-        val updateUrl = root.optString("updateUrl", "https://github.com/awaydoomscrollin/AwayDoomscrolling/releases")
+        val updateUrl = root.optString("updateUrl", "https://github.com/ResolveCommunity/AwayDoomscrollin/releases")
         val isForceUpdate = root.optBoolean("isForceUpdate", false)
         val updateChangelog = root.optString("updateChangelog", "")
         val announcement = root.optString("announcementMessage", "")
