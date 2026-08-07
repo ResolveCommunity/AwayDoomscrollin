@@ -645,7 +645,17 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Mesajlar", ignoreCase = true) ||
             text.equals("Messages", ignoreCase = true) ||
             text.equals("Yorumlar", ignoreCase = true) ||
-            text.equals("Comments", ignoreCase = true)) {
+            text.equals("Comments", ignoreCase = true) ||
+            text.equals("Yeni gönderi", ignoreCase = true) ||
+            text.equals("New post", ignoreCase = true) ||
+            text.equals("Galeri", ignoreCase = true) ||
+            text.equals("Gallery", ignoreCase = true) ||
+            text.equals("Hikaye", ignoreCase = true) ||
+            text.equals("Story", ignoreCase = true) ||
+            text.equals("Film Rulosu", ignoreCase = true) ||
+            text.equals("Camera Roll", ignoreCase = true) ||
+            text.equals("Son kullanılanlar", ignoreCase = true) ||
+            text.equals("Recents", ignoreCase = true)) {
             return true
         }
 
