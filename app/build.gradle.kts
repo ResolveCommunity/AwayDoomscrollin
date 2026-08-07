@@ -23,8 +23,6 @@ android {
                 storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "awaydoomscrollin"
                 keyAlias = System.getenv("KEY_ALIAS") ?: "awaykey"
                 keyPassword = System.getenv("KEY_PASSWORD") ?: "awaydoomscrollin"
-            } else {
-                initWith(getByName("debug"))
             }
         }
     }
