@@ -12,7 +12,8 @@
 **Please do not open public issues for security vulnerabilities.**
 
 Report security issues privately via:
-- **Email:** account@resolvecommunity.com
+- **Email (Security & Support):** support@awaydoomscrollin.com
+- **General Inquiries:** info@resolvecommunity.com
 - **GitLab:** Use the [confidential issue](https://gitlab.com/resolve-community/AwayDoomscrollin/-/issues/new?issue%5Bconfidential%5D=true) feature
 
 Please include:
