@@ -56,7 +56,6 @@ jobs:
         with:
           files: release_output/AwayDoomscrollin-v1.0.0.apk
           name: "AwayDoomscrollin' ${{ github.ref_name }}"
-          body_path: fastlane/metadata/android/tr-TR/changelogs/1.txt
           draft: false
           prerelease: false
         env:

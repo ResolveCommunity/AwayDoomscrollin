@@ -43,3 +43,13 @@ GEMINI.md
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Backend Server Scripts (PRIVATE)
+/server/
+
+
+# Internal Developer Tools & Docs
+rewrite_ui.py
+play_store_submission_guide.md
+fastlane/
+
