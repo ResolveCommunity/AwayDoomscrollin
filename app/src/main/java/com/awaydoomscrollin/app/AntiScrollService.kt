@@ -555,13 +555,14 @@ class AntiScrollService : AccessibilityService() {
                 val className = event.className?.toString() ?: ""
                 
                 if (!className.contains("RecyclerView") && !className.contains("ViewPager") && 
-                    !className.contains("ListView") && !className.contains("ScrollView") && !className.contains("SwipeRefreshLayout")) {
+                    !className.contains("ListView") && !className.contains("ScrollView") && 
+                    !className.contains("SwipeRefreshLayout") && !className.contains("Layout")) {
                     return
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val deltaY = event.scrollDeltaY
-                    if (Math.abs(deltaY) < 20) {
+                    if (Math.abs(deltaY) < 5) {
                         return
                     }
                     Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY")
