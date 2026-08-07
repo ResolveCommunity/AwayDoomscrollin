@@ -2,18 +2,33 @@ Categories:
   - Security
   - System
 License: GPL-3.0-only
-SourceCode: https://github.com/awaydoomscrollin/AwayDoomscrolling
-IssueTracker: https://github.com/awaydoomscrollin/AwayDoomscrolling/issues
-Changelog: https://github.com/awaydoomscrollin/AwayDoomscrolling/releases
+SourceCode: https://gitlab.com/resolve-community/AwayDoomscrollin
+IssueTracker: https://gitlab.com/resolve-community/AwayDoomscrollin/-/issues
+Changelog: https://gitlab.com/resolve-community/AwayDoomscrollin/-/releases
 
 Summary: Break the endless scrolling addiction on Instagram, TikTok & Shorts
 Description: |-
-  AwayDoomscrollin' is an open-source, privacy-first Android app designed
-  to help you break the habit of endless doomscrolling on Instagram Reels,
-  TikTok, and YouTube Shorts.
+  AwayDoomscrollin' is an open-source, privacy-first Android app that helps
+  you break the habit of endless doomscrolling on Instagram Reels, TikTok,
+  and YouTube Shorts.
+
+  Unlike screen-time apps that set limits, AwayDoomscrollin' uses an
+  event-driven Accessibility Service Shield that intervenes the exact moment
+  an unconscious vertical scroll gesture occurs — no timer, no negotiation.
+
+  Features:
+  * Instant scroll detection and forced home-screen return
+  * Smart Safe Zones: DMs, comments, and long-form YouTube are never blocked
+  * 100% offline — zero internet permissions
+  * Anti-cheat protection to prevent impulsive deactivation
+  * Gamification: XP system and daily streak milestones
+  * 24-hour heatmap showing your hourly scroll patterns
+  * Weekly progress dashboard with per-app statistics
+
+  Supported: Instagram Reels (stable), TikTok (beta), YouTube Shorts (beta)
 
 RepoType: git
-Repo: https://github.com/awaydoomscrollin/AwayDoomscrolling.git
+Repo: https://gitlab.com/resolve-community/AwayDoomscrollin.git
 
 Builds:
   - versionName: 1.0.0
