@@ -2263,7 +2263,20 @@ fun MainNavigationDashboard(
     onReopenOnboarding: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val currentLang = getAppLanguage(prefs)
+    var currentLang by remember { mutableStateOf(getAppLanguage(prefs)) }
+    
+    androidx.compose.runtime.DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+            if (key == "app_language") {
+                currentLang = getAppLanguage(sharedPreferences)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    
     val isEn = currentLang == "en"
 
     Scaffold(
