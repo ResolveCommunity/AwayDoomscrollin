@@ -1,84 +1,143 @@
-# 🛡️ AwayDoomscrollin' — Break the Infinite Scroll Loop
+<p align="center">
+  <img src="awaydoomscrollin-app-logo.png" alt="AwayDoomscrollin' Logo" width="120"/>
+</p>
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-brightgreen.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Android Min SDK](https://img.shields.io/badge/Min%20SDK-26%20%28Android%208.0%2B%29-blue.svg)](https://developer.android.com)
-[![Status](https://img.shields.io/badge/Status-100%25%20Offline%20%26%20Privacy--First-00F2FE.svg)](#privacy--security)
-[![Samsung One UI](https://img.shields.io/badge/Samsung%20One%20UI-100%25%20Verified-00FF87.svg)](#device-compatibility)
+<h1 align="center">AwayDoomscrollin'</h1>
 
-**AwayDoomscrollin'** is an open-source, privacy-first Android application designed to help users break mindless doomscrolling addiction on short-video platforms (**Instagram Reels**, **TikTok**, and **YouTube Shorts**).
+<p align="center">
+  <strong>Break the Infinite Scroll Loop — For Good.</strong><br/>
+  Open-source, offline-first Android accessibility shield against Instagram Reels, TikTok & YouTube Shorts.
+</p>
 
-Unlike restrictive "digital wellbeing" apps that offer bargaining limits (e.g. "15 mins/day"), AwayDoomscrollin' uses an event-driven **Accessibility Service Shield** that intervenes the exact moment an unconscious vertical scroll gesture occurs.
+<p align="center">
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
+  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Min%20SDK-26%20(Android%208.0%2B)-blue.svg" alt="Min SDK 26"/></a>
+  <img src="https://img.shields.io/badge/Status-100%25%20Offline%20%26%20Privacy--First-00F2FE.svg" alt="Offline & Privacy-First"/>
+  <img src="https://img.shields.io/badge/Samsung%20One%20UI-100%25%20Verified-00FF87.svg" alt="Samsung One UI Verified"/>
+</p>
 
 ---
 
-## ✨ Key Features
+## What is it?
 
-- **⚡ Instant Anti-Scroll Intervention:** Automatically detects vertical swipe gestures on short-video feeds and returns you to the home screen.
-- **💬 Smart Safe Zone:** DM messaging and comment reading sheets are recognized as safe zones — scrolling in DMs and reading comments is never blocked.
-- **🔒 100% Offline & Zero Internet Permissions:** Requests zero network permissions (`android.permission.INTERNET` is omitted). Runs entirely locally on your device.
-- **🚨 Anti-Cheat Protection:** Prevents accidental or impulsive service deactivation from Android Settings.
-- **🏆 Gamification & XP System:** Earn XP and build daily streak milestones (3, 7, 14, 30 days) as you reclaim your time.
-- **📱 Cyberpunk / Neon Jetpack Compose UI:** Premium dark-mode UI with live shield activity logs and habit statistics.
+**AwayDoomscrollin'** is an open-source Android app that physically interrupts unconscious short-video scrolling the moment it happens — not 15 minutes later.
+
+Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' uses an **event-driven Accessibility Service** that fires the instant a vertical swipe gesture is detected on a short-video feed. No timer. No limit. Instant exit.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| ⚡ **Instant Shield** | Detects scroll gesture → returns to home screen immediately |
+| 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
+| 🔒 **100% Offline** | Zero internet permissions — all logic runs on-device |
+| 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
+| 🏆 **Gamification** | XP system, daily streaks (3 / 7 / 14 / 30 days) |
+| 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
+| ⚡ **Peak Hour Alert** | Home screen shows today's most dangerous scroll hour |
+| 📊 **Progress Dashboard** | Weekly bar chart, per-app stats, saved time tracking |
 
 ---
 
 ## 📱 Supported Platforms
 
-| Platform | Package Name | Status | Safe Zone Behavior |
-|---|---|---|---|
-| **Instagram Reels** | `com.instagram.android` | ✅ Full Support | DMs & Comments fully accessible |
-| **TikTok** | `com.zhiliaoapp.musically` | 🔶 Beta | Messaging accessible |
-| **YouTube Shorts** | `com.google.android.youtube` | 🔶 Beta | Long videos allowed; Shorts blocked |
+| Platform | Package Name | Status |
+|---|---|---|
+| **Instagram Reels** | `com.instagram.android` | ✅ Full Support |
+| **TikTok** | `com.zhiliaoapp.musically` | 🔶 Beta |
+| **YouTube Shorts** | `com.google.android.youtube` | 🔶 Beta |
+
+> Beta platforms: functional but may occasionally miss detection. Open an issue if you encounter problems.
 
 ---
 
-## 🛠️ Architecture & File Structure
-
-Built with **Kotlin** and **Jetpack Compose (Material3)** following modern Android architecture guidelines:
+## 📂 Project Structure
 
 ```
-app/src/main/
-├── AndroidManifest.xml              # Permissions, Activities, Accessibility Service
-├── java/com/awaydoomscrollin/app/
-│   ├── MainActivity.kt              # Jetpack Compose UI Dashboard & Feedback Engine
-│   ├── AntiScrollService.kt         # Accessibility Engine & Anti-Scroll Shield
-│   ├── AntiCheatGuiltActivity.kt    # Anti-Cheat popup dialog
-│   └── ClearTaskActivity.kt         # Recents task clearing helper
-└── res/
-    ├── xml/accessibility_service_config.xml   # Accessibility flags & package targets
-    └── drawable/                     # Platform brand icons
+AwayDoomscrollin/
+├── app/
+│   ├── src/main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── java/com/awaydoomscrollin/app/
+│   │   │   ├── MainActivity.kt          # Jetpack Compose UI (all screens)
+│   │   │   ├── AntiScrollService.kt     # Core Accessibility Engine
+│   │   │   ├── AntiCheatGuiltActivity.kt
+│   │   │   ├── ClearTaskActivity.kt
+│   │   │   ├── RemoteRuleManager.kt     # Remote config fetcher
+│   │   │   └── TelemetryManager.kt      # Optional opt-in analytics
+│   │   └── res/
+│   │       ├── drawable/                # Platform icons
+│   │       ├── mipmap-*/                # App launcher icons
+│   │       ├── raw/                     # Demo video assets
+│   │       └── xml/accessibility_service_config.xml
+│   └── build.gradle.kts
+├── fastlane/metadata/                   # F-Droid / Play Store metadata
+├── fdroid/                              # F-Droid build config
+├── server/                              # Optional self-hosted telemetry
+├── website/                             # Project landing page
+├── .github/workflows/release.yml        # CI/CD release automation
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
 
 ---
 
 ## 🚀 Building from Source
 
-### Prerequisites
-- Android Studio Jellyfish / Ladybug or newer
-- Android SDK 34 (Build Tools 34.0.0)
+### Requirements
+- Android Studio Jellyfish or newer
+- Android SDK 34, Build Tools 34.0.0
 - JDK 17 / Kotlin 1.9+
 
-### Build Commands
+### Steps
+
 ```bash
-# Clone the repository
-git clone https://github.com/awaydoomscrollin/AwayDoomscrolling.git
-cd AwayDoomscrolling
+# 1. Clone the repo
+git clone https://gitlab.com/resolve-community/AwayDoomscrollin.git
+cd AwayDoomscrollin
 
-# Build Debug APK
-./gradlew assembleDebug
+# 2. Open in Android Studio
+# File → Open → select the project folder
 
-# Build Unsigned Release APK
-./gradlew assembleRelease
+# 3. Build & Run
+# Run → Run 'app'  (Shift+F10)
 ```
+
+> **Note:** This project does not include a `gradlew` wrapper. Build via Android Studio or set up your own Gradle installation.
 
 ---
 
-## 🤖 F-Droid & Google Play Metadata
+## 🔒 Privacy
 
-This repository contains full [Fastlane Supply](https://docs.fastlane.tools/actions/supply/) structure under `fastlane/metadata/android/` for F-Droid automated builds.
+- **No internet permission** declared in `AndroidManifest.xml`
+- All block data stored locally via `SharedPreferences`
+- Optional telemetry (disabled by default) sends only anonymous block counts — no device IDs, no user data
+- Full source code available for audit
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
+
+## 🛡️ Security
+
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 ---
 
 ## 📄 License
 
-Distributed under the **GNU General Public License v3.0 (GPLv3)**. See `LICENSE` for details.
+Distributed under the **GNU General Public License v3.0**.  
+See [LICENSE](LICENSE) for full details.
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://gitlab.com/resolve-community">Resolve Community</a>
+</p>

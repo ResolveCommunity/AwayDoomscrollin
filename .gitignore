@@ -1,27 +1,45 @@
-﻿# Android Build
+# ─────────────────────────────────────────
+#  Android / Gradle
+# ─────────────────────────────────────────
 *.iml
-/local.properties
-/.idea
+local.properties
 .DS_Store
-/build
+
+# Build outputs
+/build/
 app/build/
-/captures
-.externalNativeBuild
-.cxx
+/captures/
+
+# Gradle cache
+.gradle/
+gradle.properties.bak
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Release artifacts
 *.apk
 *.aab
+*.keystore
+*.jks
 
-# Gradle
-.gradle/
-
-# IntelliJ / Android Studio
+# ─────────────────────────────────────────
+#  Android Studio / IntelliJ
+# ─────────────────────────────────────────
 .idea/
+*.iml
 out/
 
-# AI assistant config (private, internal)
+# ─────────────────────────────────────────
+#  AI assistant (private, internal only)
+# ─────────────────────────────────────────
 .gemini/
 GEMINI.md
 
-# OS
+# ─────────────────────────────────────────
+#  OS
+# ─────────────────────────────────────────
 Thumbs.db
 desktop.ini
+.DS_Store
