@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="AwayDoomscrollin' Logo" width="120"/>
+</p>
+
 <h1 align="center">AwayDoomscrollin'</h1>
 
 <p align="center">
