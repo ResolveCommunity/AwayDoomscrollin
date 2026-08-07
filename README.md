@@ -51,37 +51,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 
 > Beta platforms: functional but may occasionally miss detection. Open an issue if you encounter problems.
 
----
 
-## 📂 Project Structure
-
-```
-AwayDoomscrollin/
-├── app/
-│   ├── src/main/
-│   │   ├── AndroidManifest.xml
-│   │   ├── java/com/awaydoomscrollin/app/
-│   │   │   ├── MainActivity.kt          # Jetpack Compose UI (all screens)
-│   │   │   ├── AntiScrollService.kt     # Core Accessibility Engine
-│   │   │   ├── AntiCheatGuiltActivity.kt
-│   │   │   ├── ClearTaskActivity.kt
-│   │   │   ├── RemoteRuleManager.kt     # Remote config fetcher
-│   │   │   └── TelemetryManager.kt      # Optional opt-in analytics
-│   │   └── res/
-│   │       ├── drawable/                # Platform icons
-│   │       ├── mipmap-*/                # App launcher icons
-│   │       ├── raw/                     # Demo video assets
-│   │       └── xml/accessibility_service_config.xml
-│   └── build.gradle.kts
-├── fastlane/metadata/                   # F-Droid / Play Store metadata
-├── fdroid/                              # F-Droid build config
-├── server/                              # Optional self-hosted telemetry
-├── website/                             # Project landing page
-├── .github/workflows/release.yml        # CI/CD release automation
-├── .gitignore
-├── LICENSE
-└── README.md
-```
 
 ---
 
