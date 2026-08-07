@@ -539,7 +539,7 @@ class AntiScrollService : AccessibilityService() {
                 val nodeDesc = event.contentDescription?.toString() ?: ""
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
-                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile")) {
+                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
                     val rootNode = rootInActiveWindow
                     if (rootNode != null && isDangerousScreen(rootNode) && !isSafeScreen(rootNode)) {
                         if (currentTime - lastPunishTime > 3000) {
