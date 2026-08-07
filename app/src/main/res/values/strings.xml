@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AwayDoomscrollin\'</string>
+    <string name="accessibility_service_description">GİZLİLİK VE ŞEFFAFLIK:\nBu servis, ekranınızı okur ancak asla kaydetmez veya dışarı aktarmaz (İnternet izni yoktur). Sadece "Reels" veya "Keşfet" gibi algoritmik tuzakları tespit edip engellemek için kelime avcılığı yapar. Banka bilgilerinizi, özel mesajlarınızı veya şifrelerinizi umursamaz, tüm analizler cihaz içinde anlık yapılır ve silinir.\n\nNEDEN BU İZNE İHTİYACIMIZ VAR?:\nSonsuz kaydırma (doomscrolling) döngüsünü kendi iradenizle kırmanız zordur. Bu servis, o tuzağa düştüğünüzü anladığı an Instagram\'ı ayarlardan zorla durduran "tavizsiz bir dijital gardiyan" olarak çalışır. Amacımız sizi sosyal medyadan tamamen koparmak değil, zamanınızı çalan kara deliği kapatarak o zamanı size geri vermektir.</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AwaySplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#070A12</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">#070A12</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/ic_branding_from_away</item>
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+</resources>

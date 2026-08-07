@@ -1,0 +1,19 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_branding_from_away
+drawable ic_instagram
+drawable ic_splash_logo
+drawable ic_tiktok
+drawable ic_twitter
+drawable ic_youtube
+mipmap ic_launcher
+mipmap ic_launcher_round
+raw reels_video_1
+raw reels_video_2
+raw reels_video_3
+raw reels_video_4
+raw reels_video_5
+string accessibility_service_description
+string app_name
+style Theme.AwaySplashScreen
+xml accessibility_service_config

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">GİZLİLİK VE ŞEFFAFLIK:\nBu servis, ekranınızı okur ancak asla kaydetmez veya dışarı aktarmaz (İnternet izni yoktur). Sadece "Reels" veya "Keşfet" gibi algoritmik tuzakları tespit edip engellemek için kelime avcılığı yapar. Banka bilgilerinizi, özel mesajlarınızı veya şifrelerinizi umursamaz, tüm analizler cihaz içinde anlık yapılır ve silinir.\n\nNEDEN BU İZNE İHTİYACIMIZ VAR?:\nSonsuz kaydırma (doomscrolling) döngüsünü kendi iradenizle kırmanız zordur. Bu servis, o tuzağa düştüğünüzü anladığı an Instagram\'ı ayarlardan zorla durduran "tavizsiz bir dijital gardiyan" olarak çalışır. Amacımız sizi sosyal medyadan tamamen koparmak değil, zamanınızı çalan kara deliği kapatarak o zamanı size geri vermektir.</string>
+    <string name="app_name">AwayDoomscrollin\'</string>
+    <style name="Theme.AwaySplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#070A12</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">#070A12</item>
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+</resources>

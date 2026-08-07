@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AwayDoomscrollin' — Stop Scrolling Now.</title>
+    <meta name="description" content="Android anti-scroll shield app that breaks Instagram Reels, TikTok, and YouTube Shorts endless doomscrolling addiction. Reclaim your time and focus.">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+</head>
+<body>
+
+    <!-- Ambient Radial Background Glows -->
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow-2"></div>
+
+    <!-- ==========================================================================
+         Header / Navigation Bar
+         ========================================================================== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <!-- Logo & Brand Name -->
+            <a href="#" class="brand-logo-group" aria-label="AwayDoomscrollin' Home">
+                <img src="assets/logo.png" alt="AwayDoomscrollin' Logo" class="brand-logo-img">
+                <span class="brand-name">Away<span>Doomscrollin'</span></span>
+            </a>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <!-- Navigation Links & Language Switcher -->
+            <nav>
+                <ul class="nav-menu" id="navMenu">
+                    <li><a href="#ozellikler" class="nav-link" data-i18n="nav_features">Özellikler</a></li>
+                    <li><a href="#kiyaslama" class="nav-link" data-i18n="nav_comp">Neden Farklıyız?</a></li>
+                    <li><a href="#hesaplayici" class="nav-link" data-i18n="nav_calculator">Hesaplayıcı</a></li>
+                    <li><a href="#uygulamalar" class="nav-link" data-i18n="nav_apps">Apps</a></li>
+                    <li><a href="#uyumluluk" class="nav-link" data-i18n="nav_compatibility">Device Compatibility</a></li>
+                    <li><a href="#sss" class="nav-link" data-i18n="nav_faq">FAQ</a></li>
+                    <li><a href="#geri-bildirim" class="nav-link" data-i18n="nav_feedback">Geri Bildirim</a></li>
+                    <li class="lang-switcher-container">
+                        <div class="lang-switcher">
+                            <button type="button" class="lang-btn active" id="langBtnTr" onclick="setLanguage('tr')">TR</button>
+                            <button type="button" class="lang-btn" id="langBtnEn" onclick="setLanguage('en')">EN</button>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ==========================================================================
+         Hero Section
+         ========================================================================== -->
+    <section class="hero-section">
+        <div class="container hero-grid">
+            
+            <!-- Hero Content -->
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    <span data-i18n="hero_badge">Android Accessibility-Based Anti-Scroll Shield</span>
+                </div>
+
+                <div class="hero-title-container">
+                    <h1 class="typing-heading"><span data-i18n="hero_heading_base">Artık kaydırmayı </span><span id="loopWordTarget" class="typing-text-target">bırak.</span><span class="blinking-cursor"></span></h1>
+                </div>
+
+                <p class="hero-subtitle" data-i18n="hero_subtitle">
+                    Instagram, TikTok ve YouTube sonsuz kaydırma döngüsünü otomatik olarak durdurun. Sağ taraftaki canlı simülatörde 5 farklı Reels videosunda kalkanı deneyin!
+                </p>
+
+                <div class="hero-cta-group">
+                    <div class="store-badges-container">
+                        <!-- Google Play Store Badge -->
+                        <a href="https://play.google.com/store/apps/details?id=com.awaydoomscrollin.app" target="_blank" rel="noopener" class="store-badge-btn store-play">
+                            <div class="store-badge-icon">
+                                <i class="fa-brands fa-google-play"></i>
+                            </div>
+                            <div class="store-badge-text">
+                                <span class="store-badge-sub" data-i18n="store_get_it_on">GET IT ON</span>
+                                <span class="store-badge-title">Google Play</span>
+                            </div>
+                        </a>
+
+                        <!-- F-Droid Badge -->
+                        <a href="https://f-droid.org/packages/com.awaydoomscrollin.app" target="_blank" rel="noopener" class="store-badge-btn store-fdroid">
+                            <div class="store-badge-icon">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <div class="store-badge-text">
+                                <span class="store-badge-sub" data-i18n="store_get_it_on">GET IT ON</span>
+                                <span class="store-badge-title">F-Droid</span>
+                            </div>
+                        </a>
+
+                        <!-- GitHub Releases Badge -->
+                        <a href="https://github.com/awaydoomscrollin/AwayDoomscrolling/releases" target="_blank" rel="noopener" class="store-badge-btn store-apk">
+                            <div class="store-badge-icon">
+                                <i class="fa-brands fa-github"></i>
+                            </div>
+                            <div class="store-badge-text">
+                                <span class="store-badge-sub" data-i18n="store_github_releases">AVAILABLE ON</span>
+                                <span class="store-badge-title">GitHub Releases</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="hero-specs-list">
+                    <div class="spec-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span data-i18n="hero_spec_samsung">Samsung One UI 100% Compatible</span>
+                    </div>
+                    <div class="spec-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span data-i18n="hero_spec_privacy">100% Offline & Privacy First</span>
+                    </div>
+                    <div class="spec-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span data-i18n="hero_spec_safezone">Comments & DM Safe Zone Free</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hero Visual: Live Reels Video Simulator -->
+            <div class="hero-visual">
+                <div class="reels-simulator-frame">
+                    <div class="phone-notch"></div>
+
+                    <!-- Scrollable Video Feed (5 Reels Videos) -->
+                    <div class="reels-feed-container" id="reelsFeed">
+                        
+                        <!-- Video 1 -->
+                        <div class="reels-video-slide">
+                            <video src="assets/videos/reels_video_1.mp4" class="reels-video-element" loop muted playsinline autoplay></video>
+                            <div class="reels-ui-overlay">
+                                <div class="reels-header-bar">
+                                    <span>Reels</span>
+                                    <span class="shield-active-pill" id="videoCounterBadge" style="font-size: 0.65rem;">Video 1 / 5</span>
+                                </div>
+                                <div class="reels-right-actions">
+                                    <div class="action-icon-item"><i class="fa-solid fa-heart"></i><span>12.4K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-comment"></i><span>342</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-paper-plane"></i></div>
+                                </div>
+                                <div class="reels-bottom-info">
+                                    <div class="reels-user-handle">@away_doomscrollin <i class="fa-solid fa-circle-check" style="color: var(--primary-cyan); font-size: 0.75rem;"></i></div>
+                                    <div class="reels-caption" data-i18n="reels_caption_1">1. Video — Aşağı kaydırarak kalkanı tetikleyin! 👇</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video 2 -->
+                        <div class="reels-video-slide">
+                            <video src="assets/videos/reels_video_2.mp4" class="reels-video-element" loop muted playsinline autoplay></video>
+                            <div class="reels-ui-overlay">
+                                <div class="reels-header-bar">
+                                    <span>Reels</span>
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                                <div class="reels-right-actions">
+                                    <div class="action-icon-item"><i class="fa-solid fa-heart"></i><span>45.1K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-comment"></i><span>890</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-paper-plane"></i></div>
+                                </div>
+                                <div class="reels-bottom-info">
+                                    <div class="reels-user-handle">@reels_demo_2</div>
+                                    <div class="reels-caption" data-i18n="reels_caption_2">2. Video — Sonsuz akış engelleniyor...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video 3 -->
+                        <div class="reels-video-slide">
+                            <video src="assets/videos/reels_video_3.mp4" class="reels-video-element" loop muted playsinline autoplay></video>
+                            <div class="reels-ui-overlay">
+                                <div class="reels-header-bar">
+                                    <span>Reels</span>
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                                <div class="reels-right-actions">
+                                    <div class="action-icon-item"><i class="fa-solid fa-heart"></i><span>98.3K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-comment"></i><span>1.2K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-paper-plane"></i></div>
+                                </div>
+                                <div class="reels-bottom-info">
+                                    <div class="reels-user-handle">@reels_demo_3</div>
+                                    <div class="reels-caption" data-i18n="reels_caption_3">3. Video — Zamanınızı geri kazandınız! ⚡</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video 4 -->
+                        <div class="reels-video-slide">
+                            <video src="assets/videos/reels_video_4.mp4" class="reels-video-element" loop muted playsinline autoplay></video>
+                            <div class="reels-ui-overlay">
+                                <div class="reels-header-bar">
+                                    <span>Reels</span>
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                                <div class="reels-right-actions">
+                                    <div class="action-icon-item"><i class="fa-solid fa-heart"></i><span>62.7K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-comment"></i><span>512</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-paper-plane"></i></div>
+                                </div>
+                                <div class="reels-bottom-info">
+                                    <div class="reels-user-handle">@reels_demo_4</div>
+                                    <div class="reels-caption" data-i18n="reels_caption_4">4. Video — Bilinçsiz kaydırma sonlandı!</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video 5 -->
+                        <div class="reels-video-slide">
+                            <video src="assets/videos/reels_video_5.mp4" class="reels-video-element" loop muted playsinline autoplay></video>
+                            <div class="reels-ui-overlay">
+                                <div class="reels-header-bar">
+                                    <span>Reels</span>
+                                    <i class="fa-solid fa-camera"></i>
+                                </div>
+                                <div class="reels-right-actions">
+                                    <div class="action-icon-item"><i class="fa-solid fa-heart"></i><span>110K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-comment"></i><span>2.4K</span></div>
+                                    <div class="action-icon-item"><i class="fa-solid fa-paper-plane"></i></div>
+                                </div>
+                                <div class="reels-bottom-info">
+                                    <div class="reels-user-handle">@reels_demo_5</div>
+                                    <div class="reels-caption" data-i18n="reels_caption_5">5. Video — 5 video başarıyla tamamlandı!</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Prompt Hint -->
+                    <div class="scroll-prompt-hint">
+                        <i class="fa-solid fa-arrow-down"></i> <span data-i18n="reels_hint">Scroll Down (Demo)</span>
+                    </div>
+
+                    <!-- Triggered Shield Overlay -->
+                    <div class="shield-block-overlay" id="shieldBlockOverlay">
+                        <div class="shield-alert-icon">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div class="shield-alert-title" data-i18n="shield_overlay_title">SCROLLING BLOCKED!</div>
+                        <div class="shield-alert-sub" data-i18n="shield_overlay_sub">AwayDoomscrollin' shield detected scrolling addiction and auto-stopped the app.</div>
+                        <div class="shield-xp-badge">
+                            <i class="fa-solid fa-bolt"></i> <span data-i18n="shield_overlay_badge">+10 XP Earned (Time Saved)</span>
+                        </div>
+                        <button class="btn-replay-demo" id="btnReplayDemo">
+                            <i class="fa-solid fa-arrow-down"></i> <span data-i18n="shield_overlay_btn">Try Next Video →</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Interactive Doomscroll Time Calculator
+         ========================================================================== -->
+    <section id="hesaplayici" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="calc_tag">Awareness Analysis</span>
+                <h2 class="section-title" data-i18n="calc_title">Calculate Your Time: What Are You Losing Each Year?</h2>
+                <p class="section-description" data-i18n="calc_desc">Short videos seem harmless at first. Choose your daily screen time to discover the lost hours in your life.</p>
+            </div>
+
+            <div class="calculator-card">
+                <div class="calculator-slider-box">
+                    <span class="slider-label" data-i18n="calc_slider_label">Günde ortalama ne kadar Instagram / TikTok / YouTube kaydırıyorsun?</span>
+                    <div class="slider-time-value" id="calcHoursText">Günde 2 Saat</div>
+                    <input type="range" id="calcSlider" class="cyber-slider" min="0.25" max="10" step="0.25" value="2">
+                </div>
+
+                <!-- Dynamic Summary Statement Box -->
+                <div class="calc-summary-banner" id="calcSummaryBanner">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span id="calcSummaryText">Günde 2 saat kaydırarak 1 ayda tam 60 saatini (2.5 gününü) ve 1 yılda 30 gününü kaybediyorsun.</span>
+                </div>
+
+                <div class="calculator-results-grid" style="grid-template-columns: repeat(auto-fit, minmax(200dp, 1f));">
+                    <div class="calc-result-card">
+                        <div class="calc-icon"><i class="fa-solid fa-calendar-minus"></i></div>
+                        <div class="calc-number" id="calcMonthlyTime">60 Saat / Ay</div>
+                        <div class="calc-title" data-i18n="calc_result_monthly_title">Aylık Kaybedilen Zaman (2.5 Gün)</div>
+                    </div>
+
+                    <div class="calc-result-card">
+                        <div class="calc-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                        <div class="calc-number" id="calcDaysSaved">30 Gün / Yıl</div>
+                        <div class="calc-title" data-i18n="calc_result_days_title">Yıllık Harcanan Tam Gün (24 Saatlik)</div>
+                    </div>
+
+                    <div class="calc-result-card">
+                        <div class="calc-icon"><i class="fa-solid fa-book-open"></i></div>
+                        <div class="calc-number" id="calcBooksSaved">146 Kitap</div>
+                        <div class="calc-title" data-i18n="calc_result_books_title">Okunabilecek Kitap Sayısı</div>
+                    </div>
+
+                    <div class="calc-result-card">
+                        <div class="calc-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                        <div class="calc-number" id="calcSkillsHours">730 Saat</div>
+                        <div class="calc-title" data-i18n="calc_result_skills_title">Yeni Hobi & Beceri Kazanma Saati</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Features Section
+         ========================================================================== -->
+    <section id="ozellikler" class="section" style="background: var(--bg-alt);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="feat_tag">Advanced Protection</span>
+                <h2 class="section-title" data-i18n="feat_title">Cyber Features Protecting Your Focus</h2>
+                <p class="section-description" data-i18n="feat_desc">AwayDoomscrollin' isn't just a blocker; it's a smart habit transformer that breaks your unconscious scrolling reflex.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <h3 data-i18n="feat_1_title">Automatic Shield</h3>
+                    <p data-i18n="feat_1_desc">The instant scrolling is detected in Reels, TikTok, or Shorts, the background service intervenes and redirects you to the safe home screen.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 data-i18n="feat_2_title">Smart Safe Zone</h3>
+                    <p data-i18n="feat_2_desc">Scrolling in DMs and Comment sections is freely allowed. Only infinite vertical video feed scrolling is targeted.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h3 data-i18n="feat_3_title">Anti-Cheat System</h3>
+                    <p data-i18n="feat_3_desc">When your subconscious tries to disable the shield in Settings, the Anti-Cheat mechanism kicks in to remind you of your focus goal.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <h3 data-i18n="feat_4_title">Streak & Statistics Tracking</h3>
+                    <p data-i18n="feat_4_desc">Visualize your digital freedom process with daily streak tracking and detailed block statistics.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         App Screenshots Showcase Section
+         ========================================================================== -->
+    <section id="ekranlar" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="showcase_tag">Cyber Interface</span>
+                <h2 class="section-title" data-i18n="showcase_title">Explore AwayDoomscrollin' Android App</h2>
+                <p class="section-description" data-i18n="showcase_desc">Designed with Jetpack Compose Material3. Clean dark mode aesthetics with zero clutter.</p>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="showcase-tabs-container">
+                <button type="button" class="showcase-tab-btn active" onclick="switchShowcaseTab('home')" id="tabBtnHome">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span data-i18n="showcase_tab_home">Shield Status</span>
+                </button>
+                <button type="button" class="showcase-tab-btn" onclick="switchShowcaseTab('apps')" id="tabBtnApps">
+                    <i class="fa-solid fa-toggle-on"></i>
+                    <span data-i18n="showcase_tab_apps">Modes & Apps</span>
+                </button>
+                <button type="button" class="showcase-tab-btn" onclick="switchShowcaseTab('stats')" id="tabBtnStats">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    <span data-i18n="showcase_tab_stats">Streak & Progress</span>
+                </button>
+            </div>
+
+            <!-- Phone Mockup Frame Container -->
+            <div class="showcase-phone-wrapper">
+                <div class="showcase-phone-frame">
+                    <div class="phone-camera-notch"></div>
+                    <div class="phone-status-bar">
+                        <span>09:41</span>
+                        <div class="status-icons">
+                            <i class="fa-solid fa-wifi"></i>
+                            <i class="fa-solid fa-battery-full"></i>
+                        </div>
+                    </div>
+
+                    <!-- Screen 1: Home Shield View -->
+                    <div class="app-screen-view active" id="screenViewHome">
+                        <div class="app-header-row">
+                            <div class="app-title-text">AwayDoomscrollin'</div>
+                            <div class="app-status-badge">ONLINE</div>
+                        </div>
+                        <div class="shield-circle-widget">
+                            <div class="shield-circle-glow"></div>
+                            <div class="shield-icon-big"><i class="fa-solid fa-shield-cat"></i></div>
+                            <div class="shield-state-title" data-i18n="mock_home_shield_active">SHIELD ACTIVE</div>
+                            <div class="shield-state-sub" data-i18n="mock_home_shield_sub">Instagram, TikTok and YouTube Protected</div>
+                        </div>
+                        <div class="app-metrics-grid">
+                            <div class="app-metric-card">
+                                <div class="metric-val">2h 45m</div>
+                                <div class="metric-lbl" data-i18n="mock_metric_saved">Time Reclaimed</div>
+                            </div>
+                            <div class="app-metric-card">
+                                <div class="metric-val">14</div>
+                                <div class="metric-lbl" data-i18n="mock_metric_blocks">Interventions</div>
+                            </div>
+                        </div>
+
+                        <!-- Live Shield Activity Log (Canlı Kalkan Akışı) -->
+                        <div class="live-shield-log-container">
+                            <div class="log-header-row">
+                                <span class="log-title"><i class="fa-solid fa-bolt" style="color:var(--primary-cyan)"></i> <span data-i18n="mock_log_title">Live Shield Log</span></span>
+                                <span class="log-live-pulse"><span class="pulse-dot"></span> <span data-i18n="mock_log_live">LIVE</span></span>
+                            </div>
+                            <div class="log-items-list">
+                                <div class="log-item">
+                                    <div class="log-item-left">
+                                        <i class="fa-brands fa-instagram" style="color: #E1306C"></i>
+                                        <div>
+                                            <div class="log-app-name">Instagram Reels</div>
+                                            <div class="log-block-count" data-i18n="mock_log_insta_count">Intervened 8x</div>
+                                        </div>
+                                    </div>
+                                    <div class="log-item-time">14:22</div>
+                                </div>
+                                <div class="log-item">
+                                    <div class="log-item-left">
+                                        <i class="fa-brands fa-tiktok" style="color: #00F2FE"></i>
+                                        <div>
+                                            <div class="log-app-name">TikTok Feed</div>
+                                            <div class="log-block-count" data-i18n="mock_log_tiktok_count">Intervened 4x</div>
+                                        </div>
+                                    </div>
+                                    <div class="log-item-time">12:05</div>
+                                </div>
+                                <div class="log-item">
+                                    <div class="log-item-left">
+                                        <i class="fa-brands fa-youtube" style="color: #FF0000"></i>
+                                        <div>
+                                            <div class="log-app-name">YouTube Shorts</div>
+                                            <div class="log-block-count" data-i18n="mock_log_yt_count">Intervened 2x</div>
+                                        </div>
+                                    </div>
+                                    <div class="log-item-time">09:15</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Screen 2: Modes & Apps View -->
+                    <div class="app-screen-view" id="screenViewApps">
+                        <div class="app-header-row">
+                            <div class="app-title-text" data-i18n="mock_apps_header">Target Platforms</div>
+                            <div class="app-status-badge" data-i18n="mock_apps_status_badge">3/3 AKTİF</div>
+                        </div>
+                        <div class="app-target-list">
+                            <div class="app-target-card insta">
+                                <div class="target-app-info">
+                                    <i class="fa-brands fa-instagram"></i>
+                                    <div>
+                                        <div class="target-app-name">Instagram Reels</div>
+                                        <div class="target-app-sub" data-i18n="mock_app_insta_sub">DMs & Comments Allowed</div>
+                                    </div>
+                                </div>
+                                <div class="cyber-toggle active"></div>
+                            </div>
+                            <div class="app-target-card tiktok">
+                                <div class="target-app-info">
+                                    <i class="fa-brands fa-tiktok"></i>
+                                    <div>
+                                        <div class="target-app-name">TikTok Feed <span class="beta-tag">BETA</span></div>
+                                        <div class="target-app-sub" data-i18n="mock_app_tiktok_sub">Auto Intercept</div>
+                                    </div>
+                                </div>
+                                <div class="cyber-toggle active"></div>
+                            </div>
+                            <div class="app-target-card youtube">
+                                <div class="target-app-info">
+                                    <i class="fa-brands fa-youtube"></i>
+                                    <div>
+                                        <div class="target-app-name">YouTube Shorts <span class="beta-tag">BETA</span></div>
+                                        <div class="target-app-sub" data-i18n="mock_app_yt_sub">Shorts Tab Only</div>
+                                    </div>
+                                </div>
+                                <div class="cyber-toggle active"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Screen 3: Streak & Progress View -->
+                    <div class="app-screen-view" id="screenViewStats">
+                        <div class="app-header-row">
+                            <div class="app-title-text" data-i18n="mock_stats_header">Progress & Streak</div>
+                            <div class="streak-fire-badge"><i class="fa-solid fa-fire"></i> <span data-i18n="mock_stats_streak_badge">7 GÜN</span></div>
+                        </div>
+                        <div class="weekly-chart-box">
+                            <div class="chart-header-lbl" data-i18n="mock_chart_lbl">Weekly Blocks Summary</div>
+                            <div class="chart-bars-row">
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 60%;"></div><span>Mon</span></div>
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 80%;"></div><span>Tue</span></div>
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 40%;"></div><span>Wed</span></div>
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 90%;"></div><span>Thu</span></div>
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 70%;"></div><span>Fri</span></div>
+                                <div class="chart-bar-item"><div class="bar-fill" style="height: 85%;"></div><span>Sat</span></div>
+                                <div class="chart-bar-item active"><div class="bar-fill" style="height: 100%;"></div><span>Sun</span></div>
+                            </div>
+                        </div>
+                        <div class="app-metrics-grid" style="margin-top: 14px;">
+                            <div class="app-metric-card">
+                                <div class="metric-val" style="color: var(--secondary-green);">🔥 <span data-i18n="mock_metric_streak_val">7 Gün</span></div>
+                                <div class="metric-lbl" data-i18n="mock_metric_streak">Daily Streak</div>
+                            </div>
+                            <div class="app-metric-card">
+                                <div class="metric-val">84</div>
+                                <div class="metric-lbl" data-i18n="mock_metric_total_blocks">Total Interventions</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="phone-nav-bar"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Comparison Section: AwayDoomscrollin' vs Traditional Wellbeing Apps
+         ========================================================================== -->
+    <section id="kiyaslama" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="vs_tag">Neden Farklıyız?</span>
+                <h2 class="section-title" data-i18n="vs_title">AwayDoomscrollin' vs Geleneksel Well-Being Uygulamaları</h2>
+                <p class="section-description" data-i18n="vs_desc">Geleneksel 'dijital refah' uygulamaları irade savaşı ve pazarlık sınırları koyar. Biz ise bilinçsiz kaydırma refleksini doğrudan kaynağında kırıyoruz.</p>
+            </div>
+
+            <div class="comparison-table-wrapper">
+                <table class="cyber-comparison-table">
+                    <thead>
+                        <tr>
+                            <th class="feature-col" data-i18n="vs_col_feature">Özellik & Yaklaşım</th>
+                            <th class="traditional-col">
+                                <div class="col-header-box traditional">
+                                    <i class="fa-solid fa-hourglass-half"></i>
+                                    <span data-i18n="vs_col_traditional">Geleneksel Well-Being Uygulamaları</span>
+                                </div>
+                            </th>
+                            <th class="away-col">
+                                <div class="col-header-box away">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <span>AwayDoomscrollin'</span>
+                                    <span class="winner-badge" data-i18n="vs_badge_winner">Çözüm 🔥</span>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="feature-title">
+                                <strong data-i18n="vs_row1_title">Engelleme Mantığı</strong>
+                                <span data-i18n="vs_row1_sub">Sınır nasıl uygulanır?</span>
+                            </td>
+                            <td class="traditional-cell">
+                                <div class="status-badge status-cross"><i class="fa-solid fa-xmark"></i> <span data-i18n="vs_badge_row1_trad">Sınırlı Süre (Pazarlık)</span></div>
+                                <p data-i18n="vs_row1_trad">"Günde 15 dk izin ver." Beyniniz bu süreyi son saniyesine kadar sömürür ve süre bitince irade savaşı başlar.</p>
+                            </td>
+                            <td class="away-cell">
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row1_away">Refleks Kırma (Anında)</span></div>
+                                <p data-i18n="vs_row1_away">Süre pazarlığı yok! Bilinçsiz kaydırma hareketini algıladığı an kalkan devreye girer ve sizi ana ekrana fırlatır.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="feature-title">
+                                <strong data-i18n="vs_row2_title">Kullanıcı Psikolojisi & Yoksunluk</strong>
+                                <span data-i18n="vs_row2_sub">Kullanırken ne hissedersiniz?</span>
+                            </td>
+                            <td class="traditional-cell">
+                                <div class="status-badge status-cross"><i class="fa-solid fa-xmark"></i> <span data-i18n="vs_badge_row2_trad">Yoksunluk & FOMO</span></div>
+                                <p data-i18n="vs_row2_trad">Süre bittiğinde uygulama tamamen kilitlenir; kaçırma korkusu (FOMO) ve yoksunluk hissi yaratır.</p>
+                            </td>
+                            <td class="away-cell">
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row2_away">Zihinsel Özgürlük</span></div>
+                                <p data-i18n="vs_row2_away">Sizi kısıtlamaz! Yalnızca 'otomatik kaydırma tuzağını' durdurur. Dopamin döngüsünden doğal olarak çıkarsınız.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="feature-title">
+                                <strong data-i18n="vs_row3_title">DM & Yorum Koruması (Safe Zone)</strong>
+                                <span data-i18n="vs_row3_sub">Mesajlaşma engellenir mi?</span>
+                            </td>
+                            <td class="traditional-cell">
+                                <div class="status-badge status-cross"><i class="fa-solid fa-xmark"></i> <span data-i18n="vs_badge_row3_trad">Tüm Uygulama Kilitlenir</span></div>
+                                <p data-i18n="vs_row3_trad">Süre dolunca Instagram/TikTok tamamen kilitlenir. Arkadaşlarınızın mesajlarına dahi bakamazsınız.</p>
+                            </td>
+                            <td class="away-cell">
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row3_away">Akıllı Güvenli Bölge</span></div>
+                                <p data-i18n="vs_row3_away">DM mesajlaşmaları ve yorum okuma serbesttir! Sadece bilinçsiz dikey video kaydırma hareketleri engellenir.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="feature-title">
+                                <strong data-i18n="vs_row4_title">Gizlilik & Reklamlar</strong>
+                                <span data-i18n="vs_row4_sub">Verileriniz nerede saklanır?</span>
+                            </td>
+                            <td class="traditional-cell">
+                                <div class="status-badge status-cross"><i class="fa-solid fa-xmark"></i> <span data-i18n="vs_badge_row4_trad">Reklamlı / Ücretli / Sunucuya Veri</span></div>
+                                <p data-i18n="vs_row4_trad">Pek çok uygulama kullanım verilerinizi sunuculara işler, aylık abonelik satar veya reklam gösterir.</p>
+                            </td>
+                            <td class="away-cell">
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row4_away">%100 Çevrimdışı & Açık Kaynak</span></div>
+                                <p data-i18n="vs_row4_away">Sıfır İnternet İzni! Tüm verileriniz cihazınızda kalır. %100 Ücretsiz ve tamamen açık kaynak kodludur.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="feature-title">
+                                <strong data-i18n="vs_row5_title">Hile & Dürtüsel Kapatma (Anti-Cheat)</strong>
+                                <span data-i18n="vs_row5_sub">Uygulamayı kapatmak ne kadar kolay?</span>
+                            </td>
+                            <td class="traditional-cell">
+                                <div class="status-badge status-cross"><i class="fa-solid fa-xmark"></i> <span data-i18n="vs_badge_row5_trad">Kolayca Kapatılabilir</span></div>
+                                <p data-i18n="vs_row5_trad">Dürtüsel olarak Ayarlar'dan veya bildirim panelinden tek tıkla engeli kaldırıp kaydırmaya devam edebilirsiniz.</p>
+                            </td>
+                            <td class="away-cell">
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row5_away">Farkındalık Popup'ı</span></div>
+                                <p data-i18n="vs_row5_away">Anti-Cheat kalkanı devreye girer; kapatmaya çalıştığınızda suçluluk & farkındalık ekranı açarak dürtünüzü kırar.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         How It Works Section
+         ========================================================================== -->
+    <section id="nasil-calisir" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="steps_tag">3-Step Setup</span>
+                <h2 class="section-title" data-i18n="steps_title">How It Works</h2>
+                <p class="section-description" data-i18n="steps_desc">No complex settings required. Activate your shield in seconds.</p>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step-card">
+                    <span class="step-number">01</span>
+                    <h3 data-i18n="step_1_title">Grant Accessibility Permission</h3>
+                    <p data-i18n="step_1_desc">Enable AwayDoomscrollin' service under Android Settings > Accessibility.</p>
+                </div>
+
+                <div class="step-card">
+                    <span class="step-number">02</span>
+                    <h3 data-i18n="step_2_title">Select Target Apps</h3>
+                    <p data-i18n="step_2_desc">Enable protection toggles for Instagram Reels, TikTok, and YouTube Shorts.</p>
+                </div>
+
+                <div class="step-card">
+                    <span class="step-number">03</span>
+                    <h3 data-i18n="step_3_title">Reclaim Your Time</h3>
+                    <p data-i18n="step_3_desc">The moment you scroll in targeted apps, the shield intervenes and pulls you out of the loop.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Supported Platforms Section
+         ========================================================================== -->
+    <section id="uygulamalar" class="section" style="background: var(--bg-alt);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="apps_tag">Supported Platforms</span>
+                <h2 class="section-title" data-i18n="apps_title">Covered Short Video Platforms</h2>
+                <p class="section-description" data-i18n="apps_desc">We directly cover the top 3 short video addiction platforms (Instagram Reels, TikTok, YouTube Shorts).</p>
+            </div>
+
+            <div class="features-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="feature-card" style="border-top: 3px solid var(--brand-instagram);">
+                    <div class="app-icon-box instagram" style="width: 54px; height: 54px; font-size: 1.8rem; margin-bottom: 20px;">
+                        <i class="fa-brands fa-instagram"></i>
+                    </div>
+                    <h3>Instagram Reels</h3>
+                    <p style="color: var(--secondary-green); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
+                        <i class="fa-solid fa-circle-check"></i> <span data-i18n="app_insta_status">FULL SUPPORTED</span>
+                    </p>
+                    <p data-i18n="app_insta_desc">Detects scrolling on Reels while allowing messaging and comment reading without blocking.</p>
+                </div>
+
+                <div class="feature-card" style="border-top: 3px solid var(--brand-tiktok);">
+                    <div class="app-icon-box tiktok" style="width: 54px; height: 54px; font-size: 1.8rem; margin-bottom: 20px;">
+                        <i class="fa-brands fa-tiktok"></i>
+                    </div>
+                    <h3>TikTok</h3>
+                    <p style="color: var(--primary-cyan); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
+                        <i class="fa-solid fa-flask"></i> <span data-i18n="app_tiktok_status">BETA</span>
+                    </p>
+                    <p data-i18n="app_tiktok_desc">Detects infinite feed scrolling, stops the app, and redirects to home screen.</p>
+                </div>
+
+                <div class="feature-card" style="border-top: 3px solid var(--brand-youtube);">
+                    <div class="app-icon-box youtube" style="width: 54px; height: 54px; font-size: 1.8rem; margin-bottom: 20px;">
+                        <i class="fa-brands fa-youtube"></i>
+                    </div>
+                    <h3>YouTube Shorts</h3>
+                    <p style="color: var(--primary-cyan); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
+                        <i class="fa-solid fa-flask"></i> <span data-i18n="app_yt_status">BETA</span>
+                    </p>
+                    <p data-i18n="app_yt_desc">Does not block regular videos; only stops vertical scrolling in the Shorts tab.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Device Compatibility Section
+         ========================================================================== -->
+    <section id="uyumluluk" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="comp_tag">Hardware & Device Support</span>
+                <h2 class="section-title" data-i18n="comp_title">Device Compatibility Status</h2>
+                <p class="section-description" data-i18n="comp_desc">AwayDoomscrollin' relies on Android system architecture, which may vary across manufacturer accessibility policies.</p>
+            </div>
+
+            <div class="compatibility-grid">
+                <!-- Samsung Galaxy Card -->
+                <div class="compatibility-card samsung-featured">
+                    <div class="compatibility-header">
+                        <div class="compatibility-brand">
+                            <div class="brand-badge-icon samsung">
+                                <i class="fa-brands fa-android"></i>
+                            </div>
+                            <div class="compatibility-title">
+                                <h3 data-i18n="comp_samsung_title">Samsung Galaxy (One UI)</h3>
+                                <p><i class="fa-solid fa-mobile-screen"></i> <span data-i18n="comp_samsung_sub">Fully Verified Device Support</span></p>
+                            </div>
+                        </div>
+                        <div class="percentage-tag samsung">%100</div>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar-fill samsung"></div>
+                    </div>
+
+                    <p class="compatibility-desc" data-i18n="comp_samsung_desc">
+                        100% tested and verified on Samsung Galaxy devices (One UI). Accessibility service runs uninterrupted.
+                    </p>
+                </div>
+
+                <!-- Other Android Devices Card -->
+                <div class="compatibility-card">
+                    <div class="compatibility-header">
+                        <div class="compatibility-brand">
+                            <div class="brand-badge-icon other">
+                                <i class="fa-solid fa-mobile-screen-button"></i>
+                            </div>
+                            <div class="compatibility-title">
+                                <h3 data-i18n="comp_other_title">Other Android Devices</h3>
+                                <p><i class="fa-solid fa-microchip"></i> <span data-i18n="comp_other_sub">Xiaomi, Oppo, Vivo, Pixel, Huawei etc.</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="compatibility-desc" data-i18n="comp_other_desc">
+                        Ongoing tests for custom Android ROMs (MIUI, ColorOS, OriginOS). Continuously improved with user feedback.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         FAQ Section
+         ========================================================================== -->
+    <section id="sss" class="section" style="background: var(--bg-alt);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="faq_tag">Common Questions</span>
+                <h2 class="section-title" data-i18n="faq_title">Frequently Asked Questions</h2>
+                <p class="section-description" data-i18n="faq_desc">Here are answers to the most common questions about AwayDoomscrollin'.</p>
+            </div>
+
+            <div class="faq-accordion-container">
+                <!-- FAQ Item 1 -->
+                <div class="faq-item active" onclick="toggleFaq(this)">
+                    <button type="button" class="faq-question-btn">
+                        <span><i class="fa-solid fa-shield-cat" style="color: var(--primary-cyan); margin-right: 10px;"></i> <span data-i18n="faq_q1">Is Accessibility permission safe? Will my data be stolen?</span></span>
+                        <i class="fa-solid fa-chevron-down faq-icon-arrow"></i>
+                    </button>
+                    <div class="faq-answer-wrapper">
+                        <div class="faq-answer-content" data-i18n="faq_a1">
+                            100% Safe. AwayDoomscrollin' never sends any data to servers. It requests zero internet permissions and runs 100% locally (offline) on your device. Accessibility permission is strictly used to detect on-screen scroll gestures.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="faq-item" onclick="toggleFaq(this)">
+                    <button type="button" class="faq-question-btn">
+                        <span><i class="fa-solid fa-comments" style="color: var(--secondary-green); margin-right: 10px;"></i> <span data-i18n="faq_q2">Will scrolling in Instagram DMs or Comments be blocked?</span></span>
+                        <i class="fa-solid fa-chevron-down faq-icon-arrow"></i>
+                    </button>
+                    <div class="faq-answer-wrapper">
+                        <div class="faq-answer-content" data-i18n="faq_a2">
+                            No! Thanks to our Smart Safe Zone algorithm, scrolling in direct messages and comment reading sheets is recognized as a safe zone. You can read comments comfortably without any blocking.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="faq-item" onclick="toggleFaq(this)">
+                    <button type="button" class="faq-question-btn">
+                        <span><i class="fa-solid fa-battery-full" style="color: #00FF87; text-shadow: 0 0 10px rgba(0,255,135,0.4); margin-right: 10px;"></i> <span data-i18n="faq_q3">Does the app consume much battery in the background?</span></span>
+                        <i class="fa-solid fa-chevron-down faq-icon-arrow"></i>
+                    </button>
+                    <div class="faq-answer-wrapper">
+                        <div class="faq-answer-content" data-i18n="faq_a3">
+                            No. Our app uses no background polling loops. It operates purely in an event-driven architecture triggered by the Android system only when you enter Instagram Reels, TikTok, or YouTube Shorts. Battery consumption is virtually zero.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 4 -->
+                <div class="faq-item" onclick="toggleFaq(this)">
+                    <button type="button" class="faq-question-btn">
+                        <span><i class="fa-solid fa-unlock-keyhole" style="color: var(--secondary-green); margin-right: 10px;"></i> <span data-i18n="faq_q4">Is AwayDoomscrollin' completely free?</span></span>
+                        <i class="fa-solid fa-chevron-down faq-icon-arrow"></i>
+                    </button>
+                    <div class="faq-answer-wrapper">
+                        <div class="faq-answer-content" data-i18n="faq_a4">
+                            Yes! AwayDoomscrollin' is developed with a community-driven open vision. All shield modes, statistics, and Anti-Cheat features are 100% free.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Item 5 -->
+                <div class="faq-item" onclick="toggleFaq(this)">
+                    <button type="button" class="faq-question-btn">
+                        <span><i class="fa-solid fa-mobile-retro" style="color: var(--primary-cyan); margin-right: 10px;"></i> <span data-i18n="faq_q5">What should I do if the shield doesn't work on non-Samsung phones?</span></span>
+                        <i class="fa-solid fa-chevron-down faq-icon-arrow"></i>
+                    </button>
+                    <div class="faq-answer-wrapper">
+                        <div class="faq-answer-content" data-i18n="faq_a5">
+                            For brands with aggressive battery managers like Xiaomi, Vivo, or Oppo, you may need to enable Auto-Start permissions for AwayDoomscrollin' under Settings. If you face issues, send us your phone model via the Feedback form.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Feedback Section
+         ========================================================================== -->
+    <section id="geri-bildirim" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="fb_tag">Community & Support</span>
+                <h2 class="section-title" data-i18n="fb_title">Feedback & Bug Report</h2>
+                <p class="section-description" data-i18n="fb_desc">Encountered a bug or have an idea to make the app even better? Share it with us!</p>
+            </div>
+
+            <div class="feedback-card">
+                <form class="feedback-form" id="feedbackForm">
+                    <!-- Honeypot Anti-Spam Field -->
+                    <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="fbEmail"><i class="fa-solid fa-envelope" style="color: var(--primary-cyan);"></i> <span data-i18n="fb_email_label">E-posta Adresiniz (Zorunlu)</span></label>
+                            <input type="email" id="fbEmail" name="email" class="form-control" placeholder="example@gmail.com" data-i18n-ph="fb_email_placeholder" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fbDevice"><i class="fa-solid fa-mobile-screen-button" style="color: var(--primary-cyan);"></i> <span id="fbDeviceLabelText">Telefon Modeliniz (Zorunlu)</span></label>
+                            <input type="text" id="fbDevice" name="device" class="form-control" placeholder="Örn: Samsung A52, Xiaomi Redmi Note 12" data-i18n-ph="fb_device_placeholder" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fbCategory"><i class="fa-solid fa-list-check" style="color: var(--primary-cyan);"></i> <span data-i18n="fb_type_label">Feedback Type</span></label>
+                            <select id="fbCategory" name="category" class="form-control" onchange="window.updateFeedbackDeviceRequirement()" required>
+                                <option value="hata" data-i18n="fb_type_opt_bug">🐛 Bug Report</option>
+                                <option value="oneri" data-i18n="fb_type_opt_feat">💡 Feature Suggestion</option>
+                                <option value="uyumluluk" data-i18n="fb_type_opt_compat">📱 Device Compatibility Report</option>
+                                <option value="diger" data-i18n="fb_type_opt_other">💬 General Message</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fbMessage"><i class="fa-solid fa-comment-dots" style="color: var(--primary-cyan);"></i> <span data-i18n="fb_msg_label">Your Message / Issue</span></label>
+                        <textarea id="fbMessage" name="message" class="form-control" placeholder="Briefly describe the bug, your phone model, or your suggestion..." data-i18n-ph="fb_msg_placeholder" required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="justify-content: center; width: 100%; border-radius: 12px; margin-top: 10px;">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span data-i18n="fb_btn_submit">Send Feedback</span>
+                    </button>
+
+                    <div class="feedback-toast" id="feedbackToast"></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Download CTA Banner
+         ========================================================================== -->
+    <section id="indir" class="section" style="background: var(--bg-alt);">
+        <div class="container">
+            <div class="cta-banner">
+                <h2 data-i18n="cta_title">End Unconscious Scrolling Today</h2>
+                <p data-i18n="cta_desc">Reclaim an average of 2.5 hours every day. Download AwayDoomscrollin' Android app now.</p>
+                
+                <div class="store-badges-container" style="justify-content: center; margin-bottom: 0;">
+                    <!-- Google Play Store Badge -->
+                    <a href="https://play.google.com/store/apps/details?id=com.awaydoomscrollin.app" target="_blank" rel="noopener" class="store-badge-btn store-play">
+                        <div class="store-badge-icon">
+                            <i class="fa-brands fa-google-play"></i>
+                        </div>
+                        <div class="store-badge-text">
+                            <span class="store-badge-sub" data-i18n="store_get_it_on">GET IT ON</span>
+                            <span class="store-badge-title">Google Play</span>
+                        </div>
+                    </a>
+
+                    <!-- F-Droid Badge -->
+                    <a href="https://f-droid.org/packages/com.awaydoomscrollin.app" target="_blank" rel="noopener" class="store-badge-btn store-fdroid">
+                        <div class="store-badge-icon">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                        <div class="store-badge-text">
+                            <span class="store-badge-sub" data-i18n="store_get_it_on">GET IT ON</span>
+                            <span class="store-badge-title">F-Droid</span>
+                        </div>
+                    </a>
+
+                    <!-- GitHub Releases Badge -->
+                    <a href="https://github.com/awaydoomscrollin/AwayDoomscrolling/releases" target="_blank" rel="noopener" class="store-badge-btn store-apk">
+                        <div class="store-badge-icon">
+                            <i class="fa-brands fa-github"></i>
+                        </div>
+                        <div class="store-badge-text">
+                            <span class="store-badge-sub" data-i18n="store_github_releases">AVAILABLE ON</span>
+                            <span class="store-badge-title">GitHub Releases</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         Footer
+         ========================================================================== -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div data-i18n="footer_rights">
+                © 2026 AwayDoomscrollin'. All rights reserved.
+            </div>
+            <div class="footer-links">
+                <a href="#hesaplayici" data-i18n="nav_calculator">Calculator</a>
+                <a href="#uyumluluk" data-i18n="nav_compatibility">Device Compatibility</a>
+                <a href="#sss" data-i18n="nav_faq">FAQ</a>
+                <a href="#geri-bildirim" data-i18n="nav_feedback">Feedback</a>
+                <a href="javascript:void(0)" id="openPrivacyBtn" onclick="openLegalModal('privacy')" data-i18n="footer_privacy">Privacy Policy</a>
+                <a href="javascript:void(0)" id="openTermsBtn" onclick="openLegalModal('terms')" data-i18n="footer_terms">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ==========================================================================
+         Privacy Policy & Terms of Service Modal
+         ========================================================================== -->
+    <div class="legal-modal-overlay" id="legalModalOverlay" onclick="if(event.target===this) closeLegalModal();">
+        <div class="legal-modal-card">
+            <div class="legal-modal-header">
+                <div class="legal-modal-tabs">
+                    <button type="button" class="legal-tab-btn active" id="tabPrivacyBtn" onclick="openLegalModal('privacy')">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span data-i18n="modal_tab_privacy">Privacy Policy</span>
+                    </button>
+                    <button type="button" class="legal-tab-btn" id="tabTermsBtn" onclick="openLegalModal('terms')">
+                        <i class="fa-solid fa-file-contract"></i>
+                        <span data-i18n="modal_tab_terms">Terms of Service</span>
+                    </button>
+                </div>
+                <button type="button" class="legal-modal-close" id="closeLegalModal" onclick="closeLegalModal()" aria-label="Close Modal">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content Body -->
+            <div class="legal-modal-body">
+                <!-- Privacy Policy Content -->
+                <div class="legal-content-pane active" id="privacyContent">
+                    <h2 data-i18n="legal_privacy_title">Privacy Policy</h2>
+                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 1, 2026</p>
+                    
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p1_title">1. Introduction & Transparency Commitment</h3>
+                        <p data-i18n="legal_p1_text">At AwayDoomscrollin', we believe that digital well-being tools should respect your privacy above all else. This Privacy Policy outlines in full detail how AwayDoomscrollin' ("the App", "we", "us") handles user privacy, accessibility permissions, and local data storage. We do not track you, sell your information, or store any personal data on external servers.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p2_title">2. Zero Server Data Collection & No Internet Access</h3>
+                        <p data-i18n="legal_p2_text">AwayDoomscrollin' is built as a 100% offline, local-first utility. The App does NOT request or require the Android Internet Permission (android.permission.INTERNET). Consequently, it is physically impossible for the App to transmit, export, or leak any of your personal information, app usage logs, or interaction data to external servers, cloud storage, or third-party analytics providers.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p3_title">3. Accessibility Service Permission & Scope</h3>
+                        <p data-i18n="legal_p3_text1">To detect endless scrolling behavior on target short video platforms (Instagram Reels, TikTok, and YouTube Shorts) and perform intervention actions, AwayDoomscrollin' utilizes the Android AccessibilityService API.</p>
+                        <p data-i18n="legal_p3_text2"><strong>What Accessibility Service Does:</strong> Monitored events are strictly limited to TYPE_VIEW_SCROLLED and TYPE_WINDOW_STATE_CHANGED within specified package names (com.instagram.android, com.zhiliaoapp.musically, com.google.android.youtube). When vertical scroll gestures are detected on short video feed views, the service performs the GLOBAL_ACTION_HOME action to return your device to the home screen and force stop the target app via Settings.</p>
+                        <p data-i18n="legal_p3_text3"><strong>What Accessibility Service NEVER Does:</strong> AwayDoomscrollin' NEVER reads, inspects, logs, or stores text inputs, keystrokes, passwords, credit card information, private messages (DMs), contact lists, photos, or browsing history. Accessibility data is evaluated strictly in real-time in RAM and discarded immediately.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p4_title">4. Local Data Storage & Preferences</h3>
+                        <p data-i18n="legal_p4_text">All gamification statistics, including total blocked counts, user XP points, daily streak counters, selected target app toggles, and recent shield activity logs, are saved exclusively in your device's local memory via SharedPreferences ('away_doomscroll_prefs'). This data remains strictly on your physical device and is automatically removed upon uninstalling the App.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p5_title">5. Third-Party Libraries & Advertisements</h3>
+                        <p data-i18n="legal_p5_text">The App contains zero third-party advertising SDKs, zero tracking pixels, and zero commercial analytics tools. There are no sponsored ad networks integrated into AwayDoomscrollin'.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_p6_title">6. User Control & Permission Revocation</h3>
+                        <p data-i18n="legal_p6_text">You retain 100% control over the App at all times. You may toggle protection shields on or off for individual apps inside the App interface, or revoke Accessibility permissions at any time via Android Settings > Accessibility > AwayDoomscrollin'.</p>
+                    </div>
+                </div>
+
+                <!-- Terms of Service Content -->
+                <div class="legal-content-pane" id="termsContent">
+                    <h2 data-i18n="legal_terms_title">Terms of Service</h2>
+                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 1, 2026</p>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t1_title">1. Acceptance of Terms</h3>
+                        <p data-i18n="legal_t1_text">By downloading, installing, or using AwayDoomscrollin', you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not install or use the App.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t2_title">2. Purpose of the Application</h3>
+                        <p data-i18n="legal_t2_text">AwayDoomscrollin' is a self-control and digital well-being utility designed to help users break compulsive short video scrolling habits on Android devices. The App functions as a personal commitment device by detecting scrolling gestures in specified target apps and redirecting users to the home screen.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t3_title">3. User Responsibilities & Device Configuration</h3>
+                        <p data-i18n="legal_t3_text">Users are responsible for properly configuring required Android system permissions (Accessibility Service, Battery Optimization exemptions) for the App to operate effectively. Users acknowledge that disabling system permissions will suspend shield functionality.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t4_title">4. Compatibility & Manufacturer Variations</h3>
+                        <p data-i18n="legal_t4_text">While AwayDoomscrollin' is thoroughly tested for Samsung Galaxy devices (One UI), Android operating system behavior varies across different device manufacturers (e.g., Xiaomi MIUI, Oppo ColorOS, Vivo, Pixel). We do not guarantee uninterrupted execution on custom vendor ROMs with aggressive background process killers.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t5_title">5. Disclaimer of Warranties & Limitation of Liability</h3>
+                        <p data-i18n="legal_t5_text">AwayDoomscrollin' is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, whether express or implied. In no event shall the developers be liable for any direct, indirect, incidental, or consequential damages resulting from the use or inability to use the App, or force-stopping target applications.</p>
+                    </div>
+
+                    <div class="legal-section">
+                        <h3 data-i18n="legal_t6_title">6. Open Source & License</h3>
+                        <p data-i18n="legal_t6_text">AwayDoomscrollin' is developed with an open, community-first vision. All branding, logos, and software components are protected under open-source software practices and applicable copyright laws.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+Categories:
+  - Security
+  - System
+License: GPL-3.0-only
+SourceCode: https://github.com/awaydoomscrollin/AwayDoomscrolling
+IssueTracker: https://github.com/awaydoomscrollin/AwayDoomscrolling/issues
+Changelog: https://github.com/awaydoomscrollin/AwayDoomscrolling/releases
+
+Summary: Break the endless scrolling addiction on Instagram, TikTok & Shorts
+Description: |-
+  AwayDoomscrollin' is an open-source, privacy-first Android app designed
+  to help you break the habit of endless doomscrolling on Instagram Reels,
+  TikTok, and YouTube Shorts.
+
+RepoType: git
+Repo: https://github.com/awaydoomscrollin/AwayDoomscrolling.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1
