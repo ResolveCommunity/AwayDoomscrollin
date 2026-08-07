@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>Break the Infinite Scroll Loop — For Good.</strong><br/>
-  Open-source, offline-first Android accessibility shield against Instagram Reels, TikTok & YouTube Shorts.
+  Open-source, offline-first Android accessibility shield against Instagram Reels, TikTok & YouTube Shorts.<br/>
+  🌐 <strong><a href="https://awaydoomscrollin.com">awaydoomscrollin.com</a></strong>
 </p>
 
 <p align="center">
