@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="awaydoomscrollin-app-logo.png" alt="AwayDoomscrollin' Logo" width="120"/>
-</p>
-
 <h1 align="center">AwayDoomscrollin'</h1>
 
 <p align="center">
@@ -96,7 +92,7 @@ AwayDoomscrollin/
 
 ```bash
 # 1. Clone the repo
-git clone https://gitlab.com/resolve-community/AwayDoomscrollin.git
+git clone https://github.com/resolvecommunity/AwayDoomscrollin.git
 cd AwayDoomscrollin
 
 # 2. Open in Android Studio
@@ -139,5 +135,5 @@ See [LICENSE](LICENSE) for full details.
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://gitlab.com/resolve-community">Resolve Community</a>
+  Made with ❤️ by <a href="https://github.com/resolvecommunity">Resolve Community</a>
 </p>
