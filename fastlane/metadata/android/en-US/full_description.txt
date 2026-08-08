@@ -1,0 +1,7 @@
+AwayDoomscrollin' is an open-source, privacy-first Android app developed by Resolve Community, designed to help you break the habit of endless doomscrolling on Instagram Reels, TikTok, and YouTube Shorts.
+
+Features:
+• Real-time Shield: Instantly detects reel/short scrolling and halts the distracting feed.
+• Anti-Cheat Protection: Intervenes if you attempt to disable protection during focus mode.
+• Streak Tracker: Build your daily focus streaks and stay motivated to stay away from the scroll.
+• Privacy First: 100% offline core blocking. All your personal data stays on your device.

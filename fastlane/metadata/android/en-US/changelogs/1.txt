@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.0 Initial Release!
+- Real-time blocking engine for Instagram Reels, TikTok (Beta) and YouTube Shorts (Beta).
+- Cyberpunk dark UI with 5-step interactive onboarding.
+- Live shield log & weekly focus streak charts.
