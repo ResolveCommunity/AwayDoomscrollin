@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reels_hint: "Scroll Down (Demo)",
             shield_overlay_title: "SCROLLING BLOCKED!",
             shield_overlay_sub: "AwayDoomscrollin' shield detected scrolling addiction and auto-stopped the app.",
-            shield_overlay_badge: "Time Saved (Doomscrolling Interrupted)",
+            shield_overlay_badge: "Daily Streak Kept Alive!",
             shield_overlay_btn: "Try Next Video →",
 
             calc_tag: "Awareness Analysis",
@@ -432,8 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             legal_p1_title: "1. Introduction & Transparency Commitment",
             legal_p1_text: "At AwayDoomscrollin', we believe that digital well-being tools should respect your privacy above all else. This Privacy Policy outlines in full detail how AwayDoomscrollin' ('the App', 'we', 'us') handles user privacy, accessibility permissions, and local data storage. We do not track you, sell your information, or store any personal data on external servers.",
-            legal_p2_title: "2. Zero Server Data Collection & No Internet Access",
-            legal_p2_text: "AwayDoomscrollin' is built as a 100% offline, local-first utility. The App does NOT request or require the Android Internet Permission (android.permission.INTERNET). Consequently, it is physically impossible for the App to transmit, export, or leak any of your personal information, app usage logs, or interaction data to external servers, cloud storage, or third-party analytics providers.",
+            legal_p2_title: "2. Zero Server Data Collection",
+            legal_p2_text: "AwayDoomscrollin' is built with privacy at its core. The App strictly uses the INTERNET permission only for an optional, anonymous telemetry dashboard. The core blocking mechanism operates 100% offline. The App does not transmit, export, or leak any of your personal information, app usage logs, or interaction data to third-party analytics providers.",
             legal_p3_title: "3. Accessibility Service Permission & Scope",
             legal_p3_text1: "To detect endless scrolling behavior on target short video platforms (Instagram Reels, TikTok, and YouTube Shorts) and perform intervention actions, AwayDoomscrollin' utilizes the Android AccessibilityService API.",
             legal_p3_text2: "Monitored events are strictly limited to TYPE_VIEW_SCROLLED and TYPE_WINDOW_STATE_CHANGED within specified package names (com.instagram.android, com.zhiliaoapp.musically, com.google.android.youtube). When vertical scroll gestures are detected on short video feed views, the service performs the GLOBAL_ACTION_HOME action to return your device to the home screen and force stop the target app via Settings.",
@@ -532,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reels_hint: "Aşağı Kaydırın (Demo)",
             shield_overlay_title: "KAYDIRMA ENGELLENDİ!",
             shield_overlay_sub: "AwayDoomscrollin' kalkanı kaydırma bağımlılığını algıladı ve uygulamayı otomatik durdurdu.",
-            shield_overlay_badge: "Zaman Kurtarıldı (Doomscrolling Engellendi)",
+            shield_overlay_badge: "Günlük Seri Korundu!",
             shield_overlay_btn: "Sonraki Videoya Geç & Dene",
 
             calc_tag: "Farkındalık Analizi",
@@ -663,8 +663,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             legal_p1_title: "1. Giriş ve Şeffaflık Taahhüdü",
             legal_p1_text: "AwayDoomscrollin' olarak, dijital refah araçlarının her şeyden önce kişisel gizliliğinize saygı duyması gerektiğine inanıyoruz. Bu Gizlilik Politikası, AwayDoomscrollin' ('Uygulama', 'biz') uygulamasının kullanıcı gizliliğini, erişilebilirlik izinlerini ve yerel veri depolamayı nasıl ele aldığını tüm detaylarıyla açıklar. Sizi takip etmeyiz, bilgilerinizi satmayız ve hiçbir kişisel verinizi harici sunucularda saklamayız.",
-            legal_p2_title: "2. Sıfır Sunucu Veri Toplama & İnternet İzni Yoktur",
-            legal_p2_text: "AwayDoomscrollin', %100 çevrimdışı (offline) ve yerel öncelikli bir araç olarak geliştirilmiştir. Uygulama, Android İnternet İznini (android.permission.INTERNET) KESİNLİKLE talep etmez ve kullanmaz. Bu nedenle, Uygulamanın kişisel bilgilerinizi, kullanım kayıtlarınızı veya etkileşim verilerinizi harici sunuculara, bulut depolamaya veya üçüncü taraf analitik sağlayıcılarına aktarması teknik olarak imkansızdır.",
+            legal_p2_title: "2. Sıfır Sunucu Veri Toplama",
+            legal_p2_text: "AwayDoomscrollin' tamamen gizlilik odaklıdır. Uygulama İNTERNET iznini SADECE isteğe bağlı anonim istatistik arayüzü için kullanır. Çekirdek engelleme mekanizması %100 çevrimdışı çalışır. Uygulama kişisel bilgilerinizi, kullanım kayıtlarınızı veya etkileşim verilerinizi kesinlikle üçüncü taraf analitik sağlayıcılarına aktarmaz.",
             legal_p3_title: "3. Erişilebilirlik Servisi (AccessibilityService) İzni ve Kapsamı",
             legal_p3_text1: "Hedef kısa video platformlarındaki (Instagram Reels, TikTok ve YouTube Shorts) sonsuz kaydırma davranışını algılamak ve engelleme eylemini gerçekleştirmek için AwayDoomscrollin', Android AccessibilityService API'sini kullanır.",
             legal_p3_text2: "İzlenen olaylar strictly belirtilen paket adları (com.instagram.android, com.zhiliaoapp.musically, com.google.android.youtube) içerisindeki TYPE_VIEW_SCROLLED ve TYPE_WINDOW_STATE_CHANGED ile sınırlıdır. Dikey kaydırma tespit edildiğinde, servis GLOBAL_ACTION_HOME eylemini çalıştırarak sizi ana ekrana döndürür ve Ayarlar üzerinden hedef uygulamayı zorla durdurur.",
