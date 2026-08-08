@@ -1474,7 +1474,7 @@ fun OnboardingStepFivePermissions(
                 ) {
                     TextButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/#privacy"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/privacy"))
                             context.startActivity(intent)
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
@@ -1489,7 +1489,7 @@ fun OnboardingStepFivePermissions(
                     Text("•", fontSize = 12.sp, color = Color.Gray)
                     TextButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/#terms"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/terms"))
                             context.startActivity(intent)
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
@@ -2074,7 +2074,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                     ) {
                         OutlinedButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/#privacy"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/privacy"))
                                 context.startActivity(intent)
                             },
                             modifier = Modifier.weight(1f),
@@ -2098,7 +2098,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
 
                         OutlinedButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/#terms"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/terms"))
                                 context.startActivity(intent)
                             },
                             modifier = Modifier.weight(1f),
