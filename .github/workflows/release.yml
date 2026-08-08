@@ -45,16 +45,16 @@ jobs:
         run: |
           mkdir -p release_output
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            cp app/build/outputs/apk/release/app-release.apk release_output/AwayDoomscrollin-v1.0.0.apk
+            cp app/build/outputs/apk/release/app-release.apk release_output/AwayDoomscrollin-${{ github.ref_name }}.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk release_output/AwayDoomscrollin-v1.0.0.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk release_output/AwayDoomscrollin-${{ github.ref_name }}.apk
           fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release_output/AwayDoomscrollin-v1.0.0.apk
+          files: release_output/AwayDoomscrollin-${{ github.ref_name }}.apk
           name: "AwayDoomscrollin' ${{ github.ref_name }}"
           draft: false
           prerelease: false
