@@ -33,7 +33,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 |---|---|
 | ⚡ **Instant Shield** | Detects scroll gesture → returns to home screen immediately |
 | 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
-| 🔒 **100% Offline** | Zero internet permissions — all logic runs on-device |
+| 🔒 **Offline Core** | Core blocking logic runs 100% on-device. Internet permission is only used for optional telemetry. |
 | 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
 | 🏆 **Gamification** | XP system, daily streaks (3 / 7 / 14 / 30 days) |
 | 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
@@ -83,10 +83,11 @@ cd AwayDoomscrollin
 
 ## 🔒 Privacy
 
-- **No internet permission** declared in `AndroidManifest.xml`
-- All block data stored locally via `SharedPreferences`
-- Optional telemetry (disabled by default) sends only anonymous block counts — no device IDs, no user data
-- Full source code available for audit
+- **Core logic is 100% offline**: The app's accessibility shielding works without any network connection.
+- **Internet Permission Explained**: The `android.permission.INTERNET` is declared in `AndroidManifest.xml` **solely** for the optional telemetry feature (which allows you to view your own blocked scrolling statistics via a local dashboard/URL). 
+- All block data is stored locally via `SharedPreferences`.
+- Telemetry does not collect, sell, or maliciously share any personal user data.
+- Full source code available for audit.
 
 ---
 
