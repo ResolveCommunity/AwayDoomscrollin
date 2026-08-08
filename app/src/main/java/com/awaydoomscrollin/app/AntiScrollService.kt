@@ -142,10 +142,12 @@ class AntiScrollService : AccessibilityService() {
     private var lastSettingsClickTime = 0L
     
     private var instagramLaunchTime = 0L
-    private var lastPackage = ""
-    private var lastScrollIndex = -1
-    private var serviceStartTime = 0L
     private var lastAntiCheatTime = 0L
+    private var lastScrollIndex = -1
+    private var lastPackage = ""
+    private var serviceStartTime = 0L
+    private var lastReelsSignature = ""
+    private var lastSignatureCheckTime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -455,6 +457,37 @@ class AntiScrollService : AccessibilityService() {
             lastPackage = packageName
         }
 
+        // YENİ: VİDEO DEĞİŞİM (PULL-TO-REFRESH) KONTROLÜ
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android" && !isPunishing) {
+            if (currentTime - lastSignatureCheckTime > 1500) {
+                lastSignatureCheckTime = currentTime
+                val rootNode = rootInActiveWindow
+                
+                // İlk açılışta yüklemelerden kaynaklı imza değişimlerini yok say (5 saniye)
+                if (currentTime - instagramLaunchTime > 5000) {
+                    // YALNIZCA kesinlikle Reels sekmesindeysek imza takibi yap! Ana sayfa ve Keşfet'i tamamen es geç.
+                    if (rootNode != null && isStrictlyReelsScreen(rootNode) && !isSafeScreen(rootNode)) {
+                        val currentSignature = extractReelsSignature(rootNode)
+                        if (currentSignature.length > 10) {
+                            if (lastReelsSignature.isNotEmpty() && currentSignature != lastReelsSignature) {
+                                // Benzerlik kontrolü: Eğer metinlerin %40'ından azı eşleşiyorsa tamamen farklı bir videodur.
+                                val similarity = computeSimilarity(currentSignature, lastReelsSignature)
+                                if (similarity < 0.4) {
+                                    if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3500) {
+                                        Log.d(TAG, "Reels video değişimi (İmza Değişti, Benzerlik: $similarity) tespit edildi! Pull-to-refresh yakalandı.")
+                                        punishUser("com.instagram.android")
+                                    }
+                                }
+                            }
+                            lastReelsSignature = currentSignature
+                        }
+                    } else {
+                        lastReelsSignature = ""
+                    }
+                }
+            }
+        }
+
         // KESİN KİLİT KONTROLÜ: Eğer ceza modundaysak:
         if (isPunishing) {
             if (isSettingsApp(packageName)) {
@@ -562,10 +595,19 @@ class AntiScrollService : AccessibilityService() {
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val deltaY = event.scrollDeltaY
-                    if (Math.abs(deltaY) < 5) {
+                    val deltaX = event.scrollDeltaX
+                    
+                    // Yatay kaydırmaları görmezden gel (Fotoğraf galerisi kaydırma vs.)
+                    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 5) {
                         return
                     }
-                    Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY")
+
+                    // Sıfır piksellik sahte dokunma titremelerini yoksay
+                    // Ancak 1 piksellik (çok yavaş) pull-to-refresh çekmelerini BİLE yakala!
+                    if (deltaY == 0 && deltaX == 0) {
+                        return
+                    }
+                    Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
                     if (event.toIndex == -1 || event.toIndex == lastScrollIndex) return
                     lastScrollIndex = event.toIndex
@@ -730,6 +772,36 @@ class AntiScrollService : AccessibilityService() {
 
         for (i in 0 until node.childCount) {
             if (isDangerousScreen(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun computeSimilarity(s1: String, s2: String): Double {
+        val words1 = s1.lowercase().split(" ").filter { it.isNotBlank() }.toSet()
+        val words2 = s2.lowercase().split(" ").filter { it.isNotBlank() }.toSet()
+        if (words1.isEmpty() && words2.isEmpty()) return 1.0
+        if (words1.isEmpty() || words2.isEmpty()) return 0.0
+        val intersection = words1.intersect(words2).size
+        val union = words1.union(words2).size
+        return intersection.toDouble() / union.toDouble()
+    }
+
+    private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        // Reels butonu seçiliyse kesinlikle Reels sekmesiyiz
+        if (desc.contains("Reels", ignoreCase = true) && node.isSelected) {
+            return true
+        }
+        
+        // Reels sekmesine özel üst kamera ikonu
+        if (desc.contains("Reels kamerası", ignoreCase = true) || desc.contains("Reels camera", ignoreCase = true)) {
+            return true
+        }
+        
+        for (i in 0 until node.childCount) {
+            if (isStrictlyReelsScreen(node.getChild(i))) return true
         }
         return false
     }
@@ -959,6 +1031,31 @@ class AntiScrollService : AccessibilityService() {
             lastHomeActionTime = now
             performGlobalAction(GLOBAL_ACTION_HOME)
         }
+    }
+
+    private fun extractReelsSignature(node: AccessibilityNodeInfo?): String {
+        if (node == null) return ""
+        val builder = java.lang.StringBuilder()
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        val combined = "$text $desc".lowercase()
+        val words = combined.split(Regex("\\s+"))
+        for (word in words) {
+            val cleanWord = word.replace(Regex("[^a-zğüşıöç]"), "")
+            if (cleanWord.length > 4 && 
+                cleanWord != "beğen" && cleanWord != "yorum" && cleanWord != "paylaş" && 
+                cleanWord != "reels" && cleanWord != "gönder" && cleanWord != "kaydet" &&
+                cleanWord != "like" && cleanWord != "comment" && cleanWord != "share" && cleanWord != "save" &&
+                cleanWord != "anasayfa" && cleanWord != "profil" && cleanWord != "keşfet") {
+                builder.append(cleanWord).append("_")
+            }
+        }
+        
+        for (i in 0 until node.childCount) {
+            builder.append(extractReelsSignature(node.getChild(i)))
+        }
+        return builder.toString()
     }
 
     override fun onInterrupt() {

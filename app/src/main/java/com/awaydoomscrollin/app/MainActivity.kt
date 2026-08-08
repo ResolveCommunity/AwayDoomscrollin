@@ -58,6 +58,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.core.app.ActivityCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
@@ -611,248 +613,215 @@ fun AnimatedSwipeGesture() {
     }
 }
 
+enum class SimulatorState {
+    HOME,
+    BLOCKED_REELS,
+    BLOCKED_SCROLL,
+    SAFE_ZONE
+}
+
 @Composable
 fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
-    var stage by remember { mutableIntStateOf(0) }
+    var simulatorState by remember { mutableStateOf(SimulatorState.HOME) }
     
-    val rawVideoList = remember {
-        listOf(
-            R.raw.reels_video_1,
-            R.raw.reels_video_2,
-            R.raw.reels_video_3,
-            R.raw.reels_video_4,
-            R.raw.reels_video_5
-        )
-    }
-
-    var currentVideoPairIndex by remember { mutableIntStateOf(0) }
-    
-    val activeVideoRes = rawVideoList[currentVideoPairIndex % rawVideoList.size]
-    val nextVideoRes = rawVideoList[(currentVideoPairIndex + 1) % rawVideoList.size]
-    val currentVidNumber = (currentVideoPairIndex % rawVideoList.size) + 1
-
-    LaunchedEffect(stage) {
-        when (stage) {
-            1 -> {
-                delay(1200)
-                stage = 2
-            }
-            2 -> {
-                delay(1500)
-                stage = 3
-            }
-            3 -> {
-                delay(2000)
-                currentVideoPairIndex = (currentVideoPairIndex + 1) % rawVideoList.size
-                stage = 0
-            }
-        }
-    }
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                when (stage) {
-                    0 -> MaterialTheme.colorScheme.primary
-                    1 -> Color(0xFFF85149)
-                    2 -> MaterialTheme.colorScheme.primary
-                    3 -> MaterialTheme.colorScheme.secondary
-                    else -> MaterialTheme.colorScheme.outline
-                }
-            ),
-            modifier = Modifier.size(68.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = when (stage) {
-                        0 -> "🔵"
-                        1 -> "👆"
-                        2 -> "⚙️"
-                        3 -> "📱"
-                        else -> "🔵"
-                    },
-                    fontSize = 30.sp
-                )
-            }
-        }
-
+        Text("🎮 ${if (isEn) "Interactive Simulator" else "İnteraktif Simülatör"}", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(14.dp))
-
+        
         Surface(
             modifier = Modifier
-                .width(200.dp)
-                .height(260.dp),
+                .width(260.dp)
+                .height(360.dp),
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF000000),
-            border = androidx.compose.foundation.BorderStroke(
-                2.dp,
-                when (stage) {
-                    0 -> MaterialTheme.colorScheme.primary
-                    1 -> Color(0xFFF85149)
-                    2 -> MaterialTheme.colorScheme.primary
-                    3 -> MaterialTheme.colorScheme.secondary
-                    else -> MaterialTheme.colorScheme.outline
-                }
-            )
+            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp),
+                modifier = Modifier.fillMaxSize().padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 AnimatedContent(
-                    targetState = stage,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(350)) togetherWith fadeOut(animationSpec = tween(350))
-                    },
-                    label = "DynamicVideoStageAnimation"
-                ) { currentStage ->
-                    when (currentStage) {
-                        0 -> {
+                    targetState = simulatorState,
+                    transitionSpec = { fadeIn(animationSpec = tween(350)) togetherWith fadeOut(animationSpec = tween(350)) },
+                    label = "SimulatorStateAnimation"
+                ) { state ->
+                    when (state) {
+                        SimulatorState.HOME -> {
+                            val infiniteTransition = rememberInfiniteTransition()
+                            val handOffsetY by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = -15f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(600, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "HandBounce"
+                            )
+                            
                             Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF000000))
+                                    .pointerInput(Unit) {
+                                        detectVerticalDragGestures { _, _ ->
+                                            simulatorState = SimulatorState.BLOCKED_SCROLL
+                                        }
+                                    }
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.95f)
-                                        .height(180.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF161B22)),
-                                    contentAlignment = Alignment.Center
+                                // Top bar
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    MutedVideoPlayer(
-                                        resId = activeVideoRes,
-                                        onCompletion = {
-                                            stage = 1
-                                        },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.85f),
-                                        shape = RoundedCornerShape(6.dp),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                        modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .padding(6.dp)
-                                    ) {
-                                        Text(
-                                            if (isEn) "Video #$currentVidNumber (Allowed ✓)" else "Video #$currentVidNumber (Serbest ✓)",
-                                            fontSize = 9.sp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    Text("Instagram", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("❤️", fontSize = 18.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
+                                }
+                                
+                                // Story Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    repeat(4) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(46.dp)
+                                                .border(2.dp, Brush.linearGradient(listOf(Color(0xFFF58529), Color(0xFFDD2A7B))), CircleShape)
+                                                .padding(4.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.DarkGray)
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    if (isEn) "No Blocking on First Opened Video" else "İlk Açılan Videoda Engelleme Yoktur",
-                                    fontSize = 10.sp,
-                                    color = Color.White.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                        1 -> {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.95f)
-                                        .height(180.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF1F1416)),
-                                    contentAlignment = Alignment.Center
+                                
+                                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF262626)))
+                                
+                                // Feed Area (Posts)
+                                Column(
+                                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    MutedVideoPlayer(
-                                        resId = nextVideoRes,
-                                        onCompletion = {},
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    Surface(
-                                        color = Color.Black.copy(alpha = 0.65f),
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        AnimatedSwipeGesture()
+                                    // Post Header
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.Gray))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("away_doomscrollin", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    // Post Image/Video
+                                    Box(modifier = Modifier.fillMaxWidth().height(140.dp).background(Color(0xFF161B22)), contentAlignment = Alignment.Center) {
+                                        Text(if (isEn) "👇 Try scrolling down!" else "👇 Akışı kaydırmayı dene!", color = Color.Gray, fontSize = 12.sp)
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    if (isEn) "Blocks Instantly on Scroll Detected!" else "Kaydırma Algılandığı An Engeller!",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF85149)
-                                )
-                            }
-                        }
-                        2 -> {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Text("⚙️", fontSize = 34.sp)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    if (isEn) "SETTINGS" else "AYARLAR",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                
+                                // Bottom Bar
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                        .background(Color(0xFF000000)),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        if (isEn) "Instagram Force Stopped 🔒" else "Instagram Zorla Durduruluyor 🔒",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        textAlign = TextAlign.Center
-                                    )
+                                    Text("🏠", fontSize = 20.sp)
+                                    Text("🔍", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
+                                    
+                                    // Guided Reels Button with Bouncing Hand
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("▶️", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.BLOCKED_REELS })
+                                        Text("👆", fontSize = 24.sp, modifier = Modifier.offset(x = 12.dp, y = handOffsetY.dp).padding(top = 28.dp))
+                                    }
+                                    
+                                    Text("👤", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
                                 }
                             }
                         }
-                        3 -> {
+                        SimulatorState.BLOCKED_REELS -> {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize().padding(12.dp)
                             ) {
-                                Text("📱", fontSize = 38.sp)
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Text("🚫", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    if (isEn) "HOME SCREEN" else "ANA EKRAN",
-                                    fontSize = 13.sp,
+                                    if (isEn) "Reels Blocked!" else "Reels Engellendi!",
+                                    color = Color(0xFFF85149),
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    fontSize = 16.sp
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    if (isEn) "Thrown to Home Screen!" else "Ana Ekrana Yönlendirildi!",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    if (isEn) "Entering Reels forces an instant close. We break the infinite scrolling loop at its root." 
+                                    else "Reels sekmesine girdiğiniz an uygulama kapatılır. Sonsuz kaydırma döngüsünü, daha başlamadan kökünden kırıyoruz.",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
                                     textAlign = TextAlign.Center
                                 )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Button(onClick = { simulatorState = SimulatorState.HOME }) {
+                                    Text(if (isEn) "Reset Simulation" else "Simülasyonu Sıfırla", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                        SimulatorState.BLOCKED_SCROLL -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxSize().padding(12.dp)
+                            ) {
+                                Text("🚫", fontSize = 48.sp)
                                 Spacer(modifier = Modifier.height(10.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF33333D), CircleShape))
-                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF33333D), CircleShape))
-                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF33333D), CircleShape))
+                                Text(
+                                    if (isEn) "Feed Scroll Blocked!" else "Akış Kaydırması Engellendi!",
+                                    color = Color(0xFFF85149),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    if (isEn) "AwayDoomscrollin blocks endless feed scrolling as well." 
+                                    else "AwayDoomscrollin' sadece Reels değil, Ana Sayfa üzerindeki sonsuz gönderi akışını da engeller.",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Button(onClick = { simulatorState = SimulatorState.HOME }) {
+                                    Text(if (isEn) "Reset Simulation" else "Simülasyonu Sıfırla", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                        SimulatorState.SAFE_ZONE -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxSize().padding(12.dp)
+                            ) {
+                                Text("✅", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    if (isEn) "Safe Zone" else "Güvenli Bölge",
+                                    color = Color(0xFF3FB950),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    if (isEn) "DMs, Search, and Profiles are allowed. Only endless video/feed scrolling is blocked." 
+                                    else "Uygulama sadece sonsuz akış kaydırmalarını engeller. Mesajlaşma ve arama gibi yararlı işlevlere izin verir.",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Button(onClick = { simulatorState = SimulatorState.HOME }) {
+                                    Text(if (isEn) "Back to Home" else "Ana Sayfaya Dön", fontSize = 10.sp)
                                 }
                             }
                         }
@@ -860,6 +829,12 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                 }
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            if (isEn) "Test it yourself!" else "Kendiniz test edin!",
+            fontSize = 12.sp,
+            color = Color.Gray
+        )
     }
 }
 
@@ -3107,9 +3082,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             isEn = isEn,
             title = if (isEn) "🛡️ Why So Unforgiving?" else "🛡️ Neden Bu Kadar Acımasız?",
             content = if (isEn) 
-                "Other 'digital wellbeing' apps offer flexibility like '15 minutes per day' or '3 scroll chances'. In addiction psychology, this is called the 'Bargaining Phase'.\n\nIf you tell your brain 'You can watch only 3 videos', it exploits those 3 videos to the last drop. When time runs out, you feel empty and angry. In years-long screen addictions, any flexibility is abused.\n\nWe do NOT bargain with addiction.\n\nThe first opened video is free. But the INSTANT your finger scrolls up, the system pulls the plug without excuses. No time limits, no bargaining. Your brain learns 'If I scroll, I get kicked out instantly', breaking the fake dopamine loop at its root."
+                "Other 'digital wellbeing' apps offer flexibility like '15 minutes per day' or '3 scroll chances'. In addiction psychology, this is called the 'Bargaining Phase'.\n\nIf you tell your brain 'You can watch only 3 videos', it exploits those 3 videos to the last drop. When time runs out, you feel empty and angry. In years-long screen addictions, any flexibility is abused.\n\nWe do NOT bargain with addiction.\n\nThere is no 'just one video' or 'just 5 minutes'. The INSTANT you try to enter a doomscrolling feed (like Reels or Shorts), the system pulls the plug without excuses. No time limits, no bargaining. Your brain learns 'If I enter, I get kicked out instantly', breaking the fake dopamine loop at its root."
             else 
-                "Diğer 'dijital refah' uygulamaları genellikle size 'Günde 15 dakika' veya '3 kaydırma hakkı' gibi esneklikler veya gece modları sunar. Ancak bağımlılık psikolojisinde buna 'Pazarlık Evresi' denir.\n\nEğer beyninize 'Sadece 3 video izleyebilirsin' derseniz, beyin o 3 videoyu son damlasına kadar sömürür. Hak bittiğinde ise müthiş bir boşluk hissine ve öfkeye kapılırsınız. Yıllarca süren ekran bağımlılıklarında (3+ yıl), kişi kendine bırakılan her esnekliği istismar eder ve günün sonunda sınırları aşarak yine kendini suçlarken bulur.\n\nBiz bağımlılıkla pazarlık yapmıyoruz.\n\nİlk videoyu açtığınızda her şey serbesttir. Ancak parmağınız o sonsuz döngü alışkanlığıyla *yukarı kaydığı an*, sistem mazeret kabul etmeden fişi çeker. Zaman sınırı yok, pazarlık payı yok. Beyniniz 'Kaydırırsam anında atılırım' şartlanmasını çok hızlı öğrenir ve o sonsuz dopamin döngüsü fiziksel olarak kökünden kırılmış olur.",
+                "Diğer 'dijital refah' uygulamaları genellikle size 'Günde 15 dakika' veya '3 kaydırma hakkı' gibi esneklikler veya gece modları sunar. Ancak bağımlılık psikolojisinde buna 'Pazarlık Evresi' denir.\n\nEğer beyninize 'Sadece 3 video izleyebilirsin' derseniz, beyin o 3 videoyu son damlasına kadar sömürür. Hak bittiğinde ise müthiş bir boşluk hissine ve öfkeye kapılırsınız. Yıllarca süren ekran bağımlılıklarında (3+ yıl), kişi kendine bırakılan her esnekliği istismar eder ve günün sonunda sınırları aşarak yine kendini suçlarken bulur.\n\nBiz bağımlılıkla pazarlık yapmıyoruz.\n\n'Sadece bir video' veya 'sadece 5 dakika' diye bir şey yoktur. Kaydırma batağına (Reels/Shorts) girmeye çalıştığınız an, sistem mazeret kabul etmeden fişi çeker. Zaman sınırı yok, pazarlık payı yok. Beyniniz 'Girersem anında atılırım' şartlanmasını çok hızlı öğrenir ve o sonsuz dopamin döngüsü fiziksel olarak kökünden kırılmış olur.",
             onDismiss = { showPhilosophyDialog = false }
         )
     }
