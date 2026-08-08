@@ -887,7 +887,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "Allows the first opened video/post, blocks the instant you scroll." else "İlk açılan videoya veya gönderiye izin verir, kaydırıldığı an algılar.")
+                MatrixBullet(if (isEn) "Zero tolerance: Instantly blocks the moment you enter a short video feed." else "Sıfır tolerans: Kısa video ekranına girdiğiniz an anında engeller.")
                 MatrixBullet(if (isEn) "Force stops the app from Settings ruthlessly." else "Uygulamayı Ayarlar'dan acımasızca zorla durdurur.")
                 MatrixBullet(if (isEn) "Throws you to Home Screen to pull you out of the scroll trance." else "Sizi Ana Ekrana fırlatarak transtan çıkarır.")
             }
@@ -912,7 +912,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "100% Offline: Your data never leaves your device." else "Sıfır İnternet İzni: Verileriniz cihaz dışına çıkamaz.", isNegative = true)
+                MatrixBullet(if (isEn) "100% Offline: Your data never leaves your device." else "%100 Çevrimdışı Çalışır: Verileriniz cihazınızda kalır.", isNegative = true)
                 MatrixBullet(if (isEn) "Does NOT record your messages, passwords, or photos." else "Mesajlarınızı, şifrelerinizi ve fotoğraflarınızı kaydetmez.", isNegative = true)
                 MatrixBullet(if (isEn) "Does NOT drain battery or memory in the background." else "Arka planda pilinizi ve belleğinizi tüketmez.", isNegative = true)
             }
@@ -3041,9 +3041,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                 isEn = isEn,
                 title = if (isEn) "Instagram Protection Scope" else "Instagram Koruma Kapsamı",
                 content = if (isEn) 
-                    "Instantly blocks scrolling through Instagram Reels, Explore feed, and home posts.\n\n💬 Important Note: Your DMs (Messages) are NOT blocked, you can chat with friends freely."
+                    "Instantly blocks access to Instagram Reels and Explore feeds.\n\n💬 Important Note: Your DMs (Messages) are NOT blocked, you can chat with friends freely."
                 else 
-                    "Instagram'daki Reels videolarını, Keşfet akışını ve ana sayfadaki gönderileri aşağı/yukarı kaydırmayı anında engeller.\n\n💬 Önemli Not: DM (Mesajlar) ekranınız engellenmez, arkadaşlarınızla rahatça mesajlaşabilirsiniz.",
+                    "Instagram'daki Reels videolarını ve Keşfet ekranını açtığınız an engeller.\n\n💬 Önemli Not: DM (Mesajlar) ekranınız engellenmez, arkadaşlarınızla rahatça mesajlaşabilirsiniz.",
                 iconRes = R.drawable.ic_instagram,
                 iconTint = Color(0xFFE1306C),
                 onDismiss = { activeAppInfoDialog = null }
