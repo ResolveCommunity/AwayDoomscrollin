@@ -457,32 +457,21 @@ class AntiScrollService : AccessibilityService() {
             lastPackage = packageName
         }
 
-        // YENİ: VİDEO DEĞİŞİM (PULL-TO-REFRESH) KONTROLÜ
+        // REELS SEKMESİNE YATAY KAYDIRMA (SWIPE) İLE GEÇİŞ KONTROLÜ
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android" && !isPunishing) {
-            if (currentTime - lastSignatureCheckTime > 1500) {
+            if (currentTime - lastSignatureCheckTime > 500) {
                 lastSignatureCheckTime = currentTime
                 val rootNode = rootInActiveWindow
                 
-                // İlk açılışta yüklemelerden kaynaklı imza değişimlerini yok say (5 saniye)
-                if (currentTime - instagramLaunchTime > 5000) {
-                    // YALNIZCA kesinlikle Reels sekmesindeysek imza takibi yap! Ana sayfa ve Keşfet'i tamamen es geç.
+                // İlk açılış animasyonlarını es geç (1.5 saniye)
+                if (currentTime - instagramLaunchTime > 1500) {
                     if (rootNode != null && isStrictlyReelsScreen(rootNode) && !isSafeScreen(rootNode)) {
-                        val currentSignature = extractReelsSignature(rootNode)
-                        if (currentSignature.length > 10) {
-                            if (lastReelsSignature.isNotEmpty() && currentSignature != lastReelsSignature) {
-                                // Benzerlik kontrolü: Eğer metinlerin %40'ından azı eşleşiyorsa tamamen farklı bir videodur.
-                                val similarity = computeSimilarity(currentSignature, lastReelsSignature)
-                                if (similarity < 0.4) {
-                                    if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3500) {
-                                        Log.d(TAG, "Reels video değişimi (İmza Değişti, Benzerlik: $similarity) tespit edildi! Pull-to-refresh yakalandı.")
-                                        punishUser("com.instagram.android")
-                                    }
-                                }
-                            }
-                            lastReelsSignature = currentSignature
+                        // Kullanıcı Ana Sayfadan yatay kaydırarak (swipe) Reels sekmesine girdi!
+                        // ZERO TOLERANCE: Anında engelle!
+                        if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
+                            Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
+                            punishUser("com.instagram.android")
                         }
-                    } else {
-                        lastReelsSignature = ""
                     }
                 }
             }
