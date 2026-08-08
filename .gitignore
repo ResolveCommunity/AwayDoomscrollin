@@ -32,7 +32,7 @@ gradle.properties.bak
 out/
 
 # ─────────────────────────────────────────
-#  AI assistant (private, internal only)
+#  Local environment
 # ─────────────────────────────────────────
 .gemini/
 GEMINI.md
