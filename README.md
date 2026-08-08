@@ -35,7 +35,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 | 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
 | 🔒 **Offline Core** | Core blocking logic runs 100% on-device. Internet permission is only used for optional telemetry. |
 | 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
-| 🏆 **Gamification** | XP system, daily streaks (3 / 7 / 14 / 30 days) |
+| 🏆 **Gamification** | Daily streaks (3 / 7 / 14 / 30 days) |
 | 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
 | ⚡ **Peak Hour Alert** | Home screen shows today's most dangerous scroll hour |
 | 📊 **Progress Dashboard** | Weekly bar chart, per-app stats, saved time tracking |
