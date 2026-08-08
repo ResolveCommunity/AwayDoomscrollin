@@ -499,7 +499,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = if (isEn) "First Opened Video Is Free,\nScrolls Are Blocked Instantly!" else "İlk Açılan Video Serbesttir,\nKaydırdığın An Engeller!",
+            text = if (isEn) "Zero Tolerance Policy,\nShort Videos Are Blocked Instantly!" else "Sıfır Tolerans Politikası,\nKısa Videolar Anında Engellenir!",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary,
@@ -528,9 +528,9 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isEn) 
-                        "• The first Reels video or post you open can be watched freely.\n• The instant you SWIPE UP with your finger, the scrolling trap is detected.\n• The system opens Settings, Force Stops Instagram, and immediately throws you to the Home Screen." 
+                        "• The moment you enter a short video feed (Reels, Shorts, TikTok), the system detects the trap instantly.\n• It doesn't wait for you to scroll. It acts with zero tolerance.\n• The shield intervenes, force stops the target app, and immediately throws you back to your Home Screen." 
                     else 
-                        "• Karşınıza çıkan ilk Reels veya Gönderi serbestçe izlenebilir.\n• Ancak parmağınızla yukarı KAYDIRILDIĞI AN tuzak algılanır.\n• Sistem Ayarlar'a girip Instagram'ı Zorla Durdurur ve sizi anında Ana Ekrana fırlatır.",
+                        "• Kısa video (Reels, Shorts, TikTok) ekranına girdiğiniz an sistem tuzağı anında tespit eder.\n• Kaydırmanızı beklemez, sıfır toleransla çalışır.\n• Kalkan devreye girerek hedef uygulamayı zorla durdurur ve sizi anında Ana Ekrana fırlatır.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     lineHeight = 18.sp
