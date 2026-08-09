@@ -142,14 +142,14 @@ class AntiScrollService : AccessibilityService() {
     private var lastSettingsClickTime = 0L
     
     private var instagramLaunchTime = 0L
+    private var lastInstagramTransitionTime = 0L
+    private var lastScreenType = ""
+    private var lastScreenCheckTime = 0L
     private var lastAntiCheatTime = 0L
     private var lastScrollIndex = -1
     private var lastPackage = ""
     private var serviceStartTime = 0L
 
-    // Pull-to-refresh algılama değişkenleri
-    private var zeroScrollCount = 0
-    private var lastZeroScrollTime = 0L
     private var lastReelsSignature = ""
     private var lastSignatureCheckTime = 0L
 
@@ -405,6 +405,28 @@ class AntiScrollService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
         val currentTime = System.currentTimeMillis()
+        val rootNode = rootInActiveWindow
+
+        if (packageName == "com.instagram.android") {
+            if (currentTime - lastScreenCheckTime > 500) {
+                lastScreenCheckTime = currentTime
+                
+                val currentScreenType = when {
+                    rootNode == null -> lastScreenType
+                    isSafeScreen(rootNode) -> "SAFE"
+                    isExploreScreen(rootNode) -> "EXPLORE"
+                    isDangerousScreen(rootNode) -> "HOME_OR_REELS"
+                    else -> "UNKNOWN"
+                }
+
+                if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
+                    lastInstagramTransitionTime = currentTime
+                    lastScreenType = currentScreenType
+                    Log.d(TAG, "Ekran türü değişti: $lastScreenType. Grace period sıfırlandı.")
+                }
+            }
+        }
+
 
         // 0. ANINDA ANA EKRAN KONTROLÜ: Eğer kullanıcı veya sistem Ana Ekrana (Launcher) geldiyse, ceza modunu anında sonlandır!
         if (isLauncherPackage(packageName)) {
@@ -428,6 +450,9 @@ class AntiScrollService : AccessibilityService() {
 
         // Paket değişimlerini takip et
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            if (packageName == "com.instagram.android") {
+                lastInstagramTransitionTime = System.currentTimeMillis()
+            }
             if (packageName != lastPackage) {
                 lastScrollIndex = -1
                 
@@ -469,11 +494,15 @@ class AntiScrollService : AccessibilityService() {
                 
                 // İlk açılış animasyonlarını es geç (1.5 saniye)
                 if (currentTime - instagramLaunchTime > 1500) {
-                    if (rootNode != null && isStrictlyReelsScreen(rootNode) && !isSafeScreen(rootNode)) {
-                        // Kullanıcı Ana Sayfadan yatay kaydırarak (swipe) Reels sekmesine girdi!
+                    if (rootNode != null && isStrictlyReelsScreen(rootNode)) {
                         // ZERO TOLERANCE: Anında engelle!
                         if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
                             Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
+                            punishUser("com.instagram.android")
+                        }
+                    } else if (rootNode != null && hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
+                        if (currentTime - lastPunishTime > 3000) {
+                            Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
                     }
@@ -567,9 +596,23 @@ class AntiScrollService : AccessibilityService() {
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
                     val rootNode = rootInActiveWindow
-                    if (rootNode != null && isDangerousScreen(rootNode) && !isSafeScreen(rootNode)) {
+                    val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
+                    if (rootNode != null && isDangerousScreen(rootNode) && !isCurrentlySafe && lastScreenType != "SAFE") {
                         if (currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Refresh açığı (Click) yakalandı!")
+                            punishUser("com.instagram.android")
+                            return
+                        }
+                    }
+                }
+                
+                val rootNode = rootInActiveWindow
+                if (rootNode != null && isExploreScreen(rootNode)) {
+                    val clickedClassName = event.className?.toString() ?: ""
+                    val isSearchBar = combined.contains("ara") || combined.contains("search") || clickedClassName.contains("EditText")
+                    if (!isSearchBar) {
+                        if (currentTime - lastPunishTime > 3000) {
+                            Log.d(TAG, "Keşfet sayfasındaki bir videoya/içeriğe tıklandı! Engelleniyor.")
                             punishUser("com.instagram.android")
                             return
                         }
@@ -595,32 +638,36 @@ class AntiScrollService : AccessibilityService() {
                         return
                     }
 
-                    val isRefreshLayout = className.contains("Refresh", ignoreCase = true)
-
                     // Sıfır piksellik sahte dokunma titremelerini yoksay
-                    // Ancak pull-to-refresh genelde sayfanın en üstünde (fromIndex=0) yapılır ve delta 0 kalır.
+                    // Ancak pull-to-refresh genelde sayfanın en üstünde (fromIndex<=5 veya toIndex<=5) yapılır ve delta 0 kalır.
                     if (deltaY == 0 && deltaX == 0) {
-                        if (isRefreshLayout) {
-                            Log.d(TAG, "Pull-to-Refresh (Yenileme) sınıfı yakalandı!")
-                        } else if (event.fromIndex == 0) {
-                            // İnsan parmağı testi (Zero-Delta Heuristic)
-                            if (currentTime - lastZeroScrollTime < 300) {
-                                zeroScrollCount++
+                        val rootNodeForSafe = rootInActiveWindow
+                        val isCurrentlySafe = rootNodeForSafe != null && isSafeScreen(rootNodeForSafe)
+                        
+                        if (lastScreenType == "SAFE" || isCurrentlySafe) {
+                            Log.d(TAG, "Güvenli ekranda 0-delta kaydırma (Sekme değişimi). İzin verildi.")
+                            return
+                        }
+                        
+                        val isNearTop = (event.fromIndex <= 5 || event.toIndex <= 5)
+                        
+                        if (isNearTop) {
+                            // Uygulama içi büyük bir sayfa değişimi veya ilk açılış üzerinden 4 saniye geçti mi?
+                            if (currentTime - lastInstagramTransitionTime > 4000) {
+                                val rootNodeForOverlay = rootInActiveWindow
+                                if (rootNodeForOverlay != null && isVideoEndOverlayPresent(rootNodeForOverlay)) {
+                                    Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı! Bu bir yenileme değil, es geçiliyor.")
+                                    return
+                                }
+                                Log.d(TAG, "Pull-to-Refresh tespiti (4sn doldu)! Kilitleniyor...")
+                                // return YAPMIYORUZ, aşağıdaki ceza bloğuna düşmesine izin veriyoruz
                             } else {
-                                zeroScrollCount = 1
-                            }
-                            lastZeroScrollTime = currentTime
-                            
-                            if (zeroScrollCount >= 3) {
-                                Log.d(TAG, "Pull-to-Refresh insan hareketi (3+ sinyal) yakalandı!")
-                            } else {
+                                Log.d(TAG, "İlk 4 saniye içindeki layout güncellemesi es geçildi.")
                                 return
                             }
                         } else {
                             return
                         }
-                    } else {
-                        zeroScrollCount = 0
                     }
                     Log.d(TAG, "Gerçek dikey kaydırma veya Yenileme algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
@@ -633,8 +680,21 @@ class AntiScrollService : AccessibilityService() {
                 val rootNode = rootInActiveWindow
                 val sourceNode = event.source
 
-                if (isCommentListView(sourceNode) || (rootNode != null && isSafeScreen(rootNode))) {
-                    Log.d(TAG, "Güvenli alan / Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
+                if (isCommentListView(sourceNode)) {
+                    Log.d(TAG, "Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
+                    return
+                }
+
+                if (rootNode != null && (isStrictlyReelsScreen(rootNode) || hasLikeButton(rootNode))) {
+                    if (currentTime - lastPunishTime > 3000) {
+                        Log.d(TAG, "Reels veya Post ekranında (Beğen butonu var) herhangi bir aktivite yakalandı! Anında kilitleniyor.")
+                        punishUser("com.instagram.android")
+                        return
+                    }
+                }
+
+                if (rootNode != null && isSafeScreen(rootNode)) {
+                    Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
                     return
                 }
 
@@ -715,7 +775,44 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Film Rulosu", ignoreCase = true) ||
             text.equals("Camera Roll", ignoreCase = true) ||
             text.equals("Son kullanılanlar", ignoreCase = true) ||
-            text.equals("Recents", ignoreCase = true)) {
+            text.equals("Recents", ignoreCase = true) ||
+            (desc.contains("Profil", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Profile", ignoreCase = true) && node.isSelected) ||
+            text.contains("Profil", ignoreCase = true) && node.isSelected ||
+            text.contains("Profile", ignoreCase = true) && node.isSelected ||
+            text.contains("Ayarlar ve aktiviteler", ignoreCase = true) ||
+            desc.contains("Ayarlar ve aktiviteler", ignoreCase = true) ||
+            text.contains("Ayarlar ve hareketler", ignoreCase = true) ||
+            desc.contains("Ayarlar ve hareketler", ignoreCase = true) ||
+            text.contains("Settings and activity", ignoreCase = true) ||
+            desc.contains("Settings and activity", ignoreCase = true) ||
+            text.contains("Profili düzenle", ignoreCase = true) ||
+            desc.contains("Profili Düzenle", ignoreCase = true) ||
+            text.contains("Edit profile", ignoreCase = true) ||
+            desc.contains("Edit profile", ignoreCase = true) ||
+            text.contains("Profili paylaş", ignoreCase = true) ||
+            desc.contains("Profili paylaş", ignoreCase = true) ||
+            text.contains("Share profile", ignoreCase = true) ||
+            desc.contains("Share profile", ignoreCase = true) ||
+            text.contains("takipçi", ignoreCase = true) ||
+            text.contains("followers", ignoreCase = true) ||
+            text.contains("gönderi", ignoreCase = true) ||
+            text.contains("posts", ignoreCase = true) ||
+            desc.contains("Izgara", ignoreCase = true) ||
+            desc.contains("Grid", ignoreCase = true) ||
+            desc.contains("Gönderiler", ignoreCase = true) ||
+            desc.contains("Posts", ignoreCase = true) ||
+            desc.contains("Olduğun fotoğraflar", ignoreCase = true) ||
+            desc.contains("Etiketlendiğin", ignoreCase = true) ||
+            desc.contains("Photos of you", ignoreCase = true) ||
+            desc.contains("Yeniden paylaşılanlar", ignoreCase = true) ||
+            desc.contains("Reposts", ignoreCase = true) ||
+            desc.contains("Geri", ignoreCase = true) ||
+            desc.contains("Back", ignoreCase = true) ||
+            desc.contains("İptal", ignoreCase = true) ||
+            desc.contains("Cancel", ignoreCase = true) ||
+            text.contains("İptal", ignoreCase = true) ||
+            text.contains("Cancel", ignoreCase = true)) {
             return true
         }
 
@@ -807,11 +904,6 @@ class AntiScrollService : AccessibilityService() {
         if (node == null) return false
         val desc = node.contentDescription?.toString() ?: ""
         
-        // Reels butonu seçiliyse kesinlikle Reels sekmesiyiz
-        if (desc.contains("Reels", ignoreCase = true) && node.isSelected) {
-            return true
-        }
-        
         // Reels sekmesine özel üst kamera ikonu
         if (desc.contains("Reels kamerası", ignoreCase = true) || desc.contains("Reels camera", ignoreCase = true)) {
             return true
@@ -819,6 +911,87 @@ class AntiScrollService : AccessibilityService() {
         
         for (i in 0 until node.childCount) {
             if (isStrictlyReelsScreen(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun isExploreScreen(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        if ((desc.contains("Ara ve Keşfet", ignoreCase = true) || 
+             desc.contains("Search and explore", ignoreCase = true)) && node.isSelected) {
+            return true
+        }
+        
+        for (i in 0 until node.childCount) {
+            if (isExploreScreen(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun hasLikeButton(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        if ((desc.equals("Beğen", ignoreCase = true) || 
+             desc.equals("Like", ignoreCase = true) ||
+             desc.equals("Beğenmekten vazgeç", ignoreCase = true) ||
+             desc.equals("Unlike", ignoreCase = true)) && 
+             (node.isClickable || node.parent?.isClickable == true)) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            if (hasLikeButton(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun isVideoViewer(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        if (desc.contains("Sesi kapat", ignoreCase = true) || 
+            desc.contains("Sesi aç", ignoreCase = true) ||
+            desc.contains("Unmute", ignoreCase = true) ||
+            desc.contains("Mute", ignoreCase = true) ||
+            desc.contains("Sesi", ignoreCase = true)) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            if (isVideoViewer(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun hasBackButton(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        if (desc.equals("Geri", ignoreCase = true) || 
+            desc.equals("Back", ignoreCase = true)) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            if (hasBackButton(node.getChild(i))) return true
+        }
+        return false
+    }
+
+    private fun isVideoEndOverlayPresent(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        val combined = "$text $desc".lowercase()
+
+        if (combined.contains("tekrar izle") || 
+            combined.contains("watch again") || 
+            combined.contains("daha fazla") || 
+            combined.contains("watch more") || 
+            combined.contains("izlemeye devam et") || 
+            combined.contains("keep watching")) {
+            return true
+        }
+
+        for (i in 0 until node.childCount) {
+            if (isVideoEndOverlayPresent(node.getChild(i))) return true
         }
         return false
     }
