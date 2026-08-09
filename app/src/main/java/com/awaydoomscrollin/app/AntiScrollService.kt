@@ -146,6 +146,10 @@ class AntiScrollService : AccessibilityService() {
     private var lastScrollIndex = -1
     private var lastPackage = ""
     private var serviceStartTime = 0L
+
+    // Pull-to-refresh algılama değişkenleri
+    private var zeroScrollCount = 0
+    private var lastZeroScrollTime = 0L
     private var lastReelsSignature = ""
     private var lastSignatureCheckTime = 0L
 
@@ -596,12 +600,27 @@ class AntiScrollService : AccessibilityService() {
                     // Sıfır piksellik sahte dokunma titremelerini yoksay
                     // Ancak pull-to-refresh genelde sayfanın en üstünde (fromIndex=0) yapılır ve delta 0 kalır.
                     if (deltaY == 0 && deltaX == 0) {
-                        val isAtTop = (event.fromIndex == 0 || event.toIndex == 0)
-                        if (isRefreshLayout || isAtTop) {
-                            Log.d(TAG, "Pull-to-Refresh (Yenileme) hareketi yakalandı!")
+                        if (isRefreshLayout) {
+                            Log.d(TAG, "Pull-to-Refresh (Yenileme) sınıfı yakalandı!")
+                        } else if (event.fromIndex == 0) {
+                            // İnsan parmağı testi (Zero-Delta Heuristic)
+                            if (currentTime - lastZeroScrollTime < 300) {
+                                zeroScrollCount++
+                            } else {
+                                zeroScrollCount = 1
+                            }
+                            lastZeroScrollTime = currentTime
+                            
+                            if (zeroScrollCount >= 3) {
+                                Log.d(TAG, "Pull-to-Refresh insan hareketi (3+ sinyal) yakalandı!")
+                            } else {
+                                return
+                            }
                         } else {
                             return
                         }
+                    } else {
+                        zeroScrollCount = 0
                     }
                     Log.d(TAG, "Gerçek dikey kaydırma veya Yenileme algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
