@@ -14,6 +14,10 @@ android {
         versionCode = 1
         versionName = "1.0.0"
     }
+dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 
     signingConfigs {
         create("release") {
