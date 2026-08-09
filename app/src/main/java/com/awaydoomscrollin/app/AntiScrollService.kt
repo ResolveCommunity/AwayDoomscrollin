@@ -591,14 +591,23 @@ class AntiScrollService : AccessibilityService() {
                         return
                     }
 
+                    val isRefreshLayout = className.contains("Refresh", ignoreCase = true)
+
                     // Sıfır piksellik sahte dokunma titremelerini yoksay
-                    // Ancak 1 piksellik (çok yavaş) pull-to-refresh çekmelerini BİLE yakala!
+                    // Ancak pull-to-refresh genelde sayfanın en üstünde (fromIndex=0) yapılır ve delta 0 kalır.
                     if (deltaY == 0 && deltaX == 0) {
-                        return
+                        val isAtTop = (event.fromIndex == 0 || event.toIndex == 0)
+                        if (isRefreshLayout || isAtTop) {
+                            Log.d(TAG, "Pull-to-Refresh (Yenileme) hareketi yakalandı!")
+                        } else {
+                            return
+                        }
                     }
-                    Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY, deltaX: $deltaX")
+                    Log.d(TAG, "Gerçek dikey kaydırma veya Yenileme algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
-                    if (event.toIndex == -1 || event.toIndex == lastScrollIndex) return
+                    if (event.toIndex == -1 || event.toIndex == lastScrollIndex) {
+                        if (!className.contains("Refresh", ignoreCase = true)) return
+                    }
                     lastScrollIndex = event.toIndex
                 }
 
