@@ -144,7 +144,7 @@ fun getAppLanguage(prefs: android.content.SharedPreferences): String {
     if (saved == "tr" || saved == "en") return saved
 
     val deviceLang = java.util.Locale.getDefault().language.lowercase()
-    val resolved = if (deviceLang.startsWith("tr")) "tr" else "tr"
+    val resolved = if (deviceLang.startsWith("tr")) "tr" else "en"
     prefs.edit().putString("app_language", resolved).apply()
     return resolved
 }
