@@ -60,6 +60,16 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlin.math.roundToInt
 import androidx.core.app.ActivityCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
@@ -3913,8 +3923,8 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 24-Saatlik Doomscroll Isı Haritası
-        DoomscrollHourlyHeatmap(isEn = isEn, prefs = prefs)
+        // 24-Saatlik Doomscroll Frekans Dalgası Grafiği
+        DoomscrollFrequencyWaveform(isEn = isEn, prefs = prefs)
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -3975,7 +3985,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
 
 
 @Composable
-fun DoomscrollHourlyHeatmap(
+fun DoomscrollFrequencyWaveform(
     isEn: Boolean = false,
     prefs: android.content.SharedPreferences
 ) {
@@ -3989,154 +3999,333 @@ fun DoomscrollHourlyHeatmap(
         }
     }
 
-    // Gerçek veri yoksa demo mock data kullan (ilk açılışta canlı görünüm)
+    // Gerçek veri yoksa demo mock data kullan
     val hasRealData = hourlyData.any { it > 0 }
     val displayData = if (hasRealData) hourlyData else listOf(
         0, 0, 1, 0, 0, 0, 2, 4, 3, 1, 0, 2,
         5, 3, 1, 0, 2, 4, 8, 6, 3, 9, 5, 2
     )
 
+    val totalBlocksToday = displayData.sum()
     val maxVal = displayData.maxOrNull()?.takeIf { it > 0 } ?: 1
+    val peakHourIdx = displayData.indexOf(displayData.maxOrNull() ?: 0)
+    val peakVal = displayData[peakHourIdx]
 
-    var selectedHour by remember { mutableIntStateOf(-1) }
+    val securityScore = (100 - (totalBlocksToday * 2)).coerceIn(10, 100)
+
+    var touchXPosition by remember { mutableFloatStateOf(-1f) }
+    var canvasWidthPx by remember { mutableFloatStateOf(1f) }
 
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.3f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Başlık
+            // Header Row: Başlık + Güvenlik Skoru Rozeti (Asla alt satıra kaymaz)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("🕒", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isEn) "24-HOUR DOOMSCROLL HEATMAP" else "24 SAATLİK DOOMSCROLL ISI HARİTASI",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF00F2FE),
-                        letterSpacing = 0.8.sp
-                    )
-                    if (!hasRealData) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Text("🌊", fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
                         Text(
-                            text = if (isEn) "Demo preview — blocks will appear here" else "Demo önizleme — engellemeler burada görünecek",
+                            text = if (isEn) "DOOMSCROLL FREQUENCY" else "DOOMSCROLL FREKANSI",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF00F2FE),
+                            letterSpacing = 0.8.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (!hasRealData) 
+                                (if (isEn) "Demo Preview" else "Demo Önizleme") 
+                            else 
+                                (if (isEn) "24h Live Telemetry" else "24s Canlı Telemetri"),
                             fontSize = 9.sp,
-                            color = Color(0xFFFFB703).copy(alpha = 0.8f)
+                            fontWeight = FontWeight.Medium,
+                            color = if (!hasRealData) Color(0xFFFFB703).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.5f),
+                            maxLines = 1
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-            // Seçili saat detay bilgisi
-            if (selectedHour >= 0) {
-                val sH = selectedHour
-                val sBlocks = displayData[sH]
-                val sSaved = sBlocks * 2
-                val sRange = "${sH.toString().padStart(2, '0')}:00 - ${(sH + 1).toString().padStart(2, '0')}:00"
+                // Güvenlik Skoru Rozeti (Sıkıştırılamaz, Tıkışma Yapmaz)
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF070A12),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF00FF87).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.4f))
                 ) {
                     Text(
-                        text = "🕒 $sRange  |  ${if (isEn) "$sBlocks Blocks  |  ~${sSaved} Min Saved" else "$sBlocks Engelleme  |  ~${sSaved} Dk Kurtarıldı"}",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        text = if (isEn) "⚡ SCORE: $securityScore%" else "⚡ SKOR: %$securityScore",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF00FF87),
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // 24 Hücrelik Grid (4 satır × 6 sütun)
-            val rows = listOf(
-                (0..5).toList(),
-                (6..11).toList(),
-                (12..17).toList(),
-                (18..23).toList()
-            )
-            val rowLabels = listOf("00–05", "06–11", "12–17", "18–23")
+            Spacer(modifier = Modifier.height(10.dp))
 
-            rows.forEachIndexed { rowIdx, hours ->
+            // Peak Hour Bilgisi (Varsa şık tek satır)
+            if (peakVal > 0) {
+                val peakRange = "${peakHourIdx.toString().padStart(2, '0')}:00"
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.End
                 ) {
                     Text(
-                        text = rowLabels[rowIdx],
-                        fontSize = 8.5.sp,
-                        color = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.width(32.dp)
+                        text = if (isEn) "🔥 Peak: $peakRange ($peakVal Blocks)" else "🔥 Zirve: $peakRange ($peakVal Engelleme)",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF0055),
+                        maxLines = 1
                     )
-                    hours.forEach { h ->
-                        val count = displayData[h]
-                        val intensity = count.toFloat() / maxVal.toFloat()
-                        val cellColor = when {
-                            count == 0 -> Color(0xFF0F1523)
-                            count <= 3 -> Color(0xFF00F2FE).copy(alpha = 0.20f + intensity * 0.30f)
-                            count <= 7 -> Color(0xFF00FF87).copy(alpha = 0.40f + intensity * 0.30f)
-                            else -> Color(0xFFFF0055).copy(alpha = 0.65f + intensity * 0.35f)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // İnteraktif Dalga Grafiği Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = { offset ->
+                                touchXPosition = offset.x
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                touchXPosition = offset.x
+                            },
+                            onDrag = { change, _ ->
+                                touchXPosition = change.position.x
+                            }
+                        )
+                    }
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coordinates ->
+                            canvasWidthPx = coordinates.size.width.toFloat().coerceAtLeast(1f)
                         }
-                        val borderColor = if (selectedHour == h) Color(0xFFFFB703) else Color(0xFF1E2A40)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(2.dp)
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(cellColor)
-                                .border(
-                                    width = if (selectedHour == h) 1.5.dp else 0.5.dp,
-                                    color = borderColor,
-                                    shape = RoundedCornerShape(5.dp)
-                                )
-                                .clickable { selectedHour = if (selectedHour == h) -1 else h },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = h.toString().padStart(2, '0'),
-                                fontSize = 7.5.sp,
-                                color = if (count > 0) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
-                                fontWeight = if (count > 3) FontWeight.Bold else FontWeight.Normal
+                ) {
+                    val width = size.width
+                    val height = size.height
+                    val paddingBottom = 16.dp.toPx()
+                    val availableHeight = height - paddingBottom
+                    val stepX = if (displayData.size > 1) width / (displayData.size - 1) else width
+
+                    // 1. Arka plan ızgara çizgileri
+                    val gridColor = Color.White.copy(alpha = 0.05f)
+                    listOf(0.25f, 0.5f, 0.75f).forEach { ratio ->
+                        val y = availableHeight * (1f - ratio)
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(0f, y),
+                            end = Offset(width, y),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    // 2. Dalga Noktaları Hesabı
+                    val points = displayData.mapIndexed { index, valCount ->
+                        val normY = (valCount.toFloat() / maxVal.toFloat()).coerceIn(0f, 1f)
+                        val x = index * stepX
+                        val y = availableHeight - (normY * (availableHeight - 10.dp.toPx()))
+                        Offset(x, y)
+                    }
+
+                    val path = Path()
+                    val fillPath = Path()
+
+                    if (points.isNotEmpty()) {
+                        path.moveTo(points[0].x, points[0].y)
+                        fillPath.moveTo(points[0].x, availableHeight)
+                        fillPath.lineTo(points[0].x, points[0].y)
+
+                        for (i in 0 until points.size - 1) {
+                            val p1 = points[i]
+                            val p2 = points[i + 1]
+                            val controlPoint1 = Offset(p1.x + (p2.x - p1.x) / 2f, p1.y)
+                            val controlPoint2 = Offset(p1.x + (p2.x - p1.x) / 2f, p2.y)
+
+                            path.cubicTo(
+                                controlPoint1.x, controlPoint1.y,
+                                controlPoint2.x, controlPoint2.y,
+                                p2.x, p2.y
+                            )
+                            fillPath.cubicTo(
+                                controlPoint1.x, controlPoint1.y,
+                                controlPoint2.x, controlPoint2.y,
+                                p2.x, p2.y
                             )
                         }
+
+                        fillPath.lineTo(points.last().x, availableHeight)
+                        fillPath.close()
+                    }
+
+                    // Cyberpunk Gradient
+                    val waveGradient = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF00F2FE), // Neon Cyan
+                            Color(0xFF00FF87), // Emerald Green
+                            Color(0xFFFFB700), // Electric Gold
+                            Color(0xFFFF0055)  // Hot Crimson
+                        )
+                    )
+
+                    val fillGradient = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF00F2FE).copy(alpha = 0.30f),
+                            Color(0xFFFF0055).copy(alpha = 0.04f),
+                            Color.Transparent
+                        )
+                    )
+
+                    // Dolgu & Dalga Çizimi
+                    drawPath(path = fillPath, brush = fillGradient)
+                    drawPath(
+                        path = path,
+                        brush = waveGradient,
+                        style = Stroke(
+                            width = 3.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    )
+
+                    // 3. Dokunmatik Lazer Çizgisi ve Düğüm Noktası (Piksel Hassasiyetinde)
+                    if (touchXPosition >= 0f && points.isNotEmpty()) {
+                        val clampedX = touchXPosition.coerceIn(0f, width)
+                        val activeIndex = ((clampedX / width) * 23f).roundToInt().coerceIn(0, 23)
+                        val activePoint = points[activeIndex]
+
+                        // Dikey Neon Lazer Çizgisi
+                        drawLine(
+                            color = Color(0xFF00F2FE),
+                            start = Offset(activePoint.x, 0f),
+                            end = Offset(activePoint.x, availableHeight),
+                            strokeWidth = 1.5.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                        )
+
+                        // Işıltılı Hedef Düğümü
+                        drawCircle(
+                            color = Color(0xFF00F2FE).copy(alpha = 0.35f),
+                            radius = 8.dp.toPx(),
+                            center = activePoint
+                        )
+                        drawCircle(
+                            color = Color(0xFF070A12),
+                            radius = 4.5.dp.toPx(),
+                            center = activePoint
+                        )
+                        drawCircle(
+                            color = if (displayData[activeIndex] > 3) Color(0xFFFF0055) else Color(0xFF00FF87),
+                            radius = 3.dp.toPx(),
+                            center = activePoint
+                        )
                     }
                 }
-                if (rowIdx < rows.size - 1) Spacer(modifier = Modifier.height(3.dp))
             }
 
-            // Renk Lejantı
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // X-Ekseni Saat Etiketleri (00:00, 06:00, 12:00, 18:00, 23:00)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                listOf(
-                    Triple(Color(0xFF0F1523), Color(0xFF1E2A40), if (isEn) "Clean" else "Temiz"),
-                    Triple(Color(0xFF00F2FE).copy(alpha = 0.35f), Color(0xFF00F2FE).copy(alpha = 0.5f), "1–3"),
-                    Triple(Color(0xFF00FF87).copy(alpha = 0.6f), Color(0xFF00FF87).copy(alpha = 0.7f), "4–7"),
-                    Triple(Color(0xFFFF0055).copy(alpha = 0.8f), Color(0xFFFF0055), "8+")
-                ).forEach { (bg, border, label) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(bg)
-                                .border(0.5.dp, border, RoundedCornerShape(2.dp))
+                listOf(0, 6, 12, 18, 23).forEach { hour ->
+                    Text(
+                        text = "${hour.toString().padStart(2, '0')}:00",
+                        fontSize = 8.5.sp,
+                        color = Color.White.copy(alpha = 0.45f),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Seçili/Kaydırılan Saat Detay Kartı (Piksel Hassas Hesaplama)
+            val selectedHour = if (touchXPosition >= 0f) {
+                val ratio = (touchXPosition / canvasWidthPx).coerceIn(0f, 1f)
+                (ratio * 23f).roundToInt().coerceIn(0, 23)
+            } else -1
+
+            val displayHour = if (selectedHour >= 0) selectedHour else peakHourIdx
+            val hourBlocks = displayData[displayHour]
+            val savedMins = hourBlocks * 2
+            val hourRange = "${displayHour.toString().padStart(2, '0')}:00 - ${(displayHour + 1).toString().padStart(2, '0')}:00"
+
+            val (badgeText, badgeColor) = when {
+                hourBlocks == 0 -> Pair(if (isEn) "🛡️ Safe Focus" else "🛡️ Güvenli Odak", Color(0xFF00FF87))
+                hourBlocks <= 3 -> Pair(if (isEn) "⚠️ Light Activity" else "⚠️ Hafif Hareketlilik", Color(0xFFFFB700))
+                else -> Pair(if (isEn) "🔥 Peak Zone" else "🔥 Zirve Bölgesi", Color(0xFFFF0055))
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF070A12),
+                border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "🕒 $hourRange",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(label, fontSize = 9.sp, color = Color.White.copy(alpha = 0.55f))
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isEn) "$hourBlocks Blocks | ~$savedMins Min Saved" else "$hourBlocks Engelleme | ~$savedMins Dk Kurtarıldı",
+                            fontSize = 9.5.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = badgeColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
