@@ -428,9 +428,7 @@ class AntiScrollService : AccessibilityService() {
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
                     isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
-                    isSafeScreen(rootNode) -> "SAFE"
-                    isDangerousScreen(rootNode) -> "HOME_OR_REELS"
-                    else -> "SAFE" // Eğer ana sayfa, reels, keşfet, veya tehlikeli bir gönderi içi değilse, burası profil gibi güvenli bir sayfadır.
+                    else -> "SAFE" // Profil, Ayarlar, Mesajlar vb. hepsi buraya düşer
                 }
 
                 if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
@@ -928,15 +926,17 @@ class AntiScrollService : AccessibilityService() {
 
         val desc = node.contentDescription?.toString() ?: ""
         
-        // Sadece akış içerisindeki gönderilere ait butonları tehlikeli sayıyoruz.
-        // Sekme isimlerini (Ana Sayfa, Reels) çıkardık çünkü onlar her sayfada (profil dahil) her zaman görünüyor.
-        if (desc.contains("Beğen", ignoreCase = true) ||
+        // "Profili Paylaş" (Share Profile) butonunu tehlikeli saymamak için kontrol ekliyoruz.
+        val isProfileButton = desc.contains("Profil", ignoreCase = true) || desc.contains("Profile", ignoreCase = true)
+        
+        if (!isProfileButton && (
+            desc.contains("Beğen", ignoreCase = true) ||
             desc.contains("Like", ignoreCase = true) ||
             desc.contains("Kaydet", ignoreCase = true) ||
             desc.contains("Save", ignoreCase = true) ||
             desc.contains("Paylaş", ignoreCase = true) ||
             desc.contains("Share", ignoreCase = true) ||
-            desc.contains("Repost", ignoreCase = true)) { 
+            desc.contains("Repost", ignoreCase = true))) { 
             
             if (node.isClickable || node.parent?.isClickable == true || node.isSelected) {
                 return true
