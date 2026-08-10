@@ -433,9 +433,9 @@ class AntiScrollService : AccessibilityService() {
                 
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
+                    isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isProfileScreen(rootNode) || isNotificationsScreen(rootNode) -> "SAFE"
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
-                    isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
                     else -> "HOME_OR_REELS" // Instagram'da aksi kanıtlanmadıkça ekran akıştır (Home/Reels)
                 }
@@ -1121,9 +1121,25 @@ class AntiScrollService : AccessibilityService() {
     private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
         if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
         
-        // Reels sekmesine özel üst kamera ikonu
-        if (desc.contains("Reels kamerası", ignoreCase = true) || desc.contains("Reels camera", ignoreCase = true)) {
+        if (viewId.contains("clips_viewer") || 
+            viewId.contains("clips_video_container") || 
+            viewId.contains("reels_video_view") || 
+            viewId.contains("clips_item_view") ||
+            viewId.contains("clips_swipe_refresh_container")) {
+            return true
+        }
+
+        // Reels sekmesine ve Reels oynatıcıya özel butonlar/etiketler
+        if (desc.contains("Reels kamerası", ignoreCase = true) || 
+            desc.contains("Reels camera", ignoreCase = true) ||
+            desc.contains("Orijinal ses", ignoreCase = true) ||
+            desc.contains("Original audio", ignoreCase = true) ||
+            desc.contains("Ses kullan", ignoreCase = true) ||
+            desc.contains("Use audio", ignoreCase = true) ||
+            desc.contains("Remiksle", ignoreCase = true) ||
+            desc.contains("Remix", ignoreCase = true)) {
             return true
         }
         
