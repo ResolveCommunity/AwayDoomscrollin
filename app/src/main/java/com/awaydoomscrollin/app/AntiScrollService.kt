@@ -643,10 +643,18 @@ class AntiScrollService : AccessibilityService() {
                     // Eğer kullanıcı zaten "HOME_OR_REELS" ekranındayken tekrar ana sayfa butonuna tıkladıysa, 
                     // bu %100 sayfayı yenilemek (pull-to-refresh) demektir!
                     if (lastScreenType == "HOME_OR_REELS") {
-                        if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Zaten ana sayfadayken ana sayfa butonuna tıklandı! Pull-to-refresh tetiklendi.")
-                            punishUser("com.instagram.android")
-                            return
+                        // Eğer ana sayfaya daha yeni geldiyse (son 2 saniye içinde), bu muhtemelen 
+                        // sekme geçişi sırasında oluşan çift tıklama (double click) veya Android'in kendi
+                        // fırlattığı mükerrer (duplicate) tıklama eventidir. Sadece gerçekten ana sayfada 
+                        // vakit geçirip sonra butona basarsa ceza ver!
+                        if (currentTime - lastInstagramTransitionTime > 2000) {
+                            if (currentTime - lastPunishTime > 3000) {
+                                Log.d(TAG, "Zaten ana sayfadayken ana sayfa butonuna tıklandı! Pull-to-refresh tetiklendi.")
+                                punishUser("com.instagram.android")
+                                return
+                            }
+                        } else {
+                            Log.d(TAG, "Ana sayfa butonuna tıklandı ama geçiş yapalı 2 saniye bile olmadı (Double-click/Duplicate event). İzin verildi.")
                         }
                     } else {
                         Log.d(TAG, "Başka bir sayfadan (Örn: Profil) ana sayfaya geçiş için tıklandı. İzin verildi.")
