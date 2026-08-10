@@ -508,6 +508,12 @@ class AntiScrollService : AccessibilityService() {
                 if (currentTime - instagramLaunchTime > 1500) {
                     if (rootNode != null && isSafeScreen(rootNode)) {
                         // Profil sayfasındaki reels sekmesi gibi güvenli alanları es geç
+                    } else if (rootNode != null && (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode))) {
+                        // ZERO TOLERANCE: Reels sekmesine girildiği an anında engelle!
+                        if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
+                            Log.d(TAG, "Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
+                            punishUser("com.instagram.android")
+                        }
                     } else if (rootNode != null && hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
                         if (currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
