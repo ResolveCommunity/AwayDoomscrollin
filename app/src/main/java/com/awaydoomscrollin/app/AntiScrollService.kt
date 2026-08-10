@@ -721,9 +721,9 @@ class AntiScrollService : AccessibilityService() {
                     return
                 }
 
-                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 2.5 saniyelik kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 2500) {
-                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (2.5sn tolerans). Scroll es geçildi.")
+                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 4.0 saniyelik kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 4000) {
+                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (4.0sn tolerans). Scroll es geçildi.")
                     return
                 }
 
