@@ -433,10 +433,11 @@ class AntiScrollService : AccessibilityService() {
                 
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
+                    isProfileScreen(rootNode) -> "SAFE"
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
                     isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
-                    else -> "SAFE" // Profil, Ayarlar, Mesajlar vb. hepsi buraya düşer
+                    else -> "HOME_OR_REELS" // Instagram'da aksi kanıtlanmadıkça ekran akıştır (Home/Reels)
                 }
 
                 if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
@@ -889,11 +890,32 @@ class AntiScrollService : AccessibilityService() {
     private fun isHomeScreenActive(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
         if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
-        if ((desc.equals("Ana Sayfa", ignoreCase = true) || desc.equals("Home", ignoreCase = true)) && node.isSelected) {
+        if ((desc.equals("Ana Sayfa", ignoreCase = true) || desc.equals("Home", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
             return true
         }
         for (i in 0 until node.childCount) {
             if (isHomeScreenActive(node.getChild(i), depth + 1)) return true
+        }
+        return false
+    }
+
+    private fun isProfileScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        val text = node.text?.toString() ?: ""
+        val combined = "$text $desc".lowercase()
+        
+        if (combined.contains("profili düzenle") || 
+            combined.contains("edit profile") || 
+            combined.contains("profili paylaş") || 
+            combined.contains("share profile") ||
+            combined.contains("ayarlar ve aktiviteler") ||
+            combined.contains("settings and activity")) {
+            return true
+        }
+        
+        for (i in 0 until node.childCount) {
+            if (isProfileScreen(node.getChild(i), depth + 1)) return true
         }
         return false
     }
@@ -1021,7 +1043,7 @@ class AntiScrollService : AccessibilityService() {
         if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         
-        if ((desc.equals("Reels", ignoreCase = true) || desc.equals("Reels tab", ignoreCase = true)) && node.isSelected) {
+        if ((desc.equals("Reels", ignoreCase = true) || desc.equals("Reels tab", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
             return true
         }
         
@@ -1051,7 +1073,7 @@ class AntiScrollService : AccessibilityService() {
         val desc = node.contentDescription?.toString() ?: ""
         
         if ((desc.contains("Ara ve Keşfet", ignoreCase = true) || 
-             desc.contains("Search and explore", ignoreCase = true)) && node.isSelected) {
+             desc.contains("Search and explore", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
             return true
         }
         
