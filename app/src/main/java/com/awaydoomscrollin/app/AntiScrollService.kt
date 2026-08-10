@@ -138,6 +138,9 @@ class AntiScrollService : AccessibilityService() {
     private var lastPunishTime = 0L
     private var punishStartTime = 0L
     private var lastHomeActionTime = 0L
+
+    private var lastFeedFirstChildHash: Int = 0
+    private var lastFeedChangePunishTime: Long = 0L
     private var forceStopClicked = false
     private var lastSettingsClickTime = 0L
     
@@ -512,6 +515,28 @@ class AntiScrollService : AccessibilityService() {
                             Log.d(TAG, "Pull-to-Refresh Spinner tespit edildi! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
+                    }
+
+                    if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
+                        val mainRv = findMainRecyclerView(rootNode)
+                        if (mainRv != null && mainRv.childCount > 0) {
+                            val firstChild = mainRv.getChild(0)
+                            val currentHash = getFeedTextHash(firstChild)
+                            
+                            if (lastFeedFirstChildHash != 0 && currentHash != 0 && currentHash != lastFeedFirstChildHash) {
+                                // Content changed! Either scrolled silently or pull-to-refreshed!
+                                if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                    Log.d(TAG, "Ana akış içeriği değişti (Sessiz Scroll veya Pull-to-Refresh)! Anında kilitleniyor.")
+                                    lastFeedChangePunishTime = currentTime
+                                    punishUser("com.instagram.android")
+                                }
+                            }
+                            if (currentHash != 0) {
+                                lastFeedFirstChildHash = currentHash
+                            }
+                        }
+                    } else {
+                        lastFeedFirstChildHash = 0
                     }
                 }
             }
@@ -902,13 +927,48 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
         val className = node.className?.toString() ?: ""
-        if (className.contains("Refresh", ignoreCase = true)) {
+        if (className.contains("Refresh", ignoreCase = true) || 
+            className.contains("Spinner", ignoreCase = true) || 
+            className.contains("ProgressBar", ignoreCase = true) || 
+            className.contains("ProgressIndicator", ignoreCase = true)) {
             return true
         }
         for (i in 0 until node.childCount) {
             if (isRefreshingSpinnerVisible(node.getChild(i))) return true
         }
         return false
+    }
+
+    private fun findMainRecyclerView(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (node == null) return null
+        val className = node.className?.toString() ?: ""
+        if (className.contains("RecyclerView") || className.contains("ListView")) {
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+            if (rect.height() > 500) { // Geniş liste (Akış)
+                return node
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val res = findMainRecyclerView(node.getChild(i))
+            if (res != null) return res
+        }
+        return null
+    }
+
+    private fun getFeedTextHash(node: AccessibilityNodeInfo?): Int {
+        if (node == null) return 0
+        var hash = 17
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        if (text.length > 2) hash = hash * 31 + text.hashCode()
+        if (desc.length > 2) hash = hash * 31 + desc.hashCode()
+        
+        for (i in 0 until node.childCount) {
+            hash = hash * 31 + getFeedTextHash(node.getChild(i))
+        }
+        return hash
     }
 
     private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
