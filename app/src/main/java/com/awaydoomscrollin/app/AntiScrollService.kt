@@ -737,7 +737,6 @@ class AntiScrollService : AccessibilityService() {
                     return
                 }
 
-                val rootNode = rootInActiveWindow
                 val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
                 if (isCurrentlySafe || lastScreenType == "SAFE") {
                     Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
