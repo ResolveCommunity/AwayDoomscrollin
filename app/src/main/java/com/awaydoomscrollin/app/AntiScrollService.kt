@@ -646,6 +646,23 @@ class AntiScrollService : AccessibilityService() {
                 val nodeDesc = event.contentDescription?.toString() ?: ""
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
+                val isCloseOrBack = combined.contains("kapat") || 
+                                    combined.contains("close") || 
+                                    combined.contains("geri") || 
+                                    combined.contains("back") || 
+                                    combined.contains("iptal") || 
+                                    combined.contains("cancel") || 
+                                    combined.contains("çarpı") ||
+                                    nodeDesc.contains("kapat", ignoreCase = true) || 
+                                    nodeDesc.contains("close", ignoreCase = true) ||
+                                    nodeDesc.contains("geri", ignoreCase = true) ||
+                                    nodeDesc.contains("back", ignoreCase = true)
+
+                if (isCloseOrBack) {
+                    lastInstagramTransitionTime = currentTime
+                    Log.d(TAG, "Geri/Kapat butonuna tıklandı, geçiş grace period sıfırlandı.")
+                }
+                
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
                     // Android sisteminde bir sekmeye tıklandığında, tıklama eventi fırlatılmadan hemen önce o sekmenin
                     // isSelected değeri 'true' yapılır. Bu yüzden tıklanan ikonun o anki seçili olma durumuna GÜVENEMEYİZ.
@@ -701,9 +718,9 @@ class AntiScrollService : AccessibilityService() {
                     return
                 }
 
-                // Sekme geçişi animasyonları (ViewPager) için 500ms kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 500) {
-                    Log.d(TAG, "Sekme geçiş animasyonu (500ms tolerans). Scroll es geçildi.")
+                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 1.5 saniyelik kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 1500) {
+                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (1.5sn tolerans). Scroll es geçildi.")
                     return
                 }
 
