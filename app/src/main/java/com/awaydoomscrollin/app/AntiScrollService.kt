@@ -535,26 +535,23 @@ class AntiScrollService : AccessibilityService() {
                     }
 
                     if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
-                        val mainRv = findMainRecyclerView(rootNode)
-                        if (mainRv != null && mainRv.childCount > 0) {
-                            val currentText = getFeedAllText(mainRv)
-                            
-                            if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
-                                if (isTextChangePullToRefresh(lastFeedText, currentText)) {
-                                    if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                        Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
-                                        lastFeedChangePunishTime = currentTime
-                                        punishUser("com.instagram.android")
-                                    }
+                        val currentText = getFeedAllText(rootNode)
+                        
+                        if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
+                            if (isTextChangePullToRefresh(lastFeedText, currentText)) {
+                                if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                    Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
+                                    lastFeedChangePunishTime = currentTime
+                                    punishUser("com.instagram.android")
                                 }
                             }
-                            
-                            // SADECE ve SADECE ekranda gerçek bir akış varken (skeleton/yükleme ekranı değilken) lastFeedText'i güncelle!
-                            val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored")
-                            val validWords = currentText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }
-                            if (validWords.size > 5) {
-                                lastFeedText = currentText
-                            }
+                        }
+                        
+                        // SADECE ve SADECE ekranda gerçek bir akış varken (skeleton/yükleme ekranı değilken) lastFeedText'i güncelle!
+                        val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored", "ana sayfa", "home", "reels", "profil", "profile", "mesajlar", "messages", "ara", "search")
+                        val validWords = currentText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }
+                        if (validWords.size > 5) {
+                            lastFeedText = currentText
                         }
                     } else {
                         lastFeedText = ""
