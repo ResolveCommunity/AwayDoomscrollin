@@ -507,6 +507,11 @@ class AntiScrollService : AccessibilityService() {
                             Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
+                    } else if (rootNode != null && isRefreshingSpinnerVisible(rootNode) && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
+                        if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000) {
+                            Log.d(TAG, "Pull-to-Refresh Spinner tespit edildi! Anında kilitleniyor.")
+                            punishUser("com.instagram.android")
+                        }
                     }
                 }
             }
@@ -764,12 +769,8 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Messages", ignoreCase = true) ||
             text.equals("Yorumlar", ignoreCase = true) ||
             text.equals("Comments", ignoreCase = true) ||
-            text.equals("Yeni gönderi", ignoreCase = true) ||
-            text.equals("New post", ignoreCase = true) ||
             text.equals("Galeri", ignoreCase = true) ||
             text.equals("Gallery", ignoreCase = true) ||
-            text.equals("Hikaye", ignoreCase = true) ||
-            text.equals("Story", ignoreCase = true) ||
             text.equals("Film Rulosu", ignoreCase = true) ||
             text.equals("Camera Roll", ignoreCase = true) ||
             text.equals("Son kullanılanlar", ignoreCase = true) ||
@@ -892,6 +893,22 @@ class AntiScrollService : AccessibilityService() {
         val intersection = words1.intersect(words2).size
         val union = words1.union(words2).size
         return intersection.toDouble() / union.toDouble()
+    }
+
+    private fun isRefreshingSpinnerVisible(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+        if (desc.contains("yükleniyor") || desc.contains("loading") || desc.contains("yenileniyor") || desc.contains("refreshing") || desc.contains("güncelleniyor") || desc.contains("updating")) {
+            return true
+        }
+        val className = node.className?.toString() ?: ""
+        if (className.contains("Refresh", ignoreCase = true)) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            if (isRefreshingSpinnerVisible(node.getChild(i))) return true
+        }
+        return false
     }
 
     private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
