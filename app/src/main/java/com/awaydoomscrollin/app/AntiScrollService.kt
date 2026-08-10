@@ -542,7 +542,7 @@ class AntiScrollService : AccessibilityService() {
                         if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
                             if (isTextChangePullToRefresh(lastFeedText, currentText)) {
                                 // Sadece kullanıcı yakın zamanda dokunma/kaydırma yaptıysa (lastUserTouchTime < 3000) ve launch 4.5sn geçtiyse ceza ver!
-                                if (currentTime - lastUserTouchTime < 3000 && currentTime - lastInstagramTransitionTime > 2000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                if (currentTime - lastInstagramTransitionTime > 2000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
                                     Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
                                     lastFeedChangePunishTime = currentTime
                                     punishUser("com.instagram.android")
