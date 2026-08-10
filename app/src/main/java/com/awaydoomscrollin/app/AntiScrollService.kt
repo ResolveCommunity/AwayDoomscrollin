@@ -361,8 +361,8 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
-    private fun findDialogConfirmNodeInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
+    private fun findDialogConfirmNodeInTree(node: AccessibilityNodeInfo?, depth: Int = 0): AccessibilityNodeInfo? {
+        if (node == null || depth > 30) return null
 
         val text = node.text?.toString()?.trim() ?: ""
         val desc = node.contentDescription?.toString()?.trim() ?: ""
@@ -397,7 +397,7 @@ class AntiScrollService : AccessibilityService() {
         }
 
         for (i in 0 until node.childCount) {
-            val result = findDialogConfirmNodeInTree(node.getChild(i))
+            val result = findDialogConfirmNodeInTree(node.getChild(i), depth + 1)
             if (result != null) return result
         }
         return null
@@ -508,12 +508,6 @@ class AntiScrollService : AccessibilityService() {
                 if (currentTime - instagramLaunchTime > 1500) {
                     if (rootNode != null && isSafeScreen(rootNode)) {
                         // Profil sayfasındaki reels sekmesi gibi güvenli alanları es geç
-                    } else if (rootNode != null && (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode))) {
-                        // ZERO TOLERANCE: Anında engelle!
-                        if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
-                            Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
-                            punishUser("com.instagram.android")
-                        }
                     } else if (rootNode != null && hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
                         if (currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
@@ -916,20 +910,20 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
-    private fun isHomeScreenActive(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isHomeScreenActive(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         if ((desc.equals("Ana Sayfa", ignoreCase = true) || desc.equals("Home", ignoreCase = true)) && node.isSelected) {
             return true
         }
         for (i in 0 until node.childCount) {
-            if (isHomeScreenActive(node.getChild(i))) return true
+            if (isHomeScreenActive(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun isDangerousScreen(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isDangerousScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         if (!node.isVisibleToUser) return false
 
         val desc = node.contentDescription?.toString() ?: ""
@@ -952,7 +946,7 @@ class AntiScrollService : AccessibilityService() {
         }
 
         for (i in 0 until node.childCount) {
-            if (isDangerousScreen(node.getChild(i))) return true
+            if (isDangerousScreen(node.getChild(i), depth + 1)) return true
         }
         return false
     }
@@ -967,8 +961,8 @@ class AntiScrollService : AccessibilityService() {
         return intersection.toDouble() / union.toDouble()
     }
 
-    private fun isRefreshingSpinnerVisible(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isRefreshingSpinnerVisible(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString()?.lowercase() ?: ""
         if (desc.contains("yükleniyor") || desc.contains("loading") || desc.contains("yenileniyor") || desc.contains("refreshing") || desc.contains("güncelleniyor") || desc.contains("updating")) {
             return true
@@ -978,13 +972,13 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
         for (i in 0 until node.childCount) {
-            if (isRefreshingSpinnerVisible(node.getChild(i))) return true
+            if (isRefreshingSpinnerVisible(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun findMainRecyclerView(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
+    private fun findMainRecyclerView(node: AccessibilityNodeInfo?, depth: Int = 0): AccessibilityNodeInfo? {
+        if (node == null || depth > 30) return null
         val className = node.className?.toString() ?: ""
         if (className.contains("RecyclerView") || className.contains("ListView")) {
             val rect = Rect()
@@ -994,14 +988,14 @@ class AntiScrollService : AccessibilityService() {
             }
         }
         for (i in 0 until node.childCount) {
-            val res = findMainRecyclerView(node.getChild(i))
+            val res = findMainRecyclerView(node.getChild(i), depth + 1)
             if (res != null) return res
         }
         return null
     }
 
-    private fun getFeedAllText(node: AccessibilityNodeInfo?): String {
-        if (node == null) return ""
+    private fun getFeedAllText(node: AccessibilityNodeInfo?, depth: Int = 0): String {
+        if (node == null || depth > 30) return ""
         var textStr = ""
         val text = node.text?.toString() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
@@ -1010,7 +1004,7 @@ class AntiScrollService : AccessibilityService() {
         if (desc.isNotBlank()) textStr += "$desc "
         
         for (i in 0 until node.childCount) {
-            textStr += getFeedAllText(node.getChild(i))
+            textStr += getFeedAllText(node.getChild(i), depth + 1)
         }
         return textStr
     }
@@ -1042,8 +1036,8 @@ class AntiScrollService : AccessibilityService() {
         return true
     }
 
-    private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isReelsTabSelected(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         
         if ((desc.equals("Reels", ignoreCase = true) || desc.equals("Reels tab", ignoreCase = true)) && node.isSelected) {
@@ -1051,13 +1045,13 @@ class AntiScrollService : AccessibilityService() {
         }
         
         for (i in 0 until node.childCount) {
-            if (isReelsTabSelected(node.getChild(i))) return true
+            if (isReelsTabSelected(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         
         // Reels sekmesine özel üst kamera ikonu
@@ -1066,13 +1060,13 @@ class AntiScrollService : AccessibilityService() {
         }
         
         for (i in 0 until node.childCount) {
-            if (isStrictlyReelsScreen(node.getChild(i))) return true
+            if (isStrictlyReelsScreen(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun isExploreScreen(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isExploreScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         
         if ((desc.contains("Ara ve Keşfet", ignoreCase = true) || 
@@ -1081,13 +1075,13 @@ class AntiScrollService : AccessibilityService() {
         }
         
         for (i in 0 until node.childCount) {
-            if (isExploreScreen(node.getChild(i))) return true
+            if (isExploreScreen(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun hasLikeButton(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun hasLikeButton(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         if ((desc.equals("Beğen", ignoreCase = true) || 
              desc.equals("Like", ignoreCase = true) ||
@@ -1097,13 +1091,13 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
         for (i in 0 until node.childCount) {
-            if (hasLikeButton(node.getChild(i))) return true
+            if (hasLikeButton(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun isVideoViewer(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isVideoViewer(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         if (desc.contains("Sesi kapat", ignoreCase = true) || 
             desc.contains("Sesi aç", ignoreCase = true) ||
@@ -1113,26 +1107,26 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
         for (i in 0 until node.childCount) {
-            if (isVideoViewer(node.getChild(i))) return true
+            if (isVideoViewer(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun hasBackButton(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun hasBackButton(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val desc = node.contentDescription?.toString() ?: ""
         if (desc.equals("Geri", ignoreCase = true) || 
             desc.equals("Back", ignoreCase = true)) {
             return true
         }
         for (i in 0 until node.childCount) {
-            if (hasBackButton(node.getChild(i))) return true
+            if (hasBackButton(node.getChild(i), depth + 1)) return true
         }
         return false
     }
 
-    private fun isVideoEndOverlayPresent(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
+    private fun isVideoEndOverlayPresent(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
         val text = node.text?.toString() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
         val combined = "$text $desc".lowercase()
@@ -1147,7 +1141,7 @@ class AntiScrollService : AccessibilityService() {
         }
 
         for (i in 0 until node.childCount) {
-            if (isVideoEndOverlayPresent(node.getChild(i))) return true
+            if (isVideoEndOverlayPresent(node.getChild(i), depth + 1)) return true
         }
         return false
     }
