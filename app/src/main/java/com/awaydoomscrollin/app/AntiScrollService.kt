@@ -742,7 +742,6 @@ class AntiScrollService : AccessibilityService() {
                     }
                 }
             }
-            }
         }
 
         // 3. TikTok Aşaması
