@@ -420,12 +420,6 @@ class AntiScrollService : AccessibilityService() {
         }
 
         if (packageName == "com.instagram.android") {
-            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || 
-                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START ||
-                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_END) {
-                lastUserTouchTime = currentTime
-            }
-
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 // Kullanıcı hızlıca sekmeler arası gezinirken (Örn: tester gibi spam yaparken)
                 // lastScreenType'ın geride kalmaması (stale state) için, her tıklamada
@@ -701,16 +695,15 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                // Sekme geçişi animasyonları (ViewPager) için 500ms kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 500) {
-                    Log.d(TAG, "Sekme geçiş animasyonu (500ms tolerans). Scroll es geçildi.")
+                // İlk açılış ve akış yükleme animasyonları (3.5 saniye) için tolerans
+                if (currentTime - instagramLaunchTime < 3500) {
+                    Log.d(TAG, "Açılış/yükleme scroll'u (3.5sn tolerans). Es geçildi.")
                     return
                 }
 
-                // Sadece kullanıcı ekranla dokunmatik etkileşime girdiyse (son 1.5sn içinde dokunduysa) scroll cezasını değerlendir!
-                // Bu sayede Instagram'ın ağdan gelen yeni gönderileri otomatik ekrana yerleştirme scroll'ları sahte ceza vermez!
-                if (currentTime - lastUserTouchTime > 1500) {
-                    Log.d(TAG, "Otomatik sistem scroll'u (Kullanıcı dokunmadı). Es geçildi.")
+                // Sekme geçişi animasyonları (ViewPager) için 500ms kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 500) {
+                    Log.d(TAG, "Sekme geçiş animasyonu (500ms tolerans). Scroll es geçildi.")
                     return
                 }
 
