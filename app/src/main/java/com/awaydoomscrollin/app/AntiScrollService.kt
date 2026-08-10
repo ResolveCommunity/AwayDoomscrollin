@@ -1025,19 +1025,24 @@ class AntiScrollService : AccessibilityService() {
 
     private fun isTextChangePullToRefresh(oldText: String, newText: String): Boolean {
         if (oldText.isBlank() || newText.isBlank()) return false
-        val oldWords = oldText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
-        val newWords = newText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
+        
+        // Ortak UI kelimelerini (beğen, yorum yap, paylaş vb.) filtrele ki benzerlik oranını bozmasınlar.
+        val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored")
+        
+        val oldWords = oldText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }.toSet()
+        val newWords = newText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }.toSet()
+        
         if (oldWords.isEmpty() || newWords.isEmpty()) return false
         
         val intersection = oldWords.intersect(newWords).size
         val union = oldWords.union(newWords).size
         val similarity = intersection.toDouble() / union.toDouble()
         
-        // Eğer benzerlik yüksekse zaten refresh değildir (Örn: Sadece saniye/beğeni değiştiyse)
+        // Eğer benzerlik yüksekse zaten refresh değildir (Örn: Sadece saniye değiştiyse)
         if (similarity >= 0.80) return false
         
         // Eski kelime sayısı çok azsa güvenilir değildir (Örn: Shimmer/iskelet yükleme ekranı)
-        if (oldWords.size <= 10) return false
+        if (oldWords.size <= 5) return false
         
         // Subset (Alt küme) kontrolü:
         // Eğer yeni ekrandaki kelimelerin çoğu (%80'i veya daha fazlası) zaten eski ekranda varsa,
