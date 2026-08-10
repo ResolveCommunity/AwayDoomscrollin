@@ -658,9 +658,12 @@ class AntiScrollService : AccessibilityService() {
                                     nodeDesc.contains("geri", ignoreCase = true) ||
                                     nodeDesc.contains("back", ignoreCase = true)
 
-                if (isCloseOrBack) {
+                val rootNodeClick = rootInActiveWindow
+                val isCurrentlySafeClick = rootNodeClick != null && isSafeScreen(rootNodeClick)
+
+                if (isCloseOrBack || isCurrentlySafeClick) {
                     lastInstagramTransitionTime = currentTime
-                    Log.d(TAG, "Geri/Kapat butonuna tıklandı, geçiş grace period sıfırlandı.")
+                    Log.d(TAG, "Güvenli ekranda veya Kapat/Geri butonuna tıklandı, geçiş grace period sıfırlandı.")
                 }
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
@@ -718,9 +721,9 @@ class AntiScrollService : AccessibilityService() {
                     return
                 }
 
-                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 1.5 saniyelik kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 1500) {
-                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (1.5sn tolerans). Scroll es geçildi.")
+                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 2.5 saniyelik kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 2500) {
+                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (2.5sn tolerans). Scroll es geçildi.")
                     return
                 }
 
