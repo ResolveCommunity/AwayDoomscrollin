@@ -430,7 +430,7 @@ class AntiScrollService : AccessibilityService() {
                     isExploreScreen(rootNode) -> "EXPLORE"
                     isSafeScreen(rootNode) -> "SAFE"
                     isDangerousScreen(rootNode) -> "HOME_OR_REELS"
-                    else -> "UNKNOWN"
+                    else -> "SAFE" // Eğer ana sayfa, reels, keşfet, veya tehlikeli bir gönderi içi değilse, burası profil gibi güvenli bir sayfadır.
                 }
 
                 if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
