@@ -139,7 +139,7 @@ class AntiScrollService : AccessibilityService() {
     private var punishStartTime = 0L
     private var lastHomeActionTime = 0L
 
-    private var lastFeedFirstChildHash: Int = 0
+    private var lastFeedText = ""
     private var lastFeedChangePunishTime: Long = 0L
     private var forceStopClicked = false
     private var lastSettingsClickTime = 0L
@@ -520,23 +520,26 @@ class AntiScrollService : AccessibilityService() {
                     if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
                         val mainRv = findMainRecyclerView(rootNode)
                         if (mainRv != null && mainRv.childCount > 0) {
-                            val firstChild = mainRv.getChild(0)
-                            val currentHash = getFeedTextHash(firstChild)
+                            val currentText = getFeedAllText(mainRv)
                             
-                            if (lastFeedFirstChildHash != 0 && currentHash != 0 && currentHash != lastFeedFirstChildHash) {
-                                // Content changed! Either scrolled silently or pull-to-refreshed!
-                                if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                    Log.d(TAG, "Ana akış içeriği değişti (Sessiz Scroll veya Pull-to-Refresh)! Anında kilitleniyor.")
-                                    lastFeedChangePunishTime = currentTime
-                                    punishUser("com.instagram.android")
+                            if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
+                                val similarity = calculateTextSimilarity(lastFeedText, currentText)
+                                // %30'dan daha az benzerlik varsa içerik TAMAMEN değişmiş demektir (Yeni gönderiler geldi).
+                                // Saat güncellemeleri veya beğeni artışları benzerliği %90'larda tutar.
+                                if (similarity < 0.3) {
+                                    if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                        Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
+                                        lastFeedChangePunishTime = currentTime
+                                        punishUser("com.instagram.android")
+                                    }
                                 }
                             }
-                            if (currentHash != 0) {
-                                lastFeedFirstChildHash = currentHash
+                            if (currentText.isNotEmpty()) {
+                                lastFeedText = currentText
                             }
                         }
                     } else {
-                        lastFeedFirstChildHash = 0
+                        lastFeedText = ""
                     }
                 }
             }
@@ -927,10 +930,7 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
         val className = node.className?.toString() ?: ""
-        if (className.contains("Refresh", ignoreCase = true) || 
-            className.contains("Spinner", ignoreCase = true) || 
-            className.contains("ProgressBar", ignoreCase = true) || 
-            className.contains("ProgressIndicator", ignoreCase = true)) {
+        if (className.contains("Refresh", ignoreCase = true)) {
             return true
         }
         for (i in 0 until node.childCount) {
@@ -956,19 +956,30 @@ class AntiScrollService : AccessibilityService() {
         return null
     }
 
-    private fun getFeedTextHash(node: AccessibilityNodeInfo?): Int {
-        if (node == null) return 0
-        var hash = 17
+    private fun getFeedAllText(node: AccessibilityNodeInfo?): String {
+        if (node == null) return ""
+        var textStr = ""
         val text = node.text?.toString() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
         
-        if (text.length > 2) hash = hash * 31 + text.hashCode()
-        if (desc.length > 2) hash = hash * 31 + desc.hashCode()
+        if (text.isNotBlank()) textStr += "$text "
+        if (desc.isNotBlank()) textStr += "$desc "
         
         for (i in 0 until node.childCount) {
-            hash = hash * 31 + getFeedTextHash(node.getChild(i))
+            textStr += getFeedAllText(node.getChild(i))
         }
-        return hash
+        return textStr
+    }
+
+    private fun calculateTextSimilarity(oldText: String, newText: String): Double {
+        if (oldText.isBlank() || newText.isBlank()) return 0.0
+        val oldWords = oldText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
+        val newWords = newText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
+        if (oldWords.isEmpty() || newWords.isEmpty()) return 0.0
+        
+        val intersection = oldWords.intersect(newWords).size
+        val union = oldWords.union(newWords).size
+        return intersection.toDouble() / union.toDouble()
     }
 
     private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
