@@ -528,7 +528,7 @@ class AntiScrollService : AccessibilityService() {
                             punishUser("com.instagram.android")
                         }
                     } else if (rootNode != null && isRefreshingSpinnerVisible(rootNode) && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
-                        if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000) {
+                        if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Pull-to-Refresh Spinner tespit edildi! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
@@ -541,7 +541,7 @@ class AntiScrollService : AccessibilityService() {
                             
                             if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
                                 if (isTextChangePullToRefresh(lastFeedText, currentText)) {
-                                    if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                    if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
                                         Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
                                         lastFeedChangePunishTime = currentTime
                                         punishUser("com.instagram.android")
@@ -723,17 +723,17 @@ class AntiScrollService : AccessibilityService() {
                         val isNearTop = (event.fromIndex <= 5 || event.toIndex <= 5)
                         
                         if (isNearTop) {
-                            // Uygulama içi büyük bir sayfa değişimi veya ilk açılış üzerinden 4 saniye geçti mi?
-                            if (currentTime - lastInstagramTransitionTime > 4000) {
+                            // Sekme değişimi üzerinden 1.2 saniye geçtiyse en üstte yapılan hareket Pull-to-Refresh'tir!
+                            if (currentTime - lastInstagramTransitionTime > 1200) {
                                 val rootNodeForOverlay = rootInActiveWindow
                                 if (rootNodeForOverlay != null && isVideoEndOverlayPresent(rootNodeForOverlay)) {
                                     Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı! Bu bir yenileme değil, es geçiliyor.")
                                     return
                                 }
-                                Log.d(TAG, "Pull-to-Refresh tespiti (4sn doldu)! Kilitleniyor...")
+                                Log.d(TAG, "Pull-to-Refresh tespiti (1.2sn doldu)! Kilitleniyor...")
                                 // return YAPMIYORUZ, aşağıdaki ceza bloğuna düşmesine izin veriyoruz
                             } else {
-                                Log.d(TAG, "İlk 4 saniye içindeki layout güncellemesi es geçildi.")
+                                Log.d(TAG, "İlk 1.2 saniye içindeki layout güncellemesi es geçildi.")
                                 return
                             }
                         } else {
