@@ -142,10 +142,9 @@ class AntiScrollService : AccessibilityService() {
     private var lastFeedText = ""
     private var lastFeedChangePunishTime: Long = 0L
     private var forceStopClicked = false
-    private var lastSettingsClickTime = 0L
-    
-    private var instagramLaunchTime = 0L
     private var lastInstagramTransitionTime = 0L
+    private var instagramLaunchTime = 0L
+    private var lastUserTouchTime = 0L
     private var lastScreenType = ""
     private var lastScreenCheckTime = 0L
     private var lastAntiCheatTime = 0L
@@ -420,6 +419,12 @@ class AntiScrollService : AccessibilityService() {
         }
 
         if (packageName == "com.instagram.android") {
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || 
+                event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED || 
+                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
+                lastUserTouchTime = currentTime
+            }
+
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 // Kullanıcı hızlıca sekmeler arası gezinirken (Örn: tester gibi spam yaparken)
                 // lastScreenType'ın geride kalmaması (stale state) için, her tıklamada
@@ -513,8 +518,8 @@ class AntiScrollService : AccessibilityService() {
                 lastSignatureCheckTime = currentTime
                 val rootNode = rootInActiveWindow
                 
-                // İlk açılış animasyonlarını es geç (1.5 saniye)
-                if (currentTime - instagramLaunchTime > 1500) {
+                // İlk açılış animasyonlarını ve akış yüklenmesini es geç (4.5 saniye)
+                if (currentTime - instagramLaunchTime > 4500) {
                     if (rootNode != null && isSafeScreen(rootNode)) {
                         // Profil sayfasındaki reels sekmesi gibi güvenli alanları es geç
                     } else if (rootNode != null && (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode))) {
@@ -540,7 +545,8 @@ class AntiScrollService : AccessibilityService() {
                         
                         if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
                             if (isTextChangePullToRefresh(lastFeedText, currentText)) {
-                                if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                // Sadece kullanıcı yakın zamanda dokunma/kaydırma yaptıysa (lastUserTouchTime < 3000) ve launch 4.5sn geçtiyse ceza ver!
+                                if (currentTime - lastUserTouchTime < 3000 && currentTime - lastInstagramTransitionTime > 2000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
                                     Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
                                     lastFeedChangePunishTime = currentTime
                                     punishUser("com.instagram.android")
