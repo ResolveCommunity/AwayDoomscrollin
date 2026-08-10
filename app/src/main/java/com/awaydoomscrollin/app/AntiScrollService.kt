@@ -693,11 +693,16 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                val className = event.className?.toString() ?: ""
-
                 // Sekme geçişi animasyonları (ViewPager) için 1 saniyelik kaydırma toleransı
                 if (currentTime - lastInstagramTransitionTime < 1000) {
                     Log.d(TAG, "Sekme geçiş animasyonu (1sn tolerans). Scroll es geçildi.")
+                    return
+                }
+
+                val rootNode = rootInActiveWindow
+                val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
+                if (isCurrentlySafe || lastScreenType == "SAFE") {
+                    Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
                     return
                 }
 
@@ -710,76 +715,33 @@ class AntiScrollService : AccessibilityService() {
                         return
                     }
 
-                    // Sıfır piksellik sahte dokunma titremelerini yoksay
-                    // Ancak pull-to-refresh genelde sayfanın en üstünde (fromIndex<=5 veya toIndex<=5) yapılır ve delta 0 kalır.
-                    if (deltaY == 0 && deltaX == 0) {
-                        val rootNodeForSafe = rootInActiveWindow
-                        val isCurrentlySafe = rootNodeForSafe != null && isSafeScreen(rootNodeForSafe)
-                        
-                        if (lastScreenType == "SAFE" || isCurrentlySafe) {
-                            Log.d(TAG, "Güvenli ekranda 0-delta kaydırma (Sekme değişimi). İzin verildi.")
+                    // PULL-TO-REFRESH VEYA HERHANGİ BİR DİKEY KAYDIRMA (Ana Sayfa veya Reels ekranında):
+                    if (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") {
+                        val sourceNode = event.source
+                        if (isCommentListView(sourceNode)) {
+                            Log.d(TAG, "Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
                             return
                         }
-                        
-                        val isNearTop = (event.fromIndex <= 5 || event.toIndex <= 5)
-                        
-                        if (isNearTop) {
-                            // Sekme değişimi üzerinden 1.2 saniye geçtiyse en üstte yapılan hareket Pull-to-Refresh'tir!
-                            if (currentTime - lastInstagramTransitionTime > 1200) {
-                                val rootNodeForOverlay = rootInActiveWindow
-                                if (rootNodeForOverlay != null && isVideoEndOverlayPresent(rootNodeForOverlay)) {
-                                    Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı! Bu bir yenileme değil, es geçiliyor.")
-                                    return
-                                }
-                                Log.d(TAG, "Pull-to-Refresh tespiti (1.2sn doldu)! Kilitleniyor...")
-                                // return YAPMIYORUZ, aşağıdaki ceza bloğuna düşmesine izin veriyoruz
-                            } else {
-                                Log.d(TAG, "İlk 1.2 saniye içindeki layout güncellemesi es geçildi.")
-                                return
-                            }
-                        } else {
+                        if (rootNode != null && isVideoEndOverlayPresent(rootNode)) {
+                            Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı. İzin verildi.")
+                            return
+                        }
+                        if (currentTime - lastPunishTime > 3000) {
+                            Log.d(TAG, "Ana sayfada / Reels'te dikey hareket veya Pull-to-Refresh algılandı! Anında kilitleniyor.")
+                            punishUser("com.instagram.android")
                             return
                         }
                     }
-                    Log.d(TAG, "Gerçek dikey kaydırma veya Yenileme algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
-                    if (event.toIndex == -1 || event.toIndex == lastScrollIndex) {
-                        if (!className.contains("Refresh", ignoreCase = true)) return
-                    }
-                    lastScrollIndex = event.toIndex
-                }
-
-                val rootNode = rootInActiveWindow
-                val sourceNode = event.source
-
-                if (isCommentListView(sourceNode)) {
-                    Log.d(TAG, "Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
-                    return
-                }
-
-                if (rootNode != null && (isStrictlyReelsScreen(rootNode) || hasLikeButton(rootNode))) {
-                    if (currentTime - lastPunishTime > 3000) {
-                        Log.d(TAG, "Reels veya Post ekranında (Beğen butonu var) herhangi bir aktivite yakalandı! Anında kilitleniyor.")
-                        punishUser("com.instagram.android")
-                        return
+                    if (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") {
+                        if (currentTime - lastPunishTime > 3000) {
+                            Log.d(TAG, "Ana sayfada / Reels'te dikey hareket algılandı! Anında kilitleniyor.")
+                            punishUser("com.instagram.android")
+                            return
+                        }
                     }
                 }
-
-                val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
-                if (isCurrentlySafe || lastScreenType == "SAFE") {
-                    Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
-                    return
-                }
-
-                val isCurrentlyDangerous = rootNode != null && isDangerousScreen(rootNode)
-                if (!isCurrentlyDangerous && lastScreenType != "HOME_OR_REELS" && lastScreenType != "EXPLORE") {
-                    Log.d(TAG, "Tehlikeli bir ekranda değilsiniz (Örn: Mesajlar DM). Kaydırmaya izin verildi.")
-                    return
-                }
-                
-                if (currentTime - lastPunishTime > 3000) {
-                    punishUser("com.instagram.android")
-                }
+            }
             }
         }
 
