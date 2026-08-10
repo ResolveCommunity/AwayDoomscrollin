@@ -494,7 +494,9 @@ class AntiScrollService : AccessibilityService() {
                 
                 // İlk açılış animasyonlarını es geç (1.5 saniye)
                 if (currentTime - instagramLaunchTime > 1500) {
-                    if (rootNode != null && isStrictlyReelsScreen(rootNode)) {
+                    if (rootNode != null && isSafeScreen(rootNode)) {
+                        // Profil sayfasındaki reels sekmesi gibi güvenli alanları es geç
+                    } else if (rootNode != null && (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode))) {
                         // ZERO TOLERANCE: Anında engelle!
                         if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
                             Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
@@ -622,12 +624,6 @@ class AntiScrollService : AccessibilityService() {
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
                 val className = event.className?.toString() ?: ""
-                
-                if (!className.contains("RecyclerView") && !className.contains("ViewPager") && 
-                    !className.contains("ListView") && !className.contains("ScrollView") && 
-                    !className.contains("SwipeRefreshLayout") && !className.contains("Layout")) {
-                    return
-                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val deltaY = event.scrollDeltaY
@@ -693,12 +689,14 @@ class AntiScrollService : AccessibilityService() {
                     }
                 }
 
-                if (rootNode != null && isSafeScreen(rootNode)) {
+                val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
+                if (isCurrentlySafe || lastScreenType == "SAFE") {
                     Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
                     return
                 }
 
-                if (rootNode != null && !isDangerousScreen(rootNode)) {
+                val isCurrentlyDangerous = rootNode != null && isDangerousScreen(rootNode)
+                if (!isCurrentlyDangerous && lastScreenType != "HOME_OR_REELS" && lastScreenType != "EXPLORE") {
                     Log.d(TAG, "Tehlikeli bir ekranda değilsiniz (Örn: Mesajlar DM). Kaydırmaya izin verildi.")
                     return
                 }
@@ -794,19 +792,15 @@ class AntiScrollService : AccessibilityService() {
             desc.contains("Profili paylaş", ignoreCase = true) ||
             text.contains("Share profile", ignoreCase = true) ||
             desc.contains("Share profile", ignoreCase = true) ||
-            text.contains("takipçi", ignoreCase = true) ||
-            text.contains("followers", ignoreCase = true) ||
-            text.contains("gönderi", ignoreCase = true) ||
-            text.contains("posts", ignoreCase = true) ||
-            desc.contains("Izgara", ignoreCase = true) ||
-            desc.contains("Grid", ignoreCase = true) ||
-            desc.contains("Gönderiler", ignoreCase = true) ||
-            desc.contains("Posts", ignoreCase = true) ||
-            desc.contains("Olduğun fotoğraflar", ignoreCase = true) ||
-            desc.contains("Etiketlendiğin", ignoreCase = true) ||
-            desc.contains("Photos of you", ignoreCase = true) ||
-            desc.contains("Yeniden paylaşılanlar", ignoreCase = true) ||
-            desc.contains("Reposts", ignoreCase = true) ||
+            (desc.contains("Izgara", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Grid", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Gönderiler", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Posts", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Olduğun fotoğraflar", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Etiketlendiğin", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Photos of you", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Yeniden paylaşılanlar", ignoreCase = true) && node.isSelected) ||
+            (desc.contains("Reposts", ignoreCase = true) && node.isSelected) ||
             desc.contains("Geri", ignoreCase = true) ||
             desc.contains("Back", ignoreCase = true) ||
             desc.contains("İptal", ignoreCase = true) ||
@@ -898,6 +892,20 @@ class AntiScrollService : AccessibilityService() {
         val intersection = words1.intersect(words2).size
         val union = words1.union(words2).size
         return intersection.toDouble() / union.toDouble()
+    }
+
+    private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        if ((desc.equals("Reels", ignoreCase = true) || desc.equals("Reels tab", ignoreCase = true)) && node.isSelected) {
+            return true
+        }
+        
+        for (i in 0 until node.childCount) {
+            if (isReelsTabSelected(node.getChild(i))) return true
+        }
+        return false
     }
 
     private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?): Boolean {
