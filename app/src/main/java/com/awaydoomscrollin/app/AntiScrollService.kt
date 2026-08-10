@@ -658,7 +658,15 @@ class AntiScrollService : AccessibilityService() {
                 if (rootNode != null && isExploreScreen(rootNode)) {
                     val clickedClassName = event.className?.toString() ?: ""
                     val isSearchBar = combined.contains("ara") || combined.contains("search") || clickedClassName.contains("EditText")
-                    if (!isSearchBar) {
+                    
+                    // Alt menü ikonlarına (Ana Sayfa, Profil, Reels vs.) tıklanmasına izin ver
+                    val isBottomNav = combined.contains("ana sayfa") || combined.contains("home") || 
+                                      combined.contains("profil") || combined.contains("profile") ||
+                                      combined.contains("reels") || combined.contains("mesajlar") || 
+                                      combined.contains("messages") || combined.contains("kamera") ||
+                                      combined.contains("camera")
+
+                    if (!isSearchBar && !isBottomNav) {
                         if (currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Keşfet sayfasındaki bir videoya/içeriğe tıklandı! Engelleniyor.")
                             punishUser("com.instagram.android")
@@ -670,6 +678,12 @@ class AntiScrollService : AccessibilityService() {
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
                 val className = event.className?.toString() ?: ""
+
+                // Sekme geçişi animasyonları (ViewPager) için 1 saniyelik kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 1000) {
+                    Log.d(TAG, "Sekme geçiş animasyonu (1sn tolerans). Scroll es geçildi.")
+                    return
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val deltaY = event.scrollDeltaY
