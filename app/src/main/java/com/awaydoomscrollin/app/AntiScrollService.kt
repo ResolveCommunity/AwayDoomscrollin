@@ -514,29 +514,29 @@ class AntiScrollService : AccessibilityService() {
                 lastSignatureCheckTime = currentTime
                 val rootNode = rootInActiveWindow
                 
-                // İlk açılış animasyonlarını ve akış yüklenmesini es geç (4.5 saniye)
-                if (currentTime - instagramLaunchTime > 4500) {
-                    if (rootNode != null && isSafeScreen(rootNode)) {
-                        // Profil sayfasındaki reels sekmesi gibi güvenli alanları es geç
-                    } else if (rootNode != null && (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode))) {
-                        // ZERO TOLERANCE: Reels sekmesine girildiği an anında engelle!
+                // SIFIR TOLERANS: İlk açılış dahi olsa Reels/Video açılırsa ANINDA engelle!
+                if (rootNode != null && !isSafeScreen(rootNode)) {
+                    if (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode)) {
                         if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
                             Log.d(TAG, "Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
                             punishUser("com.instagram.android")
                         }
-                    } else if (rootNode != null && hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
+                    } else if (hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
                         if (currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
-                    } else if (rootNode != null && isRefreshingSpinnerVisible(rootNode) && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
+                    } else if (isRefreshingSpinnerVisible(rootNode) && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
                         if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000) {
                             Log.d(TAG, "Pull-to-Refresh Spinner tespit edildi! Anında kilitleniyor.")
                             punishUser("com.instagram.android")
                         }
                     }
-
-                    if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
+                }
+                
+                // Sadece metin bazlı (text-change) kaydırma tespiti için ilk açılışı es geç
+                if (currentTime - instagramLaunchTime > 4500) {
+                    if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") && !isSafeScreen(rootNode)) {
                         val currentText = getFeedAllText(rootNode)
                         
                         if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
@@ -664,7 +664,15 @@ class AntiScrollService : AccessibilityService() {
                     Log.d(TAG, "Geri/Kapat butonuna tıklandı, geçiş grace period sıfırlandı.")
                 }
                 
-                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
+                if (combined == "reels " || combined == " reels" || combined == "reels tab " || combined == "reels sekmesi " || isReelsTabSelected(event.source)) {
+                    if (currentTime - lastPunishTime > 3000) {
+                        Log.d(TAG, "Reels sekmesine tıklandı! Sıfır tolerans ile anında kilitleniyor.")
+                        punishUser("com.instagram.android")
+                        return
+                    }
+                }
+                
+                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile")) {
                     // Android sisteminde bir sekmeye tıklandığında, tıklama eventi fırlatılmadan hemen önce o sekmenin
                     // isSelected değeri 'true' yapılır. Bu yüzden tıklanan ikonun o anki seçili olma durumuna GÜVENEMEYİZ.
                     // Bunun yerine, kullanıcının tıklamadan BİR ÖNCEKİ saniyede hangi ekranda olduğunu tutan 
@@ -837,13 +845,9 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Mesajlar", ignoreCase = true) ||
             text.equals("Messages", ignoreCase = true) ||
             text.equals("Hareketler", ignoreCase = true) ||
-            desc.equals("Hareketler", ignoreCase = true) ||
             text.equals("Bildirimler", ignoreCase = true) ||
-            desc.equals("Bildirimler", ignoreCase = true) ||
             text.equals("Activity", ignoreCase = true) ||
-            desc.equals("Activity", ignoreCase = true) ||
             text.equals("Notifications", ignoreCase = true) ||
-            desc.equals("Notifications", ignoreCase = true) ||
             text.equals("Yorumlar", ignoreCase = true) ||
             text.equals("Comments", ignoreCase = true) ||
             text.equals("Galeri", ignoreCase = true) ||
@@ -945,24 +949,29 @@ class AntiScrollService : AccessibilityService() {
 
     private fun isNotificationsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
         if (node == null || depth > 30) return false
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        val combined = "$text $desc".lowercase()
+        val text = node.text?.toString()?.lowercase() ?: ""
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
 
-        if (combined.contains("hareketler") || 
-            combined.contains("bildirimler") || 
-            combined.contains("activity") || 
-            combined.contains("notifications") ||
-            combined.contains("seni takip etmeye başladı") ||
-            combined.contains("started following you") ||
-            combined.contains("gönderini beğendi") ||
-            combined.contains("liked your post") ||
-            combined.contains("gönderine yorum yaptı") ||
-            combined.contains("commented on your post") ||
-            combined.contains("bu hafta") ||
-            combined.contains("this week") ||
-            combined.contains("bu ay") ||
-            combined.contains("this month")) {
+        // SADECE GÖRÜNÜR YAZIDA (Text) bu başlıklar varsa Bildirimler ekranıdır. 
+        // Butonların "contentDescription" (Açıklama) kısımlarına bakarsak Ana Sayfadaki kalp butonuna da takılır!
+        if (text == "hareketler" || 
+            text == "bildirimler" || 
+            text == "activity" || 
+            text == "notifications") {
+            return true
+        }
+        
+        // Yorumlarda, takiplerde gelen metinleri içeriyorsa güvenli olabilir
+        if (text.contains("seni takip etmeye başladı") ||
+            text.contains("started following you") ||
+            text.contains("gönderini beğendi") ||
+            text.contains("liked your post") ||
+            text.contains("gönderine yorum yaptı") ||
+            text.contains("commented on your post") ||
+            text.contains("bu hafta") ||
+            text.contains("this week") ||
+            text.contains("bu ay") ||
+            text.contains("this month")) {
             return true
         }
 
