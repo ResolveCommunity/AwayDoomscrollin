@@ -421,8 +421,8 @@ class AntiScrollService : AccessibilityService() {
 
         if (packageName == "com.instagram.android") {
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || 
-                event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED || 
-                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
+                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START ||
+                event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_END) {
                 lastUserTouchTime = currentTime
             }
 
@@ -704,6 +704,13 @@ class AntiScrollService : AccessibilityService() {
                 // Sekme geçişi animasyonları (ViewPager) için 500ms kaydırma toleransı
                 if (currentTime - lastInstagramTransitionTime < 500) {
                     Log.d(TAG, "Sekme geçiş animasyonu (500ms tolerans). Scroll es geçildi.")
+                    return
+                }
+
+                // Sadece kullanıcı ekranla dokunmatik etkileşime girdiyse (son 1.5sn içinde dokunduysa) scroll cezasını değerlendir!
+                // Bu sayede Instagram'ın ağdan gelen yeni gönderileri otomatik ekrana yerleştirme scroll'ları sahte ceza vermez!
+                if (currentTime - lastUserTouchTime > 1500) {
+                    Log.d(TAG, "Otomatik sistem scroll'u (Kullanıcı dokunmadı). Es geçildi.")
                     return
                 }
 
