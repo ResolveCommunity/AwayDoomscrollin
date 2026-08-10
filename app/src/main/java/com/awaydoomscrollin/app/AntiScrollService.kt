@@ -433,7 +433,7 @@ class AntiScrollService : AccessibilityService() {
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
                     isAnyReelsOrVideoPlaying(rootNode) || isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
-                    isProfileScreen(rootNode) || isNotificationsScreen(rootNode) -> "SAFE"
+                    isProfileScreen(rootNode) || isNotificationsScreen(rootNode) || isCameraOrCreationScreen(rootNode) -> "SAFE"
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
                     else -> "HOME_OR_REELS" // Instagram'da aksi kanıtlanmadıkça ekran akıştır (Home/Reels)
@@ -736,7 +736,7 @@ class AntiScrollService : AccessibilityService() {
                     return
                 }
 
-                val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
+                val isCurrentlySafe = rootNode != null && (isSafeScreen(rootNode) || isCameraOrCreationScreen(rootNode))
                 if (isCurrentlySafe || lastScreenType == "SAFE") {
                     Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
                     return
@@ -1126,15 +1126,34 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
-    private fun isAnyReelsOrVideoPlaying(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+    private fun isCameraOrCreationScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
         if (node == null || depth > 30) return false
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
         
-        // Kamera önizleme ekranındaysak kamera TextureView'ını Reels sanma!
-        if (viewId.contains("camera") || viewId.contains("cam_") || viewId.contains("creation_main") || viewId.contains("post_capture")) {
+        if (viewId.contains("camera") || viewId.contains("cam_") || viewId.contains("creation_main") || viewId.contains("post_capture") || viewId.contains("gallery_container")) {
+            return true
+        }
+        
+        if (desc.contains("Reels kamerası", ignoreCase = true) || desc.contains("Reels camera", ignoreCase = true)) {
+            return true
+        }
+
+        for (i in 0 until node.childCount) {
+            if (isCameraOrCreationScreen(node.getChild(i), depth + 1)) return true
+        }
+        return false
+    }
+
+    private fun isAnyReelsOrVideoPlaying(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
+        
+        if (depth == 0 && isCameraOrCreationScreen(node)) {
             return false
         }
+        
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
 
         if (viewId.contains("clips_viewer") || 
             viewId.contains("clips_video_container") || 
@@ -1145,9 +1164,7 @@ class AntiScrollService : AccessibilityService() {
             return true
         }
 
-        if (desc.contains("Reels kamerası", ignoreCase = true) || 
-            desc.contains("Reels camera", ignoreCase = true) ||
-            desc.contains("Orijinal ses", ignoreCase = true) ||
+        if (desc.contains("Orijinal ses", ignoreCase = true) ||
             desc.contains("Original audio", ignoreCase = true) ||
             desc.contains("Ses kullan", ignoreCase = true) ||
             desc.contains("Use audio", ignoreCase = true) ||
