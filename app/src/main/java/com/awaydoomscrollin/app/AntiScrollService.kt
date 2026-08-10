@@ -145,7 +145,6 @@ class AntiScrollService : AccessibilityService() {
     private var lastSettingsClickTime = 0L
     private var lastInstagramTransitionTime = 0L
     private var instagramLaunchTime = 0L
-    private var lastUserTouchTime = 0L
     private var lastScreenType = ""
     private var lastScreenCheckTime = 0L
     private var lastAntiCheatTime = 0L
