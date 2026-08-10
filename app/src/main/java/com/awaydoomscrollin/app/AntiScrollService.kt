@@ -433,7 +433,7 @@ class AntiScrollService : AccessibilityService() {
                 
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
-                    isProfileScreen(rootNode) -> "SAFE"
+                    isProfileScreen(rootNode) || isNotificationsScreen(rootNode) -> "SAFE"
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
                     isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
@@ -815,6 +815,7 @@ class AntiScrollService : AccessibilityService() {
     private fun isSafeScreen(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
         if (!node.isVisibleToUser) return false
+        if (isNotificationsScreen(node)) return true
         
         val text = node.text?.toString() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
@@ -930,6 +931,35 @@ class AntiScrollService : AccessibilityService() {
         }
         for (i in 0 until node.childCount) {
             if (isHomeScreenActive(node.getChild(i), depth + 1)) return true
+        }
+        return false
+    }
+
+    private fun isNotificationsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        val combined = "$text $desc".lowercase()
+
+        if (combined.contains("hareketler") || 
+            combined.contains("bildirimler") || 
+            combined.contains("activity") || 
+            combined.contains("notifications") ||
+            combined.contains("seni takip etmeye başladı") ||
+            combined.contains("started following you") ||
+            combined.contains("gönderini beğendi") ||
+            combined.contains("liked your post") ||
+            combined.contains("gönderine yorum yaptı") ||
+            combined.contains("commented on your post") ||
+            combined.contains("bu hafta") ||
+            combined.contains("this week") ||
+            combined.contains("bu ay") ||
+            combined.contains("this month")) {
+            return true
+        }
+
+        for (i in 0 until node.childCount) {
+            if (isNotificationsScreen(node.getChild(i), depth + 1)) return true
         }
         return false
     }
