@@ -524,11 +524,11 @@ class AntiScrollService : AccessibilityService() {
                             
                             if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
                                 val similarity = calculateTextSimilarity(lastFeedText, currentText)
-                                // %30'dan daha az benzerlik varsa içerik TAMAMEN değişmiş demektir (Yeni gönderiler geldi).
-                                // Saat güncellemeleri veya beğeni artışları benzerliği %90'larda tutar.
-                                if (similarity < 0.3) {
+                                // %80'den daha az benzerlik varsa içerik değişmiş demektir (Yeni gönderiler geldi).
+                                // Saat güncellemeleri veya beğeni artışları benzerliği %85-95 arasında tutar.
+                                if (similarity < 0.80) {
                                     if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                        Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
+                                        Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity < 0.80). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
                                         lastFeedChangePunishTime = currentTime
                                         punishUser("com.instagram.android")
                                     }
