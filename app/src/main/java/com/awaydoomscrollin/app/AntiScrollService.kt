@@ -433,7 +433,7 @@ class AntiScrollService : AccessibilityService() {
                 
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
-                    isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
+                    isAnyReelsOrVideoPlaying(rootNode) || isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isProfileScreen(rootNode) || isNotificationsScreen(rootNode) -> "SAFE"
                     isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
@@ -658,12 +658,9 @@ class AntiScrollService : AccessibilityService() {
                                     nodeDesc.contains("geri", ignoreCase = true) ||
                                     nodeDesc.contains("back", ignoreCase = true)
 
-                val rootNodeClick = rootInActiveWindow
-                val isCurrentlySafeClick = rootNodeClick != null && isSafeScreen(rootNodeClick)
-
-                if (isCloseOrBack || isCurrentlySafeClick) {
+                if (isCloseOrBack) {
                     lastInstagramTransitionTime = currentTime
-                    Log.d(TAG, "Güvenli ekranda veya Kapat/Geri butonuna tıklandı, geçiş grace period sıfırlandı.")
+                    Log.d(TAG, "Geri/Kapat butonuna tıklandı, geçiş grace period sıfırlandı.")
                 }
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
@@ -1114,6 +1111,45 @@ class AntiScrollService : AccessibilityService() {
         
         for (i in 0 until node.childCount) {
             if (isReelsTabSelected(node.getChild(i), depth + 1)) return true
+        }
+        return false
+    }
+
+    private fun isAnyReelsOrVideoPlaying(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
+        val className = node.className?.toString() ?: ""
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        
+        if (className.contains("TextureView") || 
+            className.contains("SurfaceView") || 
+            className.contains("VideoView") || 
+            className.contains("PlayerView") ||
+            viewId.contains("clips_viewer") || 
+            viewId.contains("clips_video_container") || 
+            viewId.contains("reels_video_view") || 
+            viewId.contains("clips_item_view") ||
+            viewId.contains("clips_swipe_refresh_container") ||
+            viewId.contains("video_player") ||
+            viewId.contains("feed_item_video")) {
+            return true
+        }
+
+        if (desc.contains("Reels kamerası", ignoreCase = true) || 
+            desc.contains("Reels camera", ignoreCase = true) ||
+            desc.contains("Orijinal ses", ignoreCase = true) ||
+            desc.contains("Original audio", ignoreCase = true) ||
+            desc.contains("Ses kullan", ignoreCase = true) ||
+            desc.contains("Use audio", ignoreCase = true) ||
+            desc.contains("Remiksle", ignoreCase = true) ||
+            desc.contains("Remix", ignoreCase = true) ||
+            desc.contains("Yeniden paylaştı", ignoreCase = true) ||
+            desc.contains("Reposted by", ignoreCase = true)) {
+            return true
+        }
+        
+        for (i in 0 until node.childCount) {
+            if (isAnyReelsOrVideoPlaying(node.getChild(i), depth + 1)) return true
         }
         return false
     }
