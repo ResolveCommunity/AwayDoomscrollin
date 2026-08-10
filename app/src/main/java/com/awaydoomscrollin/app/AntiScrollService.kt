@@ -1154,18 +1154,21 @@ class AntiScrollService : AccessibilityService() {
         }
 
         // 3. UYGULAMA AYARLAR SAYFASINI AÇ (DURMAYA ZORLA İÇİN)
-        try {
-            val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", targetPackageName, null)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
-                        Intent.FLAG_ACTIVITY_CLEAR_TASK or 
-                        Intent.FLAG_ACTIVITY_NO_ANIMATION
+        // ClearTaskActivity'nin bitmesi için küçük bir gecikme ekliyoruz (Race condition engellemek için)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
+                val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", targetPackageName, null)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK or 
+                            Intent.FLAG_ACTIVITY_NO_ANIMATION
+                }
+                startActivity(settingsIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Ayarlar sayfası açılırken hata", e)
+                performGlobalAction(GLOBAL_ACTION_HOME)
             }
-            startActivity(settingsIntent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Ayarlar sayfası açılırken hata", e)
-            performGlobalAction(GLOBAL_ACTION_HOME)
-        }
+        }, 150)
 
         // --- BACK-END GAMIFICATION INTEGRATION ---
         val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
