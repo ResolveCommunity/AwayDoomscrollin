@@ -827,6 +827,14 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Requests", ignoreCase = true) ||
             text.equals("Mesajlar", ignoreCase = true) ||
             text.equals("Messages", ignoreCase = true) ||
+            text.equals("Hareketler", ignoreCase = true) ||
+            desc.equals("Hareketler", ignoreCase = true) ||
+            text.equals("Bildirimler", ignoreCase = true) ||
+            desc.equals("Bildirimler", ignoreCase = true) ||
+            text.equals("Activity", ignoreCase = true) ||
+            desc.equals("Activity", ignoreCase = true) ||
+            text.equals("Notifications", ignoreCase = true) ||
+            desc.equals("Notifications", ignoreCase = true) ||
             text.equals("Yorumlar", ignoreCase = true) ||
             text.equals("Comments", ignoreCase = true) ||
             text.equals("Galeri", ignoreCase = true) ||
