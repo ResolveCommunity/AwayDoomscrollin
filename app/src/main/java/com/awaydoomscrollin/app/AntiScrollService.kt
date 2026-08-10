@@ -441,7 +441,9 @@ class AntiScrollService : AccessibilityService() {
                 }
 
                 if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
-                    lastInstagramTransitionTime = currentTime
+                    if (rootNode == null || !isAnyReelsOrVideoPlaying(rootNode)) {
+                        lastInstagramTransitionTime = currentTime
+                    }
                     lastScreenType = currentScreenType
                     Log.d(TAG, "Ekran türü değişti: $lastScreenType. Grace period sıfırlandı.")
                 }
@@ -712,6 +714,17 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+                val rootNode = rootInActiveWindow
+
+                // Reels / Repost videosu oynatılırken kaydırma yapılırsa ANINDA CEZA VER! (Tolerans bekleme)
+                if (rootNode != null && isAnyReelsOrVideoPlaying(rootNode)) {
+                    if (currentTime - lastPunishTime > 3000) {
+                        Log.d(TAG, "Reels / Repost videosunda kaydırma yapıldı! Anında kilitleniyor.")
+                        punishUser("com.instagram.android")
+                        return
+                    }
+                }
+
                 // İlk açılış ve akış yükleme animasyonları (3.5 saniye) için tolerans
                 if (currentTime - instagramLaunchTime < 3500) {
                     Log.d(TAG, "Açılış/yükleme scroll'u (3.5sn tolerans). Es geçildi.")
