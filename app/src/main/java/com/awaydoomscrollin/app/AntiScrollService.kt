@@ -638,28 +638,20 @@ class AntiScrollService : AccessibilityService() {
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
-                    val clickedNode = event.source
-                    // KULLANICI TÜYOSU: Ana sayfa logosu ana sayfadayken seçili (beyaz/aktif) durumdadır.
-                    // Eğer ikon zaten seçiliyse ve kullanıcı tekrar tıklarsa bu sayfayı yeniler!
-                    if (clickedNode != null && clickedNode.isSelected) {
+                    // Android sisteminde bir sekmeye tıklandığında, tıklama eventi fırlatılmadan hemen önce o sekmenin
+                    // isSelected değeri 'true' yapılır. Bu yüzden tıklanan ikonun o anki seçili olma durumuna GÜVENEMEYİZ.
+                    // Bunun yerine, kullanıcının tıklamadan BİR ÖNCEKİ saniyede hangi ekranda olduğunu tutan 
+                    // 'lastScreenType' değişkenine bakıyoruz.
+                    // Eğer kullanıcı zaten "HOME_OR_REELS" ekranındayken tekrar ana sayfa butonuna tıkladıysa, 
+                    // bu %100 sayfayı yenilemek (pull-to-refresh) demektir!
+                    if (lastScreenType == "HOME_OR_REELS") {
                         if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Ana sayfa butonuna tekrar tıklandı (İkon seçiliydi)! Pull-to-refresh tetiklendi.")
+                            Log.d(TAG, "Zaten ana sayfadayken ana sayfa butonuna tıklandı! Pull-to-refresh tetiklendi.")
                             punishUser("com.instagram.android")
                             return
                         }
-                    } else if (clickedNode == null) {
-                        // Node null gelirse eski fall-back mantığı (Nadir)
-                        val rootNode = rootInActiveWindow
-                        val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
-                        if (rootNode != null && isDangerousScreen(rootNode) && !isCurrentlySafe && lastScreenType != "SAFE") {
-                            if (currentTime - lastPunishTime > 3000) {
-                                Log.d(TAG, "Refresh açığı (Click fall-back) yakalandı!")
-                                punishUser("com.instagram.android")
-                                return
-                            }
-                        }
                     } else {
-                        Log.d(TAG, "Ana sayfa butonuna tıklandı ancak ikon seçili değildi (Başka sayfadan gelindi). İzin verildi.")
+                        Log.d(TAG, "Başka bir sayfadan (Örn: Profil) ana sayfaya geçiş için tıklandı. İzin verildi.")
                     }
                 }
                 
