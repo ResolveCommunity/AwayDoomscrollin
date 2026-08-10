@@ -701,9 +701,9 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                // Sekme geçişi animasyonları (ViewPager) için 1 saniyelik kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 1000) {
-                    Log.d(TAG, "Sekme geçiş animasyonu (1sn tolerans). Scroll es geçildi.")
+                // Sekme geçişi ve açılış animasyonları (ViewPager) için 2.5 saniyelik kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 2500) {
+                    Log.d(TAG, "Sekme geçiş animasyonu (2.5sn tolerans). Scroll es geçildi.")
                     return
                 }
 
