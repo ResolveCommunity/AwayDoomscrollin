@@ -425,8 +425,10 @@ class AntiScrollService : AccessibilityService() {
                 
                 val currentScreenType = when {
                     rootNode == null -> lastScreenType
-                    isSafeScreen(rootNode) -> "SAFE"
+                    isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
+                    isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
                     isExploreScreen(rootNode) -> "EXPLORE"
+                    isSafeScreen(rootNode) -> "SAFE"
                     isDangerousScreen(rootNode) -> "HOME_OR_REELS"
                     else -> "UNKNOWN"
                 }
@@ -636,14 +638,28 @@ class AntiScrollService : AccessibilityService() {
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
-                    val rootNode = rootInActiveWindow
-                    val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
-                    if (rootNode != null && isDangerousScreen(rootNode) && !isCurrentlySafe && lastScreenType != "SAFE") {
+                    val clickedNode = event.source
+                    // KULLANICI TÜYOSU: Ana sayfa logosu ana sayfadayken seçili (beyaz/aktif) durumdadır.
+                    // Eğer ikon zaten seçiliyse ve kullanıcı tekrar tıklarsa bu sayfayı yeniler!
+                    if (clickedNode != null && clickedNode.isSelected) {
                         if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Refresh açığı (Click) yakalandı!")
+                            Log.d(TAG, "Ana sayfa butonuna tekrar tıklandı (İkon seçiliydi)! Pull-to-refresh tetiklendi.")
                             punishUser("com.instagram.android")
                             return
                         }
+                    } else if (clickedNode == null) {
+                        // Node null gelirse eski fall-back mantığı (Nadir)
+                        val rootNode = rootInActiveWindow
+                        val isCurrentlySafe = rootNode != null && isSafeScreen(rootNode)
+                        if (rootNode != null && isDangerousScreen(rootNode) && !isCurrentlySafe && lastScreenType != "SAFE") {
+                            if (currentTime - lastPunishTime > 3000) {
+                                Log.d(TAG, "Refresh açığı (Click fall-back) yakalandı!")
+                                punishUser("com.instagram.android")
+                                return
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "Ana sayfa butonuna tıklandı ancak ikon seçili değildi (Başka sayfadan gelindi). İzin verildi.")
                     }
                 }
                 
@@ -902,19 +918,27 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
+    private fun isHomeScreenActive(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val desc = node.contentDescription?.toString() ?: ""
+        if ((desc.equals("Ana Sayfa", ignoreCase = true) || desc.equals("Home", ignoreCase = true)) && node.isSelected) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            if (isHomeScreenActive(node.getChild(i))) return true
+        }
+        return false
+    }
+
     private fun isDangerousScreen(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
         if (!node.isVisibleToUser) return false
 
         val desc = node.contentDescription?.toString() ?: ""
         
-        if (desc.contains("Ana Sayfa", ignoreCase = true) ||
-            desc.contains("Home", ignoreCase = true) ||
-            desc.contains("Ara ve Keşfet", ignoreCase = true) ||
-            desc.contains("Search and explore", ignoreCase = true) ||
-            desc.contains("Reels", ignoreCase = true) ||
-            desc.contains("Instagram", ignoreCase = true) ||
-            desc.contains("Beğen", ignoreCase = true) ||
+        // Sadece akış içerisindeki gönderilere ait butonları tehlikeli sayıyoruz.
+        // Sekme isimlerini (Ana Sayfa, Reels) çıkardık çünkü onlar her sayfada (profil dahil) her zaman görünüyor.
+        if (desc.contains("Beğen", ignoreCase = true) ||
             desc.contains("Like", ignoreCase = true) ||
             desc.contains("Kaydet", ignoreCase = true) ||
             desc.contains("Save", ignoreCase = true) ||
