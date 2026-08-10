@@ -532,18 +532,11 @@ class AntiScrollService : AccessibilityService() {
                             val currentText = getFeedAllText(mainRv)
                             
                             if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
-                                val oldWords = lastFeedText.split("\\s+".toRegex()).filter { it.length > 2 }
-                                // Eğer 10 kelimeden az ise, muhtemelen iskelet/yükleme ekranıydı (shimmer). Atla.
-                                if (oldWords.size > 10) {
-                                    val similarity = calculateTextSimilarity(lastFeedText, currentText)
-                                    // %80'den daha az benzerlik varsa içerik değişmiş demektir (Yeni gönderiler geldi).
-                                    // Saat güncellemeleri veya beğeni artışları benzerliği %85-95 arasında tutar.
-                                    if (similarity < 0.80) {
-                                        if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                            Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity < 0.80). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
-                                            lastFeedChangePunishTime = currentTime
-                                            punishUser("com.instagram.android")
-                                        }
+                                if (isTextChangePullToRefresh(lastFeedText, currentText)) {
+                                    if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                        Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
+                                        lastFeedChangePunishTime = currentTime
+                                        punishUser("com.instagram.android")
                                     }
                                 }
                             }
@@ -998,15 +991,31 @@ class AntiScrollService : AccessibilityService() {
         return textStr
     }
 
-    private fun calculateTextSimilarity(oldText: String, newText: String): Double {
-        if (oldText.isBlank() || newText.isBlank()) return 0.0
+    private fun isTextChangePullToRefresh(oldText: String, newText: String): Boolean {
+        if (oldText.isBlank() || newText.isBlank()) return false
         val oldWords = oldText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
         val newWords = newText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 }.toSet()
-        if (oldWords.isEmpty() || newWords.isEmpty()) return 0.0
+        if (oldWords.isEmpty() || newWords.isEmpty()) return false
         
         val intersection = oldWords.intersect(newWords).size
         val union = oldWords.union(newWords).size
-        return intersection.toDouble() / union.toDouble()
+        val similarity = intersection.toDouble() / union.toDouble()
+        
+        // Eğer benzerlik yüksekse zaten refresh değildir (Örn: Sadece saniye/beğeni değiştiyse)
+        if (similarity >= 0.80) return false
+        
+        // Eski kelime sayısı çok azsa güvenilir değildir (Örn: Shimmer/iskelet yükleme ekranı)
+        if (oldWords.size <= 10) return false
+        
+        // Subset (Alt küme) kontrolü:
+        // Eğer yeni ekrandaki kelimelerin çoğu (%80'i veya daha fazlası) zaten eski ekranda varsa,
+        // bu yeni bir post gelmesi (refresh) değil, muhtemelen videonun tam ekran olmasıyla UI elemanlarının gizlenmesi durumudur.
+        val subsetRatio = intersection.toDouble() / newWords.size.toDouble()
+        if (subsetRatio >= 0.80) {
+            return false // Sadece kelimeler azaldı/gizlendi, ekrana yepyeni kelimeler girmedi.
+        }
+        
+        return true
     }
 
     private fun isReelsTabSelected(node: AccessibilityNodeInfo?): Boolean {
