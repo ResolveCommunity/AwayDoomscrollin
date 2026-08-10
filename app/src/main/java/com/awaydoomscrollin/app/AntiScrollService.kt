@@ -410,11 +410,11 @@ class AntiScrollService : AccessibilityService() {
         val currentTime = System.currentTimeMillis()
         val rootNode = rootInActiveWindow
 
-        if (packageName != currentTargetPackage && packageName.isNotEmpty()) {
-            if (packageName == "com.instagram.android") {
+        if (packageName != currentTargetPackage && packageName.isNotEmpty() && !isSystemPackage(packageName)) {
+            if (packageName == "com.instagram.android" && currentTargetPackage != "com.instagram.android") {
                 lastInstagramTransitionTime = currentTime
                 lastFeedText = ""
-                Log.d(TAG, "Instagram ön plana geldi, grace period sıfırlandı.")
+                Log.d(TAG, "Instagram gerçekten ön plana geldi, grace period sıfırlandı.")
             }
             currentTargetPackage = packageName
         }
@@ -701,9 +701,9 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                // Sekme geçişi ve açılış animasyonları (ViewPager) için 2.5 saniyelik kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 2500) {
-                    Log.d(TAG, "Sekme geçiş animasyonu (2.5sn tolerans). Scroll es geçildi.")
+                // Sekme geçişi animasyonları (ViewPager) için 500ms kaydırma toleransı
+                if (currentTime - lastInstagramTransitionTime < 500) {
+                    Log.d(TAG, "Sekme geçiş animasyonu (500ms tolerans). Scroll es geçildi.")
                     return
                 }
 
@@ -1446,5 +1446,13 @@ class AntiScrollService : AccessibilityService() {
                (nodes2 != null && nodes2.isNotEmpty()) ||
                (nodes3 != null && nodes3.isNotEmpty()) ||
                (nodes4 != null && nodes4.isNotEmpty())
+    }
+
+    private fun isSystemPackage(pkgName: String): Boolean {
+        return pkgName == "com.android.systemui" || 
+               pkgName == "android" || 
+               pkgName.startsWith("com.samsung.android.") || 
+               pkgName.startsWith("com.sec.android.") ||
+               pkgName.contains("inputmethod")
     }
 }
