@@ -1129,20 +1129,19 @@ class AntiScrollService : AccessibilityService() {
 
     private fun isAnyReelsOrVideoPlaying(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
         if (node == null || depth > 30) return false
-        val className = node.className?.toString() ?: ""
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
         
-        if (className.contains("TextureView") || 
-            className.contains("SurfaceView") || 
-            className.contains("VideoView") || 
-            className.contains("PlayerView") ||
-            viewId.contains("clips_viewer") || 
+        // Kamera önizleme ekranındaysak kamera TextureView'ını Reels sanma!
+        if (viewId.contains("camera") || viewId.contains("cam_") || viewId.contains("creation_main") || viewId.contains("post_capture")) {
+            return false
+        }
+
+        if (viewId.contains("clips_viewer") || 
             viewId.contains("clips_video_container") || 
             viewId.contains("reels_video_view") || 
             viewId.contains("clips_item_view") ||
             viewId.contains("clips_swipe_refresh_container") ||
-            viewId.contains("video_player") ||
             viewId.contains("feed_item_video")) {
             return true
         }
