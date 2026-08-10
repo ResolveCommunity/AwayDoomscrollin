@@ -420,7 +420,15 @@ class AntiScrollService : AccessibilityService() {
         }
 
         if (packageName == "com.instagram.android") {
-            if (currentTime - lastScreenCheckTime > 500) {
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                // Kullanıcı hızlıca sekmeler arası gezinirken (Örn: tester gibi spam yaparken)
+                // lastScreenType'ın geride kalmaması (stale state) için, her tıklamada
+                // veya pencere değişiminde zamanlayıcıyı sıfırlıyoruz. Böylece bir sonraki 
+                // event'te anında güncel ekran tespit edilecek!
+                lastScreenCheckTime = 0L
+            }
+
+            if (currentTime - lastScreenCheckTime > 200) {
                 lastScreenCheckTime = currentTime
                 
                 val currentScreenType = when {
