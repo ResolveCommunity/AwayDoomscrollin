@@ -470,7 +470,7 @@ class AntiScrollService : AccessibilityService() {
 
         // Paket değişimlerini takip et
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (packageName == "com.instagram.android") {
+            if (packageName == "com.instagram.android" && packageName != lastPackage) {
                 lastInstagramTransitionTime = System.currentTimeMillis()
             }
             if (packageName != lastPackage) {
