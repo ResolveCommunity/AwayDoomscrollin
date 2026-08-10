@@ -548,7 +548,11 @@ class AntiScrollService : AccessibilityService() {
                                     }
                                 }
                             }
-                            if (currentText.isNotEmpty()) {
+                            
+                            // SADECE ve SADECE ekranda gerçek bir akış varken (skeleton/yükleme ekranı değilken) lastFeedText'i güncelle!
+                            val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored")
+                            val validWords = currentText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }
+                            if (validWords.size > 5) {
                                 lastFeedText = currentText
                             }
                         }
