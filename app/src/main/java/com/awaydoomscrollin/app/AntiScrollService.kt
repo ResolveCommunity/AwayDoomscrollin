@@ -410,6 +410,15 @@ class AntiScrollService : AccessibilityService() {
         val currentTime = System.currentTimeMillis()
         val rootNode = rootInActiveWindow
 
+        if (packageName != currentTargetPackage && packageName.isNotEmpty()) {
+            if (packageName == "com.instagram.android") {
+                lastInstagramTransitionTime = currentTime
+                lastFeedText = ""
+                Log.d(TAG, "Instagram ön plana geldi, grace period sıfırlandı.")
+            }
+            currentTargetPackage = packageName
+        }
+
         if (packageName == "com.instagram.android") {
             if (currentTime - lastScreenCheckTime > 500) {
                 lastScreenCheckTime = currentTime
@@ -523,14 +532,18 @@ class AntiScrollService : AccessibilityService() {
                             val currentText = getFeedAllText(mainRv)
                             
                             if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
-                                val similarity = calculateTextSimilarity(lastFeedText, currentText)
-                                // %80'den daha az benzerlik varsa içerik değişmiş demektir (Yeni gönderiler geldi).
-                                // Saat güncellemeleri veya beğeni artışları benzerliği %85-95 arasında tutar.
-                                if (similarity < 0.80) {
-                                    if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                        Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity < 0.80). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
-                                        lastFeedChangePunishTime = currentTime
-                                        punishUser("com.instagram.android")
+                                val oldWords = lastFeedText.split("\\s+".toRegex()).filter { it.length > 2 }
+                                // Eğer 10 kelimeden az ise, muhtemelen iskelet/yükleme ekranıydı (shimmer). Atla.
+                                if (oldWords.size > 10) {
+                                    val similarity = calculateTextSimilarity(lastFeedText, currentText)
+                                    // %80'den daha az benzerlik varsa içerik değişmiş demektir (Yeni gönderiler geldi).
+                                    // Saat güncellemeleri veya beğeni artışları benzerliği %85-95 arasında tutar.
+                                    if (similarity < 0.80) {
+                                        if (currentTime - lastInstagramTransitionTime > 4000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
+                                            Log.d(TAG, "Ana akış içeriği değişti (Benzerlik: $similarity < 0.80). Sessiz Scroll veya Pull-to-Refresh! Anında kilitleniyor.")
+                                            lastFeedChangePunishTime = currentTime
+                                            punishUser("com.instagram.android")
+                                        }
                                     }
                                 }
                             }
