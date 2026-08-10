@@ -142,6 +142,7 @@ class AntiScrollService : AccessibilityService() {
     private var lastFeedText = ""
     private var lastFeedChangePunishTime: Long = 0L
     private var forceStopClicked = false
+    private var lastSettingsClickTime = 0L
     private var lastInstagramTransitionTime = 0L
     private var instagramLaunchTime = 0L
     private var lastUserTouchTime = 0L
