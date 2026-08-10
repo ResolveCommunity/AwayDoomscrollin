@@ -730,7 +730,7 @@ class AntiScrollService : AccessibilityService() {
                             Log.d(TAG, "Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
                             return
                         }
-                        if (rootNode != null && isVideoEndOverlayPresent(rootNode)) {
+                        if (lastScreenType != "EXPLORE" && rootNode != null && isVideoEndOverlayPresent(rootNode)) {
                             Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı. İzin verildi.")
                             return
                         }
@@ -1143,8 +1143,6 @@ class AntiScrollService : AccessibilityService() {
 
         if (combined.contains("tekrar izle") || 
             combined.contains("watch again") || 
-            combined.contains("daha fazla") || 
-            combined.contains("watch more") || 
             combined.contains("izlemeye devam et") || 
             combined.contains("keep watching")) {
             return true
