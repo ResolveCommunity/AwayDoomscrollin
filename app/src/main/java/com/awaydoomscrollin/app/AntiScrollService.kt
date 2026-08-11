@@ -138,20 +138,14 @@ class AntiScrollService : AccessibilityService() {
     private var lastPunishTime = 0L
     private var punishStartTime = 0L
     private var lastHomeActionTime = 0L
-
-    private var lastFeedText = ""
-    private var lastFeedChangePunishTime: Long = 0L
     private var forceStopClicked = false
     private var lastSettingsClickTime = 0L
-    private var lastInstagramTransitionTime = 0L
+    
     private var instagramLaunchTime = 0L
-    private var lastScreenType = ""
-    private var lastScreenCheckTime = 0L
     private var lastAntiCheatTime = 0L
     private var lastScrollIndex = -1
     private var lastPackage = ""
     private var serviceStartTime = 0L
-
     private var lastReelsSignature = ""
     private var lastSignatureCheckTime = 0L
 
@@ -360,8 +354,8 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
-    private fun findDialogConfirmNodeInTree(node: AccessibilityNodeInfo?, depth: Int = 0): AccessibilityNodeInfo? {
-        if (node == null || depth > 30) return null
+    private fun findDialogConfirmNodeInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (node == null) return null
 
         val text = node.text?.toString()?.trim() ?: ""
         val desc = node.contentDescription?.toString()?.trim() ?: ""
@@ -396,7 +390,7 @@ class AntiScrollService : AccessibilityService() {
         }
 
         for (i in 0 until node.childCount) {
-            val result = findDialogConfirmNodeInTree(node.getChild(i), depth + 1)
+            val result = findDialogConfirmNodeInTree(node.getChild(i))
             if (result != null) return result
         }
         return null
@@ -407,48 +401,6 @@ class AntiScrollService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
         val currentTime = System.currentTimeMillis()
-        val rootNode = rootInActiveWindow
-
-        if (packageName != currentTargetPackage && packageName.isNotEmpty() && !isSystemPackage(packageName)) {
-            if (packageName == "com.instagram.android" && currentTargetPackage != "com.instagram.android") {
-                lastInstagramTransitionTime = currentTime
-                lastFeedText = ""
-                Log.d(TAG, "Instagram gerçekten ön plana geldi, grace period sıfırlandı.")
-            }
-            currentTargetPackage = packageName
-        }
-
-        if (packageName == "com.instagram.android") {
-            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                // Kullanıcı hızlıca sekmeler arası gezinirken (Örn: tester gibi spam yaparken)
-                // lastScreenType'ın geride kalmaması (stale state) için, her tıklamada
-                // veya pencere değişiminde zamanlayıcıyı sıfırlıyoruz. Böylece bir sonraki 
-                // event'te anında güncel ekran tespit edilecek!
-                lastScreenCheckTime = 0L
-            }
-
-            if (currentTime - lastScreenCheckTime > 200) {
-                lastScreenCheckTime = currentTime
-                
-                val currentScreenType = when {
-                    rootNode == null -> lastScreenType
-                    isAnyReelsOrVideoPlaying(rootNode) || isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode) -> "HOME_OR_REELS"
-                    isProfileScreen(rootNode) || isNotificationsScreen(rootNode) || isCameraOrCreationScreen(rootNode) -> "SAFE"
-                    isHomeScreenActive(rootNode) -> "HOME_OR_REELS"
-                    isExploreScreen(rootNode) -> "EXPLORE"
-                    else -> "HOME_OR_REELS" // Instagram'da aksi kanıtlanmadıkça ekran akıştır (Home/Reels)
-                }
-
-                if (currentScreenType != lastScreenType && currentScreenType != "UNKNOWN") {
-                    if (rootNode == null || !isAnyReelsOrVideoPlaying(rootNode)) {
-                        lastInstagramTransitionTime = currentTime
-                    }
-                    lastScreenType = currentScreenType
-                    Log.d(TAG, "Ekran türü değişti: $lastScreenType. Grace period sıfırlandı.")
-                }
-            }
-        }
-
 
         // 0. ANINDA ANA EKRAN KONTROLÜ: Eğer kullanıcı veya sistem Ana Ekrana (Launcher) geldiyse, ceza modunu anında sonlandır!
         if (isLauncherPackage(packageName)) {
@@ -472,9 +424,6 @@ class AntiScrollService : AccessibilityService() {
 
         // Paket değişimlerini takip et
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (packageName == "com.instagram.android" && packageName != lastPackage) {
-                lastInstagramTransitionTime = System.currentTimeMillis()
-            }
             if (packageName != lastPackage) {
                 lastScrollIndex = -1
                 
@@ -514,50 +463,15 @@ class AntiScrollService : AccessibilityService() {
                 lastSignatureCheckTime = currentTime
                 val rootNode = rootInActiveWindow
                 
-                // SIFIR TOLERANS: İlk açılış dahi olsa Reels/Video açılırsa ANINDA engelle!
-                if (rootNode != null && !isSafeScreen(rootNode)) {
-                    if (isStrictlyReelsScreen(rootNode) || isReelsTabSelected(rootNode)) {
+                // İlk açılış animasyonlarını es geç (1.5 saniye)
+                if (currentTime - instagramLaunchTime > 1500) {
+                    if (rootNode != null && isStrictlyReelsScreen(rootNode) && !isSafeScreen(rootNode)) {
+                        // Kullanıcı Ana Sayfadan yatay kaydırarak (swipe) Reels sekmesine girdi!
+                        // ZERO TOLERANCE: Anında engelle!
                         if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
-                            Log.d(TAG, "Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
+                            Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
                             punishUser("com.instagram.android")
                         }
-                    } else if (hasLikeButton(rootNode) && isVideoViewer(rootNode) && hasBackButton(rootNode)) {
-                        if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Profil/Keşfet üzerinden Video Oynatıcı açıldı! Anında kilitleniyor.")
-                            punishUser("com.instagram.android")
-                        }
-                    } else if (isRefreshingSpinnerVisible(rootNode) && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE")) {
-                        if (currentTime - lastInstagramTransitionTime > 1200 && currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Pull-to-Refresh Spinner tespit edildi! Anında kilitleniyor.")
-                            punishUser("com.instagram.android")
-                        }
-                    }
-                }
-                
-                // Sadece metin bazlı (text-change) kaydırma tespiti için ilk açılışı es geç
-                if (currentTime - instagramLaunchTime > 4500) {
-                    if (rootNode != null && (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") && !isSafeScreen(rootNode)) {
-                        val currentText = getFeedAllText(rootNode)
-                        
-                        if (lastFeedText.isNotEmpty() && currentText.isNotEmpty()) {
-                            if (isTextChangePullToRefresh(lastFeedText, currentText)) {
-                                // Sadece kullanıcı yakın zamanda dokunma/kaydırma yaptıysa (lastUserTouchTime < 3000) ve launch 4.5sn geçtiyse ceza ver!
-                                if (currentTime - lastInstagramTransitionTime > 2000 && currentTime - lastPunishTime > 3000 && currentTime - lastFeedChangePunishTime > 3000) {
-                                    Log.d(TAG, "Ana akış içeriği tamamen değişti (Pull-to-Refresh veya Scroll)! Anında kilitleniyor.")
-                                    lastFeedChangePunishTime = currentTime
-                                    punishUser("com.instagram.android")
-                                }
-                            }
-                        }
-                        
-                        // SADECE ve SADECE ekranda gerçek bir akış varken (skeleton/yükleme ekranı değilken) lastFeedText'i güncelle!
-                        val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored", "ana sayfa", "home", "reels", "profil", "profile", "mesajlar", "messages", "ara", "search")
-                        val validWords = currentText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }
-                        if (validWords.size > 5) {
-                            lastFeedText = currentText
-                        }
-                    } else {
-                        lastFeedText = ""
                     }
                 }
             }
@@ -647,72 +561,11 @@ class AntiScrollService : AccessibilityService() {
                 val nodeDesc = event.contentDescription?.toString() ?: ""
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
-                val isCloseOrBack = combined.contains("kapat") || 
-                                    combined.contains("close") || 
-                                    combined.contains("geri") || 
-                                    combined.contains("back") || 
-                                    combined.contains("iptal") || 
-                                    combined.contains("cancel") || 
-                                    combined.contains("çarpı") ||
-                                    nodeDesc.contains("kapat", ignoreCase = true) || 
-                                    nodeDesc.contains("close", ignoreCase = true) ||
-                                    nodeDesc.contains("geri", ignoreCase = true) ||
-                                    nodeDesc.contains("back", ignoreCase = true)
-
-                if (isCloseOrBack) {
-                    lastInstagramTransitionTime = currentTime
-                    Log.d(TAG, "Geri/Kapat butonuna tıklandı, geçiş grace period sıfırlandı.")
-                }
-                
-                if (combined == "reels " || combined == " reels" || combined == "reels tab " || combined == "reels sekmesi " || isReelsTabSelected(event.source)) {
-                    if (currentTime - lastPunishTime > 3000) {
-                        Log.d(TAG, "Reels sekmesine tıklandı! Sıfır tolerans ile anında kilitleniyor.")
-                        punishUser("com.instagram.android")
-                        return
-                    }
-                }
-                
-                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile")) {
-                    // Android sisteminde bir sekmeye tıklandığında, tıklama eventi fırlatılmadan hemen önce o sekmenin
-                    // isSelected değeri 'true' yapılır. Bu yüzden tıklanan ikonun o anki seçili olma durumuna GÜVENEMEYİZ.
-                    // Bunun yerine, kullanıcının tıklamadan BİR ÖNCEKİ saniyede hangi ekranda olduğunu tutan 
-                    // 'lastScreenType' değişkenine bakıyoruz.
-                    // Eğer kullanıcı zaten "HOME_OR_REELS" ekranındayken tekrar ana sayfa butonuna tıkladıysa, 
-                    // bu %100 sayfayı yenilemek (pull-to-refresh) demektir!
-                    if (lastScreenType == "HOME_OR_REELS") {
-                        // Eğer ana sayfaya daha yeni geldiyse (son 2 saniye içinde), bu muhtemelen 
-                        // sekme geçişi sırasında oluşan çift tıklama (double click) veya Android'in kendi
-                        // fırlattığı mükerrer (duplicate) tıklama eventidir. Sadece gerçekten ana sayfada 
-                        // vakit geçirip sonra butona basarsa ceza ver!
-                        if (currentTime - lastInstagramTransitionTime > 2000) {
-                            if (currentTime - lastPunishTime > 3000) {
-                                Log.d(TAG, "Zaten ana sayfadayken ana sayfa butonuna tıklandı! Pull-to-refresh tetiklendi.")
-                                punishUser("com.instagram.android")
-                                return
-                            }
-                        } else {
-                            Log.d(TAG, "Ana sayfa butonuna tıklandı ama geçiş yapalı 2 saniye bile olmadı (Double-click/Duplicate event). İzin verildi.")
-                        }
-                    } else {
-                        Log.d(TAG, "Başka bir sayfadan (Örn: Profil) ana sayfaya geçiş için tıklandı. İzin verildi.")
-                    }
-                }
-                
-                val rootNode = rootInActiveWindow
-                if (rootNode != null && isExploreScreen(rootNode)) {
-                    val clickedClassName = event.className?.toString() ?: ""
-                    val isSearchBar = combined.contains("ara") || combined.contains("search") || clickedClassName.contains("EditText")
-                    
-                    // Alt menü ikonlarına (Ana Sayfa, Profil, Reels vs.) tıklanmasına izin ver
-                    val isBottomNav = combined.contains("ana sayfa") || combined.contains("home") || 
-                                      combined.contains("profil") || combined.contains("profile") ||
-                                      combined.contains("reels") || combined.contains("mesajlar") || 
-                                      combined.contains("messages") || combined.contains("kamera") ||
-                                      combined.contains("camera")
-
-                    if (!isSearchBar && !isBottomNav) {
+                if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
+                    val rootNode = rootInActiveWindow
+                    if (rootNode != null && isDangerousScreen(rootNode) && !isSafeScreen(rootNode)) {
                         if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Keşfet sayfasındaki bir videoya/içeriğe tıklandı! Engelleniyor.")
+                            Log.d(TAG, "Refresh açığı (Click) yakalandı!")
                             punishUser("com.instagram.android")
                             return
                         }
@@ -721,32 +574,11 @@ class AntiScrollService : AccessibilityService() {
             }
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                val rootNode = rootInActiveWindow
-
-                // Reels / Repost videosu oynatılırken kaydırma yapılırsa ANINDA CEZA VER! (Tolerans bekleme)
-                if (rootNode != null && isAnyReelsOrVideoPlaying(rootNode)) {
-                    if (currentTime - lastPunishTime > 3000) {
-                        Log.d(TAG, "Reels / Repost videosunda kaydırma yapıldı! Anında kilitleniyor.")
-                        punishUser("com.instagram.android")
-                        return
-                    }
-                }
-
-                // İlk açılış ve akış yükleme animasyonları (3.5 saniye) için tolerans
-                if (currentTime - instagramLaunchTime < 3500) {
-                    Log.d(TAG, "Açılış/yükleme scroll'u (3.5sn tolerans). Es geçildi.")
-                    return
-                }
-
-                // Sekme ve sayfa kapatma (X/Geri) geçiş animasyonları için 4.0 saniyelik kaydırma toleransı
-                if (currentTime - lastInstagramTransitionTime < 4000) {
-                    Log.d(TAG, "Sayfa/Sekme geçiş animasyonu (4.0sn tolerans). Scroll es geçildi.")
-                    return
-                }
-
-                val isCurrentlySafe = rootNode != null && (isSafeScreen(rootNode) || isCameraOrCreationScreen(rootNode))
-                if (isCurrentlySafe || lastScreenType == "SAFE") {
-                    Log.d(TAG, "Güvenli alan kaydırması tespit edildi. İzin verildi.")
+                val className = event.className?.toString() ?: ""
+                
+                if (!className.contains("RecyclerView") && !className.contains("ViewPager") && 
+                    !className.contains("ListView") && !className.contains("ScrollView") && 
+                    !className.contains("SwipeRefreshLayout") && !className.contains("Layout")) {
                     return
                 }
 
@@ -759,31 +591,32 @@ class AntiScrollService : AccessibilityService() {
                         return
                     }
 
-                    // PULL-TO-REFRESH VEYA HERHANGİ BİR DİKEY KAYDIRMA (Ana Sayfa veya Reels ekranında):
-                    if (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") {
-                        val sourceNode = event.source
-                        if (isCommentListView(sourceNode)) {
-                            Log.d(TAG, "Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
-                            return
-                        }
-                        if (lastScreenType != "EXPLORE" && rootNode != null && isVideoEndOverlayPresent(rootNode)) {
-                            Log.d(TAG, "Video bitiş menüsü ('Tekrar izle' vb.) algılandı. İzin verildi.")
-                            return
-                        }
-                        if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Ana sayfada / Reels'te dikey hareket veya Pull-to-Refresh algılandı! Anında kilitleniyor.")
-                            punishUser("com.instagram.android")
-                            return
-                        }
+                    // Sıfır piksellik sahte dokunma titremelerini yoksay
+                    // Ancak 1 piksellik (çok yavaş) pull-to-refresh çekmelerini BİLE yakala!
+                    if (deltaY == 0 && deltaX == 0) {
+                        return
                     }
+                    Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
-                    if (lastScreenType == "HOME_OR_REELS" || lastScreenType == "EXPLORE") {
-                        if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Ana sayfada / Reels'te dikey hareket algılandı! Anında kilitleniyor.")
-                            punishUser("com.instagram.android")
-                            return
-                        }
-                    }
+                    if (event.toIndex == -1 || event.toIndex == lastScrollIndex) return
+                    lastScrollIndex = event.toIndex
+                }
+
+                val rootNode = rootInActiveWindow
+                val sourceNode = event.source
+
+                if (isCommentListView(sourceNode) || (rootNode != null && isSafeScreen(rootNode))) {
+                    Log.d(TAG, "Güvenli alan / Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
+                    return
+                }
+
+                if (rootNode != null && !isDangerousScreen(rootNode)) {
+                    Log.d(TAG, "Tehlikeli bir ekranda değilsiniz (Örn: Mesajlar DM). Kaydırmaya izin verildi.")
+                    return
+                }
+                
+                if (currentTime - lastPunishTime > 3000) {
+                    punishUser("com.instagram.android")
                 }
             }
         }
@@ -831,7 +664,6 @@ class AntiScrollService : AccessibilityService() {
     private fun isSafeScreen(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
         if (!node.isVisibleToUser) return false
-        if (isNotificationsScreen(node)) return true
         
         val text = node.text?.toString() ?: ""
         val desc = node.contentDescription?.toString() ?: ""
@@ -844,51 +676,18 @@ class AntiScrollService : AccessibilityService() {
             text.equals("Requests", ignoreCase = true) ||
             text.equals("Mesajlar", ignoreCase = true) ||
             text.equals("Messages", ignoreCase = true) ||
-            text.equals("Hareketler", ignoreCase = true) ||
-            text.equals("Bildirimler", ignoreCase = true) ||
-            text.equals("Activity", ignoreCase = true) ||
-            text.equals("Notifications", ignoreCase = true) ||
             text.equals("Yorumlar", ignoreCase = true) ||
             text.equals("Comments", ignoreCase = true) ||
+            text.equals("Yeni gönderi", ignoreCase = true) ||
+            text.equals("New post", ignoreCase = true) ||
             text.equals("Galeri", ignoreCase = true) ||
             text.equals("Gallery", ignoreCase = true) ||
+            text.equals("Hikaye", ignoreCase = true) ||
+            text.equals("Story", ignoreCase = true) ||
             text.equals("Film Rulosu", ignoreCase = true) ||
             text.equals("Camera Roll", ignoreCase = true) ||
             text.equals("Son kullanılanlar", ignoreCase = true) ||
-            text.equals("Recents", ignoreCase = true) ||
-            (desc.contains("Profil", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Profile", ignoreCase = true) && node.isSelected) ||
-            text.contains("Profil", ignoreCase = true) && node.isSelected ||
-            text.contains("Profile", ignoreCase = true) && node.isSelected ||
-            text.contains("Ayarlar ve aktiviteler", ignoreCase = true) ||
-            desc.contains("Ayarlar ve aktiviteler", ignoreCase = true) ||
-            text.contains("Ayarlar ve hareketler", ignoreCase = true) ||
-            desc.contains("Ayarlar ve hareketler", ignoreCase = true) ||
-            text.contains("Settings and activity", ignoreCase = true) ||
-            desc.contains("Settings and activity", ignoreCase = true) ||
-            text.contains("Profili düzenle", ignoreCase = true) ||
-            desc.contains("Profili Düzenle", ignoreCase = true) ||
-            text.contains("Edit profile", ignoreCase = true) ||
-            desc.contains("Edit profile", ignoreCase = true) ||
-            text.contains("Profili paylaş", ignoreCase = true) ||
-            desc.contains("Profili paylaş", ignoreCase = true) ||
-            text.contains("Share profile", ignoreCase = true) ||
-            desc.contains("Share profile", ignoreCase = true) ||
-            (desc.contains("Izgara", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Grid", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Gönderiler", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Posts", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Olduğun fotoğraflar", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Etiketlendiğin", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Photos of you", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Yeniden paylaşılanlar", ignoreCase = true) && node.isSelected) ||
-            (desc.contains("Reposts", ignoreCase = true) && node.isSelected) ||
-            desc.contains("Geri", ignoreCase = true) ||
-            desc.contains("Back", ignoreCase = true) ||
-            desc.contains("İptal", ignoreCase = true) ||
-            desc.contains("Cancel", ignoreCase = true) ||
-            text.contains("İptal", ignoreCase = true) ||
-            text.contains("Cancel", ignoreCase = true)) {
+            text.equals("Recents", ignoreCase = true)) {
             return true
         }
 
@@ -935,90 +734,25 @@ class AntiScrollService : AccessibilityService() {
         return false
     }
 
-    private fun isHomeScreenActive(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        if ((desc.equals("Ana Sayfa", ignoreCase = true) || desc.equals("Home", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
-            return true
-        }
-        for (i in 0 until node.childCount) {
-            if (isHomeScreenActive(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isNotificationsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val text = node.text?.toString()?.lowercase() ?: ""
-        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
-
-        // SADECE GÖRÜNÜR YAZIDA (Text) bu başlıklar varsa Bildirimler ekranıdır. 
-        // Butonların "contentDescription" (Açıklama) kısımlarına bakarsak Ana Sayfadaki kalp butonuna da takılır!
-        if (text == "hareketler" || 
-            text == "bildirimler" || 
-            text == "activity" || 
-            text == "notifications") {
-            return true
-        }
-        
-        // Yorumlarda, takiplerde gelen metinleri içeriyorsa güvenli olabilir
-        if (text.contains("seni takip etmeye başladı") ||
-            text.contains("started following you") ||
-            text.contains("gönderini beğendi") ||
-            text.contains("liked your post") ||
-            text.contains("gönderine yorum yaptı") ||
-            text.contains("commented on your post") ||
-            text.contains("bu hafta") ||
-            text.contains("this week") ||
-            text.contains("bu ay") ||
-            text.contains("this month")) {
-            return true
-        }
-
-        for (i in 0 until node.childCount) {
-            if (isNotificationsScreen(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isProfileScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        val text = node.text?.toString() ?: ""
-        val combined = "$text $desc".lowercase()
-        
-        if (combined.contains("profili düzenle") || 
-            combined.contains("edit profile") || 
-            combined.contains("profili paylaş") || 
-            combined.contains("share profile") ||
-            combined.contains("ayarlar ve aktiviteler") ||
-            combined.contains("settings and activity")) {
-            return true
-        }
-        
-        for (i in 0 until node.childCount) {
-            if (isProfileScreen(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isDangerousScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
+    private fun isDangerousScreen(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
         if (!node.isVisibleToUser) return false
 
         val desc = node.contentDescription?.toString() ?: ""
         
-        // "Profili Paylaş" (Share Profile) butonunu tehlikeli saymamak için kontrol ekliyoruz.
-        val isProfileButton = desc.contains("Profil", ignoreCase = true) || desc.contains("Profile", ignoreCase = true)
-        
-        if (!isProfileButton && (
+        if (desc.contains("Ana Sayfa", ignoreCase = true) ||
+            desc.contains("Home", ignoreCase = true) ||
+            desc.contains("Ara ve Keşfet", ignoreCase = true) ||
+            desc.contains("Search and explore", ignoreCase = true) ||
+            desc.contains("Reels", ignoreCase = true) ||
+            desc.contains("Instagram", ignoreCase = true) ||
             desc.contains("Beğen", ignoreCase = true) ||
             desc.contains("Like", ignoreCase = true) ||
             desc.contains("Kaydet", ignoreCase = true) ||
             desc.contains("Save", ignoreCase = true) ||
             desc.contains("Paylaş", ignoreCase = true) ||
             desc.contains("Share", ignoreCase = true) ||
-            desc.contains("Repost", ignoreCase = true))) { 
+            desc.contains("Repost", ignoreCase = true)) { 
             
             if (node.isClickable || node.parent?.isClickable == true || node.isSelected) {
                 return true
@@ -1026,7 +760,7 @@ class AntiScrollService : AccessibilityService() {
         }
 
         for (i in 0 until node.childCount) {
-            if (isDangerousScreen(node.getChild(i), depth + 1)) return true
+            if (isDangerousScreen(node.getChild(i))) return true
         }
         return false
     }
@@ -1041,261 +775,22 @@ class AntiScrollService : AccessibilityService() {
         return intersection.toDouble() / union.toDouble()
     }
 
-    private fun isRefreshingSpinnerVisible(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
-        if (desc.contains("yükleniyor") || desc.contains("loading") || desc.contains("yenileniyor") || desc.contains("refreshing") || desc.contains("güncelleniyor") || desc.contains("updating")) {
-            return true
-        }
-        val className = node.className?.toString() ?: ""
-        if (className.contains("Refresh", ignoreCase = true)) {
-            return true
-        }
-        for (i in 0 until node.childCount) {
-            if (isRefreshingSpinnerVisible(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun findMainRecyclerView(node: AccessibilityNodeInfo?, depth: Int = 0): AccessibilityNodeInfo? {
-        if (node == null || depth > 30) return null
-        val className = node.className?.toString() ?: ""
-        if (className.contains("RecyclerView") || className.contains("ListView")) {
-            val rect = Rect()
-            node.getBoundsInScreen(rect)
-            if (rect.height() > 500) { // Geniş liste (Akış)
-                return node
-            }
-        }
-        for (i in 0 until node.childCount) {
-            val res = findMainRecyclerView(node.getChild(i), depth + 1)
-            if (res != null) return res
-        }
-        return null
-    }
-
-    private fun getFeedAllText(node: AccessibilityNodeInfo?, depth: Int = 0): String {
-        if (node == null || depth > 30) return ""
-        var textStr = ""
-        val text = node.text?.toString() ?: ""
+    private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
         val desc = node.contentDescription?.toString() ?: ""
         
-        if (text.isNotBlank()) textStr += "$text "
-        if (desc.isNotBlank()) textStr += "$desc "
-        
-        for (i in 0 until node.childCount) {
-            textStr += getFeedAllText(node.getChild(i), depth + 1)
-        }
-        return textStr
-    }
-
-    private fun isTextChangePullToRefresh(oldText: String, newText: String): Boolean {
-        if (oldText.isBlank() || newText.isBlank()) return false
-        
-        // Ortak UI kelimelerini (beğen, yorum yap, paylaş vb.) filtrele ki benzerlik oranını bozmasınlar.
-        val ignoreWords = setOf("beğen", "like", "yorum", "comment", "paylaş", "share", "kaydet", "save", "gönder", "send", "yanıtla", "reply", "reklam", "sponsorlu", "sponsored")
-        
-        val oldWords = oldText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }.toSet()
-        val newWords = newText.lowercase().split("\\s+".toRegex()).filter { it.length > 2 && !ignoreWords.contains(it) }.toSet()
-        
-        if (oldWords.isEmpty() || newWords.isEmpty()) return false
-        
-        val intersection = oldWords.intersect(newWords).size
-        val union = oldWords.union(newWords).size
-        val similarity = intersection.toDouble() / union.toDouble()
-        
-        // Eğer benzerlik yüksekse zaten refresh değildir (Örn: Sadece saniye değiştiyse)
-        if (similarity >= 0.80) return false
-        
-        // Eski kelime sayısı çok azsa güvenilir değildir (Örn: Shimmer/iskelet yükleme ekranı)
-        if (oldWords.size <= 5) return false
-        
-        // Subset (Alt küme) kontrolü:
-        // Eğer yeni ekrandaki kelimelerin çoğu (%80'i veya daha fazlası) zaten eski ekranda varsa,
-        // bu yeni bir post gelmesi (refresh) değil, muhtemelen videonun tam ekran olmasıyla UI elemanlarının gizlenmesi durumudur.
-        val subsetRatio = intersection.toDouble() / newWords.size.toDouble()
-        if (subsetRatio >= 0.80) {
-            return false // Sadece kelimeler azaldı/gizlendi, ekrana yepyeni kelimeler girmedi.
-        }
-        
-        return true
-    }
-
-    private fun isReelsTabSelected(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        
-        if ((desc.equals("Reels", ignoreCase = true) || desc.equals("Reels tab", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
+        // Reels butonu seçiliyse kesinlikle Reels sekmesiyiz
+        if (desc.contains("Reels", ignoreCase = true) && node.isSelected) {
             return true
         }
         
-        for (i in 0 until node.childCount) {
-            if (isReelsTabSelected(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isCameraOrCreationScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        
-        if (viewId.contains("camera") || viewId.contains("cam_") || viewId.contains("creation_main") || viewId.contains("post_capture") || viewId.contains("gallery_container")) {
-            return true
-        }
-        
+        // Reels sekmesine özel üst kamera ikonu
         if (desc.contains("Reels kamerası", ignoreCase = true) || desc.contains("Reels camera", ignoreCase = true)) {
             return true
         }
-
-        for (i in 0 until node.childCount) {
-            if (isCameraOrCreationScreen(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isAnyReelsOrVideoPlaying(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        
-        if (depth == 0 && isCameraOrCreationScreen(node)) {
-            return false
-        }
-        
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-
-        if (viewId.contains("clips_viewer") || 
-            viewId.contains("clips_video_container") || 
-            viewId.contains("reels_video_view") || 
-            viewId.contains("clips_item_view") ||
-            viewId.contains("clips_swipe_refresh_container") ||
-            viewId.contains("feed_item_video")) {
-            return true
-        }
-
-        if (desc.contains("Orijinal ses", ignoreCase = true) ||
-            desc.contains("Original audio", ignoreCase = true) ||
-            desc.contains("Ses kullan", ignoreCase = true) ||
-            desc.contains("Use audio", ignoreCase = true) ||
-            desc.contains("Remiksle", ignoreCase = true) ||
-            desc.contains("Remix", ignoreCase = true) ||
-            desc.contains("Yeniden paylaştı", ignoreCase = true) ||
-            desc.contains("Reposted by", ignoreCase = true)) {
-            return true
-        }
         
         for (i in 0 until node.childCount) {
-            if (isAnyReelsOrVideoPlaying(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isStrictlyReelsScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        
-        if (viewId.contains("clips_viewer") || 
-            viewId.contains("clips_video_container") || 
-            viewId.contains("reels_video_view") || 
-            viewId.contains("clips_item_view") ||
-            viewId.contains("clips_swipe_refresh_container")) {
-            return true
-        }
-
-        // Reels sekmesine ve Reels oynatıcıya özel butonlar/etiketler
-        if (desc.contains("Reels kamerası", ignoreCase = true) || 
-            desc.contains("Reels camera", ignoreCase = true) ||
-            desc.contains("Orijinal ses", ignoreCase = true) ||
-            desc.contains("Original audio", ignoreCase = true) ||
-            desc.contains("Ses kullan", ignoreCase = true) ||
-            desc.contains("Use audio", ignoreCase = true) ||
-            desc.contains("Remiksle", ignoreCase = true) ||
-            desc.contains("Remix", ignoreCase = true)) {
-            return true
-        }
-        
-        for (i in 0 until node.childCount) {
-            if (isStrictlyReelsScreen(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isExploreScreen(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        
-        if ((desc.contains("Ara ve Keşfet", ignoreCase = true) || 
-             desc.contains("Search and explore", ignoreCase = true)) && (node.isSelected || node.parent?.isSelected == true)) {
-            return true
-        }
-        
-        for (i in 0 until node.childCount) {
-            if (isExploreScreen(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun hasLikeButton(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        if ((desc.equals("Beğen", ignoreCase = true) || 
-             desc.equals("Like", ignoreCase = true) ||
-             desc.equals("Beğenmekten vazgeç", ignoreCase = true) ||
-             desc.equals("Unlike", ignoreCase = true)) && 
-             (node.isClickable || node.parent?.isClickable == true)) {
-            return true
-        }
-        for (i in 0 until node.childCount) {
-            if (hasLikeButton(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isVideoViewer(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        if (desc.contains("Sesi kapat", ignoreCase = true) || 
-            desc.contains("Sesi aç", ignoreCase = true) ||
-            desc.contains("Unmute", ignoreCase = true) ||
-            desc.contains("Mute", ignoreCase = true) ||
-            desc.contains("Sesi", ignoreCase = true)) {
-            return true
-        }
-        for (i in 0 until node.childCount) {
-            if (isVideoViewer(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun hasBackButton(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val desc = node.contentDescription?.toString() ?: ""
-        if (desc.equals("Geri", ignoreCase = true) || 
-            desc.equals("Back", ignoreCase = true)) {
-            return true
-        }
-        for (i in 0 until node.childCount) {
-            if (hasBackButton(node.getChild(i), depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isVideoEndOverlayPresent(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
-        if (node == null || depth > 30) return false
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        val combined = "$text $desc".lowercase()
-
-        if (combined.contains("tekrar izle") || 
-            combined.contains("watch again") || 
-            combined.contains("izlemeye devam et") || 
-            combined.contains("keep watching")) {
-            return true
-        }
-
-        for (i in 0 until node.childCount) {
-            if (isVideoEndOverlayPresent(node.getChild(i), depth + 1)) return true
+            if (isStrictlyReelsScreen(node.getChild(i))) return true
         }
         return false
     }
@@ -1348,8 +843,19 @@ class AntiScrollService : AccessibilityService() {
             Log.e(TAG, "Task Wiper başlatılırken hata", e)
         }
 
-        // ClearTaskActivity artık Ayarlar sayfasını kendi içerisinden %100 güvenli şekilde başlatıyor.
-        // Bu yüzden buradan ikinci bir Intent fırlatmaya gerek kalmadı.
+        // 3. UYGULAMA AYARLAR SAYFASINI AÇ (DURMAYA ZORLA İÇİN)
+        try {
+            val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", targetPackageName, null)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                        Intent.FLAG_ACTIVITY_CLEAR_TASK or 
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION
+            }
+            startActivity(settingsIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ayarlar sayfası açılırken hata", e)
+            performGlobalAction(GLOBAL_ACTION_HOME)
+        }
 
         // --- BACK-END GAMIFICATION INTEGRATION ---
         val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
@@ -1592,13 +1098,5 @@ class AntiScrollService : AccessibilityService() {
                (nodes2 != null && nodes2.isNotEmpty()) ||
                (nodes3 != null && nodes3.isNotEmpty()) ||
                (nodes4 != null && nodes4.isNotEmpty())
-    }
-
-    private fun isSystemPackage(pkgName: String): Boolean {
-        return pkgName == "com.android.systemui" || 
-               pkgName == "android" || 
-               pkgName.startsWith("com.samsung.android.") || 
-               pkgName.startsWith("com.sec.android.") ||
-               pkgName.contains("inputmethod")
     }
 }
