@@ -268,9 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
             vs_row4_title: "Privacy & Advertising",
             vs_row4_sub: "Where is your data processed?",
             vs_badge_row4_trad: "Ads / Paid / Cloud Data",
-            vs_badge_row4_away: "100% Offline & Open Source",
+            vs_badge_row4_away: "Privacy First & Open Source",
             vs_row4_trad: "Many apps process usage stats on external cloud servers, sell monthly subscriptions, or show invasive ads.",
-            vs_row4_away: "Zero Internet Permissions! 100% offline local RAM execution. 100% Free and fully open-source.",
+            vs_row4_away: "Privacy First! Core local RAM execution. Network only for optional telemetry & remote rules. 100% Free and fully open-source.",
 
             vs_row5_title: "Anti-Cheat Protection",
             vs_row5_sub: "How easy is it to bypass?",
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hero_btn_download: "Download App (APK)",
             hero_btn_calc: "Calculate Your Time",
             hero_spec_samsung: "Samsung One UI 100% Compatible",
-            hero_spec_privacy: "100% Offline & Privacy First",
+            hero_spec_privacy: "Privacy First & Optional Telemetry",
             hero_spec_safezone: "Comments & DM Safe Zone Free",
 
             store_get_it_on: "GET IT ON",
@@ -391,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             faq_title: "Frequently Asked Questions",
             faq_desc: "Here are answers to the most common questions about AwayDoomscrollin'.",
             faq_q1: "Is Accessibility permission safe? Will my data be stolen?",
-            faq_a1: "100% Safe. AwayDoomscrollin' never sends any data to servers. It requests zero internet permissions and runs 100% locally (offline) on your device. Accessibility permission is strictly used to detect on-screen scroll gestures.",
+            faq_a1: "Privacy First. The core blocking mechanism operates locally on your device. Network access is strictly used for optional anonymous telemetry and periodically fetching updated blocking rules from GitHub. Accessibility permission is strictly used to detect on-screen scroll gestures.",
             faq_q2: "Will scrolling in Instagram DMs or Comments be blocked?",
             faq_a2: "No! Thanks to our Smart Safe Zone algorithm, scrolling in direct messages and comment reading sheets is recognized as a safe zone. You can read comments comfortably without any blocking.",
             faq_q3: "Does the app consume much battery in the background?",
@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             faq_title: "Sıkça Sorulan Sorular",
             faq_desc: "AwayDoomscrollin' hakkında en çok merak edilen konuları sizin için derledik.",
             faq_q1: "Erişilebilirlik (Accessibility) izni güvenli mi? Verilerim çalınır mı?",
-            faq_a1: "%100 Güvenlidir. AwayDoomscrollin' kesinlikle hiçbir verinizi sunuculara göndermez. Uygulama internet izni istemez ve tamamen yerel (offline) olarak cihazınızda çalışır. Erişilebilirlik izni sadece ekrandaki kaydırma hareketini tespit etmek için kullanılır.",
+            faq_a1: "Gizlilik Odaklıdır. Çekirdek engelleme mekanizması tamamen yerel olarak cihazınızda çalışır. İnternet erişimi yalnızca isteğe bağlı anonim telemetri ve GitHub'dan güncel engelleme kurallarını periyodik olarak çekmek için kullanılır. Erişilebilirlik izni sadece ekrandaki kaydırma hareketini tespit etmek için kullanılır.",
             faq_q2: "Instagram DM veya Yorum sayfalarında kaydırmak engellenir mi?",
             faq_a2: "Hayır! Akıllı Güvenli Bölge algoritmamız sayesinde mesajlaşma ekranları ve Yorum okuma penceresindeki kaydırmalar güvenli alan olarak algılanır. Engelleme yapılmadan yorumları rahatça okuyabilirsiniz.",
             faq_q3: "Uygulama arka planda pili/şarjı çok tüketir mi?",
@@ -1299,4 +1299,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
