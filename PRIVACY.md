@@ -14,7 +14,7 @@ AwayDoomscrollin' utilizes the Android Accessibility Service API exclusively to 
 
 ## 3. Data Collection and Telemetry
 The core blocking functionality of AwayDoomscrollin' operates locally, with optional telemetry for anonymous statistics.
-- The app requests the `INTERNET` permission solely for an optional, anonymous telemetry feature. **Transparency Note:** Telemetry is enabled by default to help us improve the app and provide statistics, but it is completely optional and you can easily disable it at any time in the app settings.
+- The app requests the `INTERNET` permission for an optional anonymous telemetry feature, and to periodically fetch updated blocking rules from GitHub. **Transparency Note:** Telemetry is enabled by default to help us improve the app and provide statistics, but it is completely optional and you can easily disable it at any time in the app settings.
 - We do not collect, transmit, monetize, or share any Personally Identifiable Information (PII).
 
 ## 4. Open Source Transparency
@@ -29,5 +29,6 @@ For any questions regarding this Privacy Policy or the app's security, please co
 For the full legal Privacy Policy and Terms of Service, please visit our official website:
 - **Privacy Policy:** [https://awaydoomscrollin.com/privacy](https://awaydoomscrollin.com/privacy)
 - **Terms of Service:** [https://awaydoomscrollin.com/terms](https://awaydoomscrollin.com/terms)
+
 
 

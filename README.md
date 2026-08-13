@@ -33,7 +33,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 |---|---|
 | ⚡ **Instant Shield** | Detects scroll gesture → returns to home screen immediately |
 | 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
-| 🛡️ **Privacy-First Core** | Core blocking logic runs strictly on-device. Internet permission is only used for optional telemetry. |
+| 🛡️ **Privacy-First Core** | Core blocking logic runs strictly on-device. Internet permission is used for optional telemetry and fetching updated blocking rules from GitHub. |
 | 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
 | 🏆 **Gamification** | Daily streaks (3 / 7 / 14 / 30 days) |
 | 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
@@ -84,7 +84,7 @@ cd AwayDoomscrollin
 ## 🔒 Privacy
 
 - **Core logic is local with optional telemetry**: The app's accessibility shielding works without any network connection.
-- **Internet Permission Explained**: The `android.permission.INTERNET` is declared in `AndroidManifest.xml` **solely** for the optional telemetry feature. ⚠️ **Transparency Note:** Anonymous telemetry is enabled by default, but it is 100% optional. You can easily turn it off at any time in the app settings. 
+- **Internet Permission Explained**: The `android.permission.INTERNET` is declared in `AndroidManifest.xml` **for the optional telemetry feature and to fetch updated blocking rules from GitHub. ⚠️ **Transparency Note:** Anonymous telemetry is enabled by default, but it is 100% optional. You can easily turn it off at any time in the app settings. 
 - All block data is stored locally via `SharedPreferences`.
 - Telemetry does not collect, sell, or maliciously share any personal user data.
 - Full source code available for audit.
@@ -113,6 +113,7 @@ See [LICENSE](LICENSE) for full details.
 <p align="center">
   Made with ❤️ by <a href="https://github.com/resolvecommunity">Resolve Community</a>
 </p>
+
 
 
 
