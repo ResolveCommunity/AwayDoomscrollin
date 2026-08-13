@@ -6,14 +6,14 @@
 
 <p align="center">
   <strong>Break the Infinite Scroll Loop — For Good.</strong><br/>
-  Open-source, offline-first Android accessibility shield against Instagram Reels, TikTok & YouTube Shorts.<br/>
+  Open-source, privacy-first Android accessibility shield against Instagram Reels, TikTok & YouTube Shorts.<br/>
   🌐 <strong><a href="https://awaydoomscrollin.com">awaydoomscrollin.com</a></strong>
 </p>
 
 <p align="center">
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Min%20SDK-26%20(Android%208.0%2B)-blue.svg" alt="Min SDK 26"/></a>
-  <img src="https://img.shields.io/badge/Status-100%25%20Offline%20%26%20Privacy--First-00F2FE.svg" alt="Offline & Privacy-First"/>
+  <img src="https://img.shields.io/badge/Status-Privacy--First%20%26%20Optional%20Telemetry-00F2FE.svg" alt="Privacy-First & Optional Telemetry"/>
   <img src="https://img.shields.io/badge/Samsung%20One%20UI-100%25%20Verified-00FF87.svg" alt="Samsung One UI Verified"/>
 </p>
 
@@ -33,7 +33,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 |---|---|
 | ⚡ **Instant Shield** | Detects scroll gesture → returns to home screen immediately |
 | 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
-| 🔒 **Offline Core** | Core blocking logic runs 100% on-device. Internet permission is only used for optional telemetry. |
+| 🛡️ **Privacy-First Core** | Core blocking logic runs strictly on-device. Internet permission is only used for optional telemetry. |
 | 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
 | 🏆 **Gamification** | Daily streaks (3 / 7 / 14 / 30 days) |
 | 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
@@ -113,4 +113,6 @@ See [LICENSE](LICENSE) for full details.
 <p align="center">
   Made with ❤️ by <a href="https://github.com/resolvecommunity">Resolve Community</a>
 </p>
+
+
 
