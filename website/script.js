@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AwayDoomscrollin' - Official Web Site JavaScript Logic
  * Handles language detection (Browser language -> TR or EN default),
  * Endless "bırak." / "now." typing loop animation,
@@ -433,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
             legal_p1_title: "1. Introduction & Transparency Commitment",
             legal_p1_text: "At AwayDoomscrollin', we believe that digital well-being tools should respect your privacy above all else. This Privacy Policy outlines in full detail how AwayDoomscrollin' ('the App', 'we', 'us') handles user privacy, accessibility permissions, and local data storage. We do not track you, sell your information, or store any personal data on external servers.",
             legal_p2_title: "2. Zero Server Data Collection",
-            legal_p2_text: "AwayDoomscrollin' is built with privacy at its core. The App strictly uses the INTERNET permission only for an optional, anonymous telemetry dashboard. The core blocking mechanism operates 100% offline. The App does not transmit, export, or leak any of your personal information, app usage logs, or interaction data to third-party analytics providers.",
+            legal_p2_text: "AwayDoomscrollin' is built with privacy at its core. The App uses the INTERNET permission for an optional, anonymous telemetry dashboard. The core blocking mechanism operates locally with optional telemetry. The App does not transmit, export, or leak any of your personal information, app usage logs, or interaction data to third-party analytics providers.",
             legal_p3_title: "3. Accessibility Service Permission & Scope",
             legal_p3_text1: "To detect endless scrolling behavior on target short video platforms (Instagram Reels, TikTok, and YouTube Shorts) and perform intervention actions, AwayDoomscrollin' utilizes the Android AccessibilityService API.",
             legal_p3_text2: "Monitored events are strictly limited to TYPE_VIEW_SCROLLED and TYPE_WINDOW_STATE_CHANGED within specified package names (com.instagram.android, com.zhiliaoapp.musically, com.google.android.youtube). When vertical scroll gestures are detected on short video feed views, the service performs the GLOBAL_ACTION_HOME action to return your device to the home screen and force stop the target app via Settings.",
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
             vs_badge_row4_trad: "Reklamlı / Ücretli / Sunucuya Veri",
             vs_badge_row4_away: "%100 Çevrimdışı & Açık Kaynak",
             vs_row4_trad: "Pek çok uygulama kullanım verilerinizi sunuculara işler, aylık abonelik satar veya reklam gösterir.",
-            vs_row4_away: "Sıfır İnternet İzni! Tüm verileriniz cihazınızda kalır. %100 Ücretsiz ve tamamen açık kaynak kodludur.",
+            vs_row4_away: "İsteğe Bağlı Telemetri! Opsiyonel anonim telemetri dışında veriler cihazınızda kalır. %100 Ücretsiz ve tamamen açık kaynak kodludur.",
 
             vs_row5_title: "Hile & Dürtüsel Kapatma (Anti-Cheat)",
             vs_row5_sub: "Uygulamayı kapatmak ne kadar kolay?",
@@ -1299,3 +1299,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+

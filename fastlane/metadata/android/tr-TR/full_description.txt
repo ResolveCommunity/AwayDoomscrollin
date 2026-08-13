@@ -1,7 +1,8 @@
-AwayDoomscrollin', Resolve Community tarafından geliştirilen; sosyal medyadaki (Instagram Reels, TikTok, YouTube Shorts) sonsuz kaydırma (doomscrolling) alışkanlığını kırmanıza yardımcı olan açık kaynaklı ve gizlilik odaklı bir Android uygulamasıdır.
+﻿AwayDoomscrollin', Resolve Community tarafından geliştirilen; sosyal medyadaki (Instagram Reels, TikTok, YouTube Shorts) sonsuz kaydırma (doomscrolling) alışkanlığını kırmanıza yardımcı olan açık kaynaklı ve gizlilik odaklı bir Android uygulamasıdır.
 
 Özellikler:
 • Gerçek Zamanlı Kalkan: Reels, TikTok ve Shorts kaydırmalarını milisaniyeler içinde tespit eder ve uygulamayı durdurur.
 • Anti-Cheat Güvenliği: Kullanıcı erişilebilirlik iznini kapatmaya çalıştığında müdahale eder.
 • Seri (Streak) Takibi: Kaydırma tuzağından uzak durduğunuz günleri seri yaparak motivasyonunuzu koruyun.
-• Gizlilik Odaklı: Çekirdek engelleme sistemi %100 çevrimdışı çalışır. Verileriniz cihazınızda kalır.
+• Gizlilik Odaklı: Çekirdek engelleme sistemi gizlilik odaklı çalışır. Verileriniz cihazınızda kalır.
+

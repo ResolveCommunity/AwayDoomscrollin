@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <img src="assets/logo.png" alt="AwayDoomscrollin' Logo" width="120"/>
 </p>
 
@@ -83,7 +83,7 @@ cd AwayDoomscrollin
 
 ## 🔒 Privacy
 
-- **Core logic is 100% offline**: The app's accessibility shielding works without any network connection.
+- **Core logic is local with optional telemetry**: The app's accessibility shielding works without any network connection.
 - **Internet Permission Explained**: The `android.permission.INTERNET` is declared in `AndroidManifest.xml` **solely** for the optional telemetry feature (which allows you to view your own blocked scrolling statistics via a local dashboard/URL). 
 - All block data is stored locally via `SharedPreferences`.
 - Telemetry does not collect, sell, or maliciously share any personal user data.
@@ -113,3 +113,4 @@ See [LICENSE](LICENSE) for full details.
 <p align="center">
   Made with ❤️ by <a href="https://github.com/resolvecommunity">Resolve Community</a>
 </p>
+

@@ -1,4 +1,4 @@
-# Security Policy
+﻿# Security Policy
 
 ## Supported Versions
 
@@ -27,8 +27,9 @@ We will respond within **72 hours** and aim to release a fix within **14 days** 
 ## Scope
 
 This app:
-- Requests **zero internet permissions** — no network traffic in production builds
+- Requests **optional telemetry** — no network traffic in production builds
 - Stores all data locally via `SharedPreferences` on the device
 - Optional telemetry (disabled by default) sends only anonymous aggregate counts
 
 Out of scope: vulnerabilities in Android OS, third-party libraries, or user device configurations.
+
