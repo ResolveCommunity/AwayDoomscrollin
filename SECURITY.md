@@ -33,3 +33,4 @@ This app:
 
 Out of scope: vulnerabilities in Android OS, third-party libraries, or user device configurations.
 
+
