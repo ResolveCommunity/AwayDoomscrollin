@@ -939,8 +939,8 @@ class AntiScrollService : AccessibilityService() {
             .putString("recent_shield_logs", updatedLogs)
             .apply()
 
-        // Telemetri açıksa canlı sunucuya anında engelleme raporu gönder
-        TelemetryManager.sendTelemetryAsync(this, force = true)
+        // Telemetri açıksa ortak 24 saatlik deneme aralığına tabi bir snapshot iste.
+        TelemetryManager.sendTelemetryAsync(this)
         // ------------------------------------------
     }
 

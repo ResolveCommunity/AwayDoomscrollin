@@ -18,9 +18,11 @@ object TelemetryManager {
     private const val TAG = "TelemetryManager"
     private const val PREFS_NAME = "away_doomscroll_prefs"
     private const val KEY_TELEMETRY_ENABLED = "telemetry_enabled"
+    private const val KEY_LAST_TELEMETRY_ATTEMPT = "telemetry_last_attempt_ms"
     private const val KEY_LAST_TELEMETRY_SEND = "telemetry_last_send_ms"
     private const val KEY_INSTALLATION_ID = "telemetry_installation_id"
     private const val VDS_TELEMETRY_ENDPOINT = "https://awaydoomscrollin.com/api/telemetry"
+    private const val TELEMETRY_ATTEMPT_INTERVAL_MS = 24 * 60 * 60 * 1000L
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun isTelemetryEnabled(context: Context): Boolean {
@@ -38,23 +40,41 @@ object TelemetryManager {
         Log.d(TAG, "Telemetri durumu güncellendi: $enabled")
         
         if (enabled) {
-            sendTelemetryAsync(context, force = true)
+            // An explicit opt-in may send immediately. Automatic startup and
+            // blocking-event triggers use the shared persisted 24-hour window.
+            sendTelemetryAsync(context, bypassAttemptInterval = true)
         }
     }
 
-    fun sendTelemetryAsync(context: Context, force: Boolean = false) {
+    fun sendTelemetryAsync(context: Context) {
+        sendTelemetryAsync(context, bypassAttemptInterval = false)
+    }
+
+    private fun sendTelemetryAsync(context: Context, bypassAttemptInterval: Boolean) {
         if (!isTelemetryEnabled(context)) {
             Log.d(TAG, "Telemetri kapalı, veri gönderimi atlandı.")
             return
         }
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastSend = prefs.getLong(KEY_LAST_TELEMETRY_SEND, 0L)
         val now = System.currentTimeMillis()
 
-        // 24 saatte bir gönder (force true değilse)
-        if (!force && (now - lastSend < 24 * 60 * 60 * 1000L)) {
-            Log.d(TAG, "Telemetri bugün zaten gönderildi (24 saat dolmadı), atlanıyor.")
+        // Reserve the automatic-attempt window synchronously so concurrent
+        // accessibility events cannot launch duplicate requests. The legacy
+        // successful-send timestamp is also honored after an upgrade.
+        val attemptReserved = synchronized(this) {
+            val lastAttempt = maxOf(
+                prefs.getLong(KEY_LAST_TELEMETRY_ATTEMPT, 0L),
+                prefs.getLong(KEY_LAST_TELEMETRY_SEND, 0L)
+            )
+            if (!bypassAttemptInterval && now - lastAttempt < TELEMETRY_ATTEMPT_INTERVAL_MS) {
+                false
+            } else {
+                prefs.edit().putLong(KEY_LAST_TELEMETRY_ATTEMPT, now).commit()
+            }
+        }
+        if (!attemptReserved) {
+            Log.d(TAG, "24 saatlik telemetri deneme aralığı etkin veya zaman damgası kaydedilemedi; gönderim atlandı.")
             return
         }
 

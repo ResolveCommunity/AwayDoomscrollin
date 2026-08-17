@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.4
+- Automatic startup and blocking-event telemetry triggers now share one persisted 24-hour attempt interval.
+- Explicit opt-in can still attempt the first snapshot immediately; telemetry remains off by default.
+- Support emails now report the actual App version.

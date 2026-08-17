@@ -1107,9 +1107,9 @@ fun OnboardingStepFourAppsAndPrefs(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) {
-                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. SEPARATE NETWORK PATH: GitHub rule/configuration requests run automatically at app/service startup even while this switch is OFF; successful results are cached for 6 hours and there is currently no separate opt-out."
+                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. Explicit opt-in may trigger one immediate snapshot containing a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics. After that, automatic startup and blocking-event triggers share one persisted 24-hour attempt interval. Turning telemetry off stops future submissions; an in-flight request may finish, and the last server snapshot expires within 90 days. SEPARATE NETWORK PATH: GitHub rule/configuration requests run automatically at app/service startup even while this switch is OFF; successful results are cached for 6 hours and there is currently no separate opt-out."
                         } else {
-                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. AYRI AĞ YOLU: GitHub kural/yapılandırma istekleri bu anahtar KAPALIYKEN bile uygulama/servis başlangıcında otomatik çalışır; başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
+                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açık onay; rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplu engelleme, seri ve XP istatistiklerini içeren ilk snapshot'ı hemen deneyebilir. Bundan sonra otomatik açılış ve engelleme olayı tetikleyicileri kalıcı tek bir 24 saatlik deneme aralığını paylaşır. Kapatmak gelecekteki gönderimleri durdurur; devam eden bir istek tamamlanabilir ve son sunucu kaydı en geç 90 gün içinde silinir. AYRI AĞ YOLU: GitHub kural/yapılandırma istekleri bu anahtar KAPALIYKEN bile uygulama/servis başlangıcında otomatik çalışır; başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
                         },
                         fontSize = 10.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
@@ -1614,6 +1614,11 @@ fun FeedbackSubmissionDialog(
     val coroutineScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE) }
     val isEn = getAppLanguage(prefs) == "en"
+    val appVersionName = remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+        }.getOrDefault("unknown")
+    }
     
     var feedbackCategory by remember { mutableStateOf(if (isEn) "🐛 Bug" else "🐛 Hata") }
     var feedbackText by remember { mutableStateOf("") }
@@ -1703,9 +1708,9 @@ fun FeedbackSubmissionDialog(
 
                     val subject = "AwayDoomscrollin' [$feedbackCategory] - $manufacturer $model"
                     val body = if (isEn) {
-                        "Category: $feedbackCategory\n\nUser Message:\n$feedbackText\n\n------------------------------\nDevice Info: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nApp Version: v1.0.0"
+                        "Category: $feedbackCategory\n\nUser Message:\n$feedbackText\n\n------------------------------\nDevice Info: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nApp Version: v$appVersionName"
                     } else {
-                        "Kategori: $feedbackCategory\n\nKullanıcı Mesajı:\n$feedbackText\n\n------------------------------\nCihaz Bilgisi: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nUygulama Sürümü: v1.0.0"
+                        "Kategori: $feedbackCategory\n\nKullanıcı Mesajı:\n$feedbackText\n\n------------------------------\nCihaz Bilgisi: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nUygulama Sürümü: v$appVersionName"
                     }
 
                     try {
@@ -2195,9 +2200,9 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                         )
                         Text(
                             text = if (isEn) {
-                                "Telemetry is off by default and nothing is sent to awaydoomscrollin.com unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. Separate network path: GitHub rule/configuration requests run automatically even while this switch is off, successful results are cached for 6 hours, and there is currently no separate opt-out."
+                                "Telemetry is off by default and nothing is sent to awaydoomscrollin.com unless you enable this switch. Explicit opt-in may trigger one immediate snapshot containing a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics. After that, automatic startup and blocking-event triggers share one persisted 24-hour attempt interval. Turning telemetry off stops future submissions; an in-flight request may finish, and the last server snapshot expires within 90 days. Separate network path: GitHub rule/configuration requests run automatically even while this switch is off, successful results are cached for 6 hours, and there is currently no separate opt-out."
                             } else {
-                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece awaydoomscrollin.com adresine veri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. Ayrı ağ yolu: GitHub kural/yapılandırma istekleri bu anahtar kapalıyken de otomatik çalışır, başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
+                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece awaydoomscrollin.com adresine veri gönderilmez. Açık onay; rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplu engelleme, seri ve XP istatistiklerini içeren ilk snapshot'ı hemen deneyebilir. Bundan sonra otomatik açılış ve engelleme olayı tetikleyicileri kalıcı tek bir 24 saatlik deneme aralığını paylaşır. Kapatmak gelecekteki gönderimleri durdurur; devam eden bir istek tamamlanabilir ve son sunucu kaydı en geç 90 gün içinde silinir. Ayrı ağ yolu: GitHub kural/yapılandırma istekleri bu anahtar kapalıyken de otomatik çalışır, başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
                             },
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.6f),

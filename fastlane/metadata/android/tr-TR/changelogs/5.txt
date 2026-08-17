@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.4
+- Otomatik açılış ve engelleme olayı telemetri tetikleyicileri artık kalıcı tek bir 24 saatlik deneme aralığını paylaşır.
+- Açık onay ilk snapshot'ı hemen deneyebilir; telemetri varsayılan kapalı kalır.
+- Destek e-postaları artık gerçek uygulama sürümünü bildirir.

@@ -53,6 +53,30 @@ class TelemetryManagerTest {
         assertFalse(TelemetryManager.isTelemetryEnabled(context))
     }
 
+    @Test
+    fun recentAttemptThrottlesAutomaticTriggersBeforeCreatingAnInstallationId() {
+        preferences().edit()
+            .putBoolean("telemetry_enabled", true)
+            .putLong("telemetry_last_attempt_ms", System.currentTimeMillis())
+            .commit()
+
+        TelemetryManager.sendTelemetryAsync(context)
+
+        assertFalse(preferences().contains("telemetry_installation_id"))
+    }
+
+    @Test
+    fun legacySuccessfulSendTimestampIsHonoredAfterUpgrade() {
+        preferences().edit()
+            .putBoolean("telemetry_enabled", true)
+            .putLong("telemetry_last_send_ms", System.currentTimeMillis())
+            .commit()
+
+        TelemetryManager.sendTelemetryAsync(context)
+
+        assertFalse(preferences().contains("telemetry_installation_id"))
+    }
+
     private fun preferences() =
         context.getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
 }

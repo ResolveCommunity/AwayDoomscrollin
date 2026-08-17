@@ -1026,7 +1026,7 @@
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p2_title">2. Network Data Collection</h3>
-                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Pseudonymous telemetry is disabled by default and nothing is sent to awaydoomscrollin.com unless the user explicitly opts in. While enabled, it sends a random per-installation ID, the disclosed device/app fields, and aggregate blocking statistics; the latest server snapshot expires within 90 days. Separately, the App automatically requests GitHub rule/configuration data at app or service startup. Turning telemetry off does not disable GitHub requests, and there is currently no separate opt-out. Screen contents, messages, passwords, and location are not transmitted.</p>
+                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. In v1.0.4, pseudonymous telemetry is disabled by default and nothing is sent to awaydoomscrollin.com unless the user explicitly opts in. Opt-in may trigger one immediate snapshot containing the constant PSEUDONYMOUS_TELEMETRY type marker, a random installation ID, disclosed device/App fields, and aggregate blocking, streak, and XP statistics. After that, automatic startup and blocking-event triggers share one persisted 24-hour attempt interval, including failed attempts. Turning telemetry off stops future submissions, although an in-flight request may finish; the latest server snapshot expires within 90 days. Separately, the App automatically requests GitHub rule/configuration data at app or service startup. Turning telemetry off does not disable GitHub requests, and there is currently no separate opt-out. Screen contents, messages, passwords, and location are not transmitted.</p>
                     </div>
 
                     <div class="legal-section">
@@ -1038,7 +1038,7 @@
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p4_title">4. Local Data Storage & Preferences</h3>
-                        <p data-i18n="legal_p4_text">Blocking statistics, streak counters, target-app toggles, recent shield activity, and the random installation ID are stored locally via SharedPreferences ('away_doomscroll_prefs') and are removed when the App's data is cleared or the App is uninstalled. While telemetry is enabled, the installation ID and disclosed aggregate block, streak, and XP fields are also submitted to awaydoomscrollin.com.</p>
+                        <p data-i18n="legal_p4_text">Blocking statistics, streak counters, target-app toggles, and recent shield activity are stored locally via SharedPreferences ('away_doomscroll_prefs'). A random telemetry installation ID is created and stored there only after explicit opt-in. These local values are removed when the App's data is cleared or the App is uninstalled. While telemetry is enabled and the attempt interval permits, the installation ID and disclosed aggregate block, streak, and XP fields are also submitted to awaydoomscrollin.com.</p>
                     </div>
 
                     <div class="legal-section">

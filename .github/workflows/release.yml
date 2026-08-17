@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: 'Existing release tag to build, for example v1.0.2'
+        description: 'Existing release tag to build, for example v1.0.4'
         required: true
         type: string
 

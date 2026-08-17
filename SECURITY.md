@@ -31,7 +31,8 @@ This app:
 - Declares Android `INTERNET` permission for two separate paths: opt-in telemetry and automatic GitHub rule/configuration requests
 - Keeps telemetry disabled by default and sends no request to `awaydoomscrollin.com` until the user explicitly opts in
 - Generates a random per-installation UUID for telemetry that is not derived from Android ID, IMEI, MAC address, hardware, account, or advertising data
-- Sends that UUID, the disclosed device/app fields, and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
+- Sends the constant `PSEUDONYMOUS_TELEMETRY` type marker, that UUID, the disclosed device/app fields, and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
+- Allows one immediate attempt after explicit opt-in; afterward automatic app-startup and blocking-event triggers share one persisted 24-hour attempt interval, including failed attempts
 - Stops future submissions when the user opts out; the latest server snapshot expires within 90 days
 - Automatically fetches non-executable JSON rule/configuration updates from GitHub at app or accessibility-service startup; successful fetches are cached for six hours
 - Treats GitHub rule fetching as independent of telemetry: **disabling telemetry does not disable this request**, and no separate rule-fetch switch currently exists
