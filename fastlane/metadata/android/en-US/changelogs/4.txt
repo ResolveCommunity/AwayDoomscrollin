@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.3
+- Instagram is now clearly labeled Beta alongside TikTok and YouTube Shorts.
+- Detection and safe-area limitations are disclosed in the app and store listing.
+- Network wording now states explicitly that GitHub rule requests run even when telemetry is off.

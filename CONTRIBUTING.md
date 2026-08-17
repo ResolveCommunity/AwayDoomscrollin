@@ -8,10 +8,16 @@ Thank you for your interest in contributing! Here's how to get started.
 
 1. Search [existing issues](https://gitlab.com/resolve-community/AwayDoomscrollin/-/issues) first.
 2. If not found, open a new issue with:
-   - Android version and device model
+   - AwayDoomscrollin' version, Android version, and device model
+   - Affected platform and its app version (Instagram, TikTok, or YouTube)
+   - Whether the affected shield was enabled or disabled
    - Steps to reproduce
    - Expected vs actual behavior
    - Logcat output (if possible)
+
+All three platform integrations are beta. Reports of missed detections, false positives, or safe-area misclassification are especially useful. Do not include private messages, passwords, screen contents, telemetry installation UUIDs, API keys, or other secrets in reports.
+
+For network-behavior reports, keep the two paths distinct: telemetry to `awaydoomscrollin.com` is off by default and requires explicit opt-in, while GitHub rule/configuration requests run automatically even when telemetry is off and currently have no separate switch.
 
 ## 💡 Suggesting Features
 
@@ -28,6 +34,8 @@ Open an issue with the `enhancement` label and describe:
 4. Keep UI changes consistent with the Cyberpunk/Neon ZenTheme color system
 5. Test on a real device (Samsung One UI preferred)
 6. Submit your pull request with a clear description
+
+Changes to telemetry, remote rules, permissions, retention, destinations, or collected fields must update `README.md`, `PRIVACY.md`, `SECURITY.md`, the in-app disclosure, Fastlane descriptions, and F-Droid AntiFeature text in the same release.
 
 ## 📋 Code Style
 

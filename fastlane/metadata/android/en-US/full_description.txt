@@ -1,8 +1,17 @@
-﻿AwayDoomscrollin' is an open-source, privacy-first Android app developed by Resolve Community, designed to help you break the habit of endless doomscrolling on Instagram Reels, TikTok, and YouTube Shorts.
+AwayDoomscrollin' is an open-source, privacy-first Android accessibility app developed by Resolve Community. It attempts to interrupt endless scrolling on Instagram Reels, TikTok, and YouTube Shorts.
+
+Beta status:
+• Instagram Reels, TikTok, and YouTube Shorts detection are all beta features.
+• Detection and safe-area classification depend on accessibility information exposed by third-party apps, Android, and device manufacturers. Interface changes can cause missed detections or false positives; perfect detection and universal compatibility are not claimed.
 
 Features:
-• Real-time Shield: Instantly detects reel/short scrolling and halts the distracting feed.
-• Anti-Cheat Protection: Intervenes if you attempt to disable protection during focus mode.
-• Streak Tracker: Build your daily focus streaks and stay motivated to stay away from the scroll.
-• Privacy & Network Transparency: Screen-content analysis and blocking run on-device. Telemetry is disabled by default and no telemetry is sent until the user explicitly enables it in the app. On its first submission, the app creates a random per-installation UUID that is not derived from hardware, account, Android ID, IMEI, MAC, or advertising data. While enabled, it sends that identifier, device manufacturer/model, Android version and SDK level, app version, aggregate Instagram/TikTok/YouTube block counts, total blocks, streak days, and XP immediately after opt-in, at startup (subject to a 24-hour throttle), and after blocking events. Turning telemetry off stops future submissions; the latest server snapshot expires within 90 days. The app also automatically contacts GitHub when the app or accessibility service starts to fetch updated rule/configuration data; successful fetches are cached for six hours. Remote-rule fetching is separate from the telemetry switch and currently has no separate opt-out.
+• Event-driven Shield: Attempts to recognize supported short-video feeds and return you to the home screen.
+• Safe-Zone Rules: Designed to exclude DMs, comments, search, and long-form YouTube, subject to the beta limitations above.
+• Anti-Cheat Protection: Presents an awareness intervention if you attempt to disable protection during focus mode.
+• Streak Tracker: Tracks local daily focus streaks and blocking statistics.
 
+Privacy and network transparency:
+• The Android manifest declares INTERNET permission. Screen-content analysis and blocking run on-device, but the app is not fully offline.
+• Telemetry is off by default. No telemetry request is made and no telemetry installation UUID is created until you explicitly enable telemetry in the app.
+• While enabled, telemetry sends a random per-installation UUID, device manufacturer/model, Android version and SDK level, app version, aggregate Instagram/TikTok/YouTube and total block counts, streak days, and XP to awaydoomscrollin.com. Submissions are attempted immediately after opt-in, at startup subject to a 24-hour throttle, and after blocking events. Turning telemetry off stops future submissions. The latest server snapshot expires within 90 days; the server stores a SHA-256 installation key rather than the raw UUID.
+• Separate automatic network path: the app attempts to fetch non-executable JSON rule/configuration data from GitHub when the app or accessibility service starts. Successful results are cached for six hours. This request runs independently even when telemetry is off. Turning off telemetry does not disable GitHub requests, and there is currently no separate in-app switch for them. Built-in rules remain available if the request fails or the device is offline.

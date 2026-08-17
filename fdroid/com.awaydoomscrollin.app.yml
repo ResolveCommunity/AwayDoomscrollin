@@ -10,8 +10,8 @@ AntiFeatures:
   NonFreeNet:
     en-US: The app automatically contacts GitHub when the app or accessibility service
       starts to fetch rule/configuration data. Successful fetches are cached for six
-      hours. This request is independent of the telemetry switch and currently has
-      no separate opt-out.
+      hours. This request runs even while telemetry is disabled. Turning telemetry
+      off does not disable GitHub requests, and there is currently no separate opt-out.
 Categories:
   - Security
   - System

@@ -511,7 +511,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = if (isEn) "Zero Tolerance Policy,\nShort Videos Are Blocked Instantly!" else "Sıfır Tolerans Politikası,\nKısa Videolar Anında Engellenir!",
+            text = if (isEn) "Beta Detection Shield\nfor Short-Video Feeds" else "Kısa Video Akışları İçin\nBeta Algılama Kalkanı",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary,
@@ -532,17 +532,17 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = if (isEn) "⚙️ Full Working Logic:" else "⚙️ Tam Çalışma Mantığı:",
+                    text = if (isEn) "⚙️ Current Beta Behavior:" else "⚙️ Mevcut Beta Davranışı:",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isEn) 
-                        "• The moment you enter a short video feed (Reels, Shorts, TikTok), the system detects the trap instantly.\n• It doesn't wait for you to scroll. It acts with zero tolerance.\n• The shield intervenes, force stops the target app, and immediately throws you back to your Home Screen." 
-                    else 
-                        "• Kısa video (Reels, Shorts, TikTok) ekranına girdiğiniz an sistem tuzağı anında tespit eder.\n• Kaydırmanızı beklemez, sıfır toleransla çalışır.\n• Kalkan devreye girerek hedef uygulamayı zorla durdurur ve sizi anında Ana Ekrana fırlatır.",
+                    text = if (isEn)
+                        "• The beta engine attempts to recognize supported short-video feeds from accessibility events.\n• When detection succeeds, the shield returns you to the Home screen and may open Android Settings to stop the target app.\n• Platform, Android, or manufacturer UI changes can cause missed detections or false positives."
+                    else
+                        "• Beta motoru desteklenen kısa video akışlarını erişilebilirlik olaylarından algılamaya çalışır.\n• Algılama başarılı olduğunda kalkan sizi Ana Ekrana döndürür ve hedef uygulamayı durdurmak için Android Ayarları'nı açabilir.\n• Platform, Android veya üretici arayüzü değişiklikleri kaçırılan ya da hatalı algılamalara yol açabilir.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     lineHeight = 18.sp
@@ -768,8 +768,8 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    if (isEn) "Entering Reels forces an instant close. We break the infinite scrolling loop at its root." 
-                                    else "Reels sekmesine girdiğiniz an uygulama kapatılır. Sonsuz kaydırma döngüsünü, daha başlamadan kökünden kırıyoruz.",
+                                    if (isEn) "This simulator demonstrates the intended shield response. Real-app detection is beta and can vary."
+                                    else "Bu simülatör hedeflenen kalkan davranışını gösterir. Gerçek uygulama algılaması betadır ve değişebilir.",
                                     color = Color.White,
                                     fontSize = 11.sp,
                                     textAlign = TextAlign.Center
@@ -899,7 +899,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "Zero tolerance: Instantly blocks the moment you enter a short video feed." else "Sıfır tolerans: Kısa video ekranına girdiğiniz an anında engeller.")
+                MatrixBullet(if (isEn) "Beta shield: Attempts to intervene when a supported short-video feed is recognized." else "Beta kalkan: Desteklenen kısa video akışı algılandığında müdahale etmeye çalışır.")
                 MatrixBullet(if (isEn) "Force stops the app from Settings ruthlessly." else "Uygulamayı Ayarlar'dan acımasızca zorla durdurur.")
                 MatrixBullet(if (isEn) "Throws you to Home Screen to pull you out of the scroll trance." else "Sizi Ana Ekrana fırlatarak transtan çıkarır.")
             }
@@ -925,8 +925,8 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 MatrixBullet(
-                    if (isEn) "On-device core: Screen analysis stays on your device; network access is used for telemetry and automatic rule updates."
-                    else "Cihaz içi çekirdek: Ekran analizi cihazınızda kalır; ağ erişimi telemetri ve otomatik kural güncellemeleri için kullanılır.",
+                    if (isEn) "On-device core: Screen analysis stays on your device. Telemetry is opt-in; GitHub rule requests run automatically even when telemetry is off."
+                    else "Cihaz içi çekirdek: Ekran analizi cihazınızda kalır. Telemetri isteğe bağlıdır; GitHub kural istekleri telemetri kapalıyken de otomatik çalışır.",
                     isNegative = true
                 )
                 MatrixBullet(if (isEn) "Does NOT record your messages, passwords, or photos." else "Mesajlarınızı, şifrelerinizi ve fotoğraflarınızı kaydetmez.", isNegative = true)
@@ -1005,10 +1005,11 @@ fun OnboardingStepFourAppsAndPrefs(
         // 1. INSTAGRAM COMPACT CARD
         CompactOnboardingAppCard(
             appName = "Instagram",
-            subtitle = if (isEn) "Reels & Infinite Feed" else "Reels & Sonsuz Akış",
+            subtitle = if (isEn) "Reels & Infinite Feed (BETA)" else "Reels & Sonsuz Akış (BETA)",
             iconRes = R.drawable.ic_instagram,
             brandColor = Color(0xFFE1306C),
             isEnabled = isInstaEnabled,
+            isBeta = true,
             onToggle = { enabled ->
                 if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.INSTAGRAM, enabled)) {
                     isInstaEnabled = enabled
@@ -1106,9 +1107,9 @@ fun OnboardingStepFourAppsAndPrefs(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) {
-                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
+                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. SEPARATE NETWORK PATH: GitHub rule/configuration requests run automatically at app/service startup even while this switch is OFF; successful results are cached for 6 hours and there is currently no separate opt-out."
                         } else {
-                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
+                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. AYRI AĞ YOLU: GitHub kural/yapılandırma istekleri bu anahtar KAPALIYKEN bile uygulama/servis başlangıcında otomatik çalışır; başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
                         },
                         fontSize = 10.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
@@ -1134,14 +1135,14 @@ fun OnboardingStepFourAppsAndPrefs(
             val scopeTitle = if (isEn) "Protection Scope & Safe Areas" else "Kalkan Kapsamı & Güvenli Alanlar"
             val scopeContent = if (isEn) {
                 "AwayDoomscrollin' Protects:\n\n" +
-                "• Instagram: Reels feeds and infinite scroll streams are blocked immediately. DMs (Messages) and Comment sections remain 100% safe and accessible.\n\n" +
-                "• TikTok (BETA): Video scrolling feed is detected and closed. Inbox and Direct Messages remain safe.\n\n" +
-                "• YouTube Shorts (BETA): Only YouTube Shorts video screen is blocked. Normal video playback and Search function remain untouched."
+                "• Instagram (BETA): The shield attempts to detect Reels/Explore feeds while excluding DMs and comments. Third-party UI changes can cause misses or false positives.\n\n" +
+                "• TikTok (BETA): Attempts to detect the short-video feed while excluding Inbox and Direct Messages; misses or false positives are possible.\n\n" +
+                "• YouTube Shorts (BETA): Attempts to detect the Shorts screen while excluding normal videos and Search; misses or false positives are possible."
             } else {
                 "AwayDoomscrollin' Koruması:\n\n" +
-                "• Instagram: Reels ve sonsuz akışlar algılandığında kalkan anında devreye girer. DM (Mesajlar) ve Yorumlar alanı %100 güvenlidir.\n\n" +
-                "• TikTok (BETA): Kısa video akışı algılanıp kapatılır. Gelen kutusu ve mesajlar güvenlidir.\n\n" +
-                "• YouTube Shorts (BETA): Sadece Shorts ekranı engellenir. Normal video izleme ve Arama aramaları kesinlikle engellenmez."
+                "• Instagram (BETA): Kalkan Reels/Keşfet akışlarını algılamaya, DM ve yorumları kapsam dışında tutmaya çalışır. Üçüncü taraf arayüz değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir.\n\n" +
+                "• TikTok (BETA): Kısa video akışını algılamaya, Gelen Kutusu ve mesajları kapsam dışında tutmaya çalışır; kaçırılan veya hatalı algılamalar olabilir.\n\n" +
+                "• YouTube Shorts (BETA): Shorts ekranını algılamaya, normal videoları ve Arama'yı kapsam dışında tutmaya çalışır; kaçırılan veya hatalı algılamalar olabilir."
             }
 
             ScrollableTextDialog(
@@ -2194,9 +2195,9 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                         )
                         Text(
                             text = if (isEn) {
-                                "Telemetry is off by default and nothing is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. GitHub rule updates run automatically and are not controlled by this switch."
+                                "Telemetry is off by default and nothing is sent to awaydoomscrollin.com unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. Separate network path: GitHub rule/configuration requests run automatically even while this switch is off, successful results are cached for 6 hours, and there is currently no separate opt-out."
                             } else {
-                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir veri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
+                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece awaydoomscrollin.com adresine veri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. Ayrı ağ yolu: GitHub kural/yapılandırma istekleri bu anahtar kapalıyken de otomatik çalışır, başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
                             },
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.6f),
@@ -3066,11 +3067,11 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
         "instagram" -> {
             ScrollableTextDialog(
                 isEn = isEn,
-                title = if (isEn) "Instagram Protection Scope" else "Instagram Koruma Kapsamı",
+                title = if (isEn) "Instagram Protection Scope (Beta)" else "Instagram Koruma Kapsamı (Beta)",
                 content = if (isEn) 
-                    "Instantly blocks access to Instagram Reels and Explore feeds.\n\n💬 Important Note: Your DMs (Messages) are NOT blocked, you can chat with friends freely."
+                    "Attempts to detect Instagram Reels and Explore feeds while excluding DMs and comments. Instagram UI/accessibility changes can cause missed detections or false positives."
                 else 
-                    "Instagram'daki Reels videolarını ve Keşfet ekranını açtığınız an engeller.\n\n💬 Önemli Not: DM (Mesajlar) ekranınız engellenmez, arkadaşlarınızla rahatça mesajlaşabilirsiniz.",
+                    "Instagram Reels ve Keşfet akışlarını algılamaya, DM ve yorumları kapsam dışında tutmaya çalışır. Instagram arayüzü/erişilebilirlik ağacındaki değişiklikler kaçırılan veya hatalı algılamalara yol açabilir.",
                 iconRes = R.drawable.ic_instagram,
                 iconTint = Color(0xFFE1306C),
                 onDismiss = { activeAppInfoDialog = null }
@@ -3081,9 +3082,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                 isEn = isEn,
                 title = if (isEn) "TikTok Protection Scope" else "TikTok Koruma Kapsamı",
                 content = if (isEn) 
-                    "Blocks short videos on TikTok and prevents scrolling.\n\n💬 Important Note: DM (Messaging) remains fully accessible."
+                    "Attempts to detect TikTok's short-video feed while excluding messaging. TikTok UI/accessibility changes can cause missed detections or false positives."
                 else 
-                    "TikTok'taki kısa videoları engeller ve kaydırma yapmanıza izin vermez.\n\n💬 Önemli Not: Sadece DM (Mesajlaşma) kullanımına izin verir.",
+                    "TikTok kısa video akışını algılamaya ve mesajlaşmayı kapsam dışında tutmaya çalışır. TikTok arayüzü/erişilebilirlik değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir.",
                 iconRes = R.drawable.ic_tiktok,
                 iconTint = Color(0xFF00F2FE),
                 onDismiss = { activeAppInfoDialog = null }
@@ -3094,9 +3095,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                 isEn = isEn,
                 title = if (isEn) "YouTube Shorts Protection Scope" else "YouTube Shorts Koruma Kapsamı",
                 content = if (isEn) 
-                    "Only blocks YouTube Shorts videos; does not interfere with general YouTube browsing or searches.\n\n💡 Why Leave Long Videos Alone?\nWhen you choose long-form, high-quality videos over short fast-consumed clips, your brain's attention span lengthens and your lowered boredom threshold gradually heals."
+                    "Attempts to detect YouTube Shorts while excluding normal videos and Search. YouTube UI/accessibility changes can cause missed detections or false positives."
                 else 
-                    "Sadece YouTube Shorts videolarını engeller; genel YouTube kullanımınıza ve aramalara karışmaz.\n\n💡 Neden Uzun Videolara Karışmıyoruz?\nKısa ve hızlı tüketilen videolar yerine uzun ve nitelikli videoları tercih ettiğinizde beyninizin odaklanma süresi uzayacak ve sahte dopamin nedeniyle düşen sıkılma eşiğiniz zamanla yeniden iyileşecektir.",
+                    "YouTube Shorts'u algılamaya, normal videoları ve Arama'yı kapsam dışında tutmaya çalışır. YouTube arayüzü/erişilebilirlik değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir.",
                 iconRes = R.drawable.ic_youtube,
                 iconTint = Color(0xFFFF0055),
                 onDismiss = { activeAppInfoDialog = null }
@@ -3109,9 +3110,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             isEn = isEn,
             title = if (isEn) "🛡️ Why So Unforgiving?" else "🛡️ Neden Bu Kadar Acımasız?",
             content = if (isEn) 
-                "Other 'digital wellbeing' apps offer flexibility like '15 minutes per day' or '3 scroll chances'. In addiction psychology, this is called the 'Bargaining Phase'.\n\nIf you tell your brain 'You can watch only 3 videos', it exploits those 3 videos to the last drop. When time runs out, you feel empty and angry. In years-long screen addictions, any flexibility is abused.\n\nWe do NOT bargain with addiction.\n\nThere is no 'just one video' or 'just 5 minutes'. The INSTANT you try to enter a doomscrolling feed (like Reels or Shorts), the system pulls the plug without excuses. No time limits, no bargaining. Your brain learns 'If I enter, I get kicked out instantly', breaking the fake dopamine loop at its root."
+                "Other digital-wellbeing apps may use time limits or scroll allowances. AwayDoomscrollin' instead attempts to intervene when its beta detection engine recognizes a supported doomscrolling feed. It does not promise perfect recognition: platform, Android, and manufacturer changes can cause missed detections or false positives."
             else 
-                "Diğer 'dijital refah' uygulamaları genellikle size 'Günde 15 dakika' veya '3 kaydırma hakkı' gibi esneklikler veya gece modları sunar. Ancak bağımlılık psikolojisinde buna 'Pazarlık Evresi' denir.\n\nEğer beyninize 'Sadece 3 video izleyebilirsin' derseniz, beyin o 3 videoyu son damlasına kadar sömürür. Hak bittiğinde ise müthiş bir boşluk hissine ve öfkeye kapılırsınız. Yıllarca süren ekran bağımlılıklarında (3+ yıl), kişi kendine bırakılan her esnekliği istismar eder ve günün sonunda sınırları aşarak yine kendini suçlarken bulur.\n\nBiz bağımlılıkla pazarlık yapmıyoruz.\n\n'Sadece bir video' veya 'sadece 5 dakika' diye bir şey yoktur. Kaydırma batağına (Reels/Shorts) girmeye çalıştığınız an, sistem mazeret kabul etmeden fişi çeker. Zaman sınırı yok, pazarlık payı yok. Beyniniz 'Girersem anında atılırım' şartlanmasını çok hızlı öğrenir ve o sonsuz dopamin döngüsü fiziksel olarak kökünden kırılmış olur.",
+                "Diğer dijital refah uygulamaları zaman sınırı veya kaydırma hakkı kullanabilir. AwayDoomscrollin' bunun yerine beta algılama motoru desteklenen bir sonsuz kaydırma akışını tanıdığında müdahale etmeye çalışır. Kusursuz algılama sözü vermez: platform, Android ve üretici değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir.",
             onDismiss = { showPhilosophyDialog = false }
         )
     }
@@ -3322,6 +3323,7 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             isChecked = isInstagramEnabled,
             brandColor = Color(0xFFE1306C),
             blockCount = blocksInstagram,
+            isBeta = true,
             onInfoClick = { activeAppInfoDialog = "instagram" }
         ) { checked ->
             if (!checked) {

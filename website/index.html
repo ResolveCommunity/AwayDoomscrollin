@@ -116,7 +116,7 @@
                 <div class="hero-specs-list">
                     <div class="spec-item">
                         <i class="fa-solid fa-circle-check"></i>
-                        <span data-i18n="hero_spec_samsung">Samsung One UI 100% Compatible</span>
+                        <span data-i18n="hero_spec_samsung">Public Beta — Compatibility Varies</span>
                     </div>
                     <div class="spec-item">
                         <i class="fa-solid fa-circle-check"></i>
@@ -334,7 +334,7 @@
                         <i class="fa-solid fa-shield-halved"></i>
                     </div>
                     <h3 data-i18n="feat_1_title">Automatic Shield</h3>
-                    <p data-i18n="feat_1_desc">The instant scrolling is detected in Reels, TikTok, or Shorts, the background service intervenes and redirects you to the safe home screen.</p>
+                    <p data-i18n="feat_1_desc">The beta service attempts to recognize supported short-video feeds and redirect you to the home screen.</p>
                 </div>
 
                 <div class="feature-card">
@@ -342,7 +342,7 @@
                         <i class="fa-solid fa-user-shield"></i>
                     </div>
                     <h3 data-i18n="feat_2_title">Smart Safe Zone</h3>
-                    <p data-i18n="feat_2_desc">Scrolling in DMs and Comment sections is freely allowed. Only infinite vertical video feed scrolling is targeted.</p>
+                    <p data-i18n="feat_2_desc">Rules are designed to exclude DMs and comments, but third-party interface changes can cause false positives.</p>
                 </div>
 
                 <div class="feature-card">
@@ -478,7 +478,7 @@
                                 <div class="target-app-info">
                                     <i class="fa-brands fa-instagram"></i>
                                     <div>
-                                        <div class="target-app-name">Instagram Reels</div>
+                                        <div class="target-app-name">Instagram Reels <span class="beta-tag">BETA</span></div>
                                         <div class="target-app-sub" data-i18n="mock_app_insta_sub">DMs & Comments Allowed</div>
                                     </div>
                                 </div>
@@ -585,7 +585,7 @@
                                 <p data-i18n="vs_row1_trad">"Günde 15 dk izin ver." Beyniniz bu süreyi son saniyesine kadar sömürür ve süre bitince irade savaşı başlar.</p>
                             </td>
                             <td class="away-cell">
-                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row1_away">Refleks Kırma (Anında)</span></div>
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row1_away">Refleks Kırma (Beta)</span></div>
                                 <p data-i18n="vs_row1_away">Süre pazarlığı yok! Bilinçsiz kaydırma hareketini algıladığı an kalkan devreye girer ve sizi ana ekrana fırlatır.</p>
                             </td>
                         </tr>
@@ -631,7 +631,7 @@
                             </td>
                             <td class="away-cell">
                                 <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row4_away">Şeffaf Ağ Kullanımı & Açık Kaynak</span></div>
-                                <p data-i18n="vs_row4_away">Ekran analizi cihazda kalır. Telemetri varsayılan kapalıdır ve yalnızca kullanıcı etkinleştirirse çalışır; GitHub kural güncellemeleri otomatik çalışır. %100 ücretsiz ve tamamen açık kaynak kodludur.</p>
+                                <p data-i18n="vs_row4_away">Ekran analizi cihazda kalır. Telemetri açık rızaya bağlıdır. GitHub kural istekleri telemetri kapalıyken de otomatik çalışır ve ayrı bir kapatma seçeneği yoktur.</p>
                             </td>
                         </tr>
 
@@ -706,9 +706,9 @@
                     </div>
                     <h3>Instagram Reels</h3>
                     <p style="color: var(--secondary-green); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
-                        <i class="fa-solid fa-circle-check"></i> <span data-i18n="app_insta_status">FULL SUPPORTED</span>
+                        <i class="fa-solid fa-flask"></i> <span data-i18n="app_insta_status">BETA</span>
                     </p>
-                    <p data-i18n="app_insta_desc">Detects scrolling on Reels while allowing messaging and comment reading without blocking.</p>
+                    <p data-i18n="app_insta_desc">Attempts to detect Reels while excluding messaging and comments; compatibility can change with Instagram updates.</p>
                 </div>
 
                 <div class="feature-card" style="border-top: 3px solid var(--brand-tiktok);">
@@ -719,7 +719,7 @@
                     <p style="color: var(--primary-cyan); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
                         <i class="fa-solid fa-flask"></i> <span data-i18n="app_tiktok_status">BETA</span>
                     </p>
-                    <p data-i18n="app_tiktok_desc">Detects infinite feed scrolling, stops the app, and redirects to home screen.</p>
+                    <p data-i18n="app_tiktok_desc">Attempts to detect the short-video feed while excluding messaging; compatibility can change with TikTok updates.</p>
                 </div>
 
                 <div class="feature-card" style="border-top: 3px solid var(--brand-youtube);">
@@ -730,7 +730,7 @@
                     <p style="color: var(--primary-cyan); font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
                         <i class="fa-solid fa-flask"></i> <span data-i18n="app_yt_status">BETA</span>
                     </p>
-                    <p data-i18n="app_yt_desc">Does not block regular videos; only stops vertical scrolling in the Shorts tab.</p>
+                    <p data-i18n="app_yt_desc">Attempts to detect Shorts while excluding normal videos and Search; compatibility can change with YouTube updates.</p>
                 </div>
             </div>
         </div>
@@ -757,10 +757,10 @@
                             </div>
                             <div class="compatibility-title">
                                 <h3 data-i18n="comp_samsung_title">Samsung Galaxy (One UI)</h3>
-                                <p><i class="fa-solid fa-mobile-screen"></i> <span data-i18n="comp_samsung_sub">Fully Verified Device Support</span></p>
+                                <p><i class="fa-solid fa-mobile-screen"></i> <span data-i18n="comp_samsung_sub">Tested Configuration — No Universal Guarantee</span></p>
                             </div>
                         </div>
-                        <div class="percentage-tag samsung">%100</div>
+                        <div class="percentage-tag samsung">BETA</div>
                     </div>
 
                     <div class="progress-container">
@@ -768,7 +768,7 @@
                     </div>
 
                     <p class="compatibility-desc" data-i18n="comp_samsung_desc">
-                        100% tested and verified on Samsung Galaxy devices (One UI). Accessibility service runs uninterrupted.
+                        Tested on selected Samsung Galaxy/One UI configurations. App and OS updates can still change accessibility behavior.
                     </p>
                 </div>
 
@@ -813,7 +813,7 @@
                     </button>
                     <div class="faq-answer-wrapper">
                         <div class="faq-answer-content" data-i18n="faq_a1">
-                            Privacy First. Screen-content analysis and blocking run locally. Pseudonymous telemetry is disabled by default and nothing is sent unless the user explicitly opts in; while enabled it includes a random per-installation ID that is not derived from hardware, advertising, or account identifiers. Turning telemetry off stops future submissions and the latest server snapshot expires within 90 days. GitHub rule updates run automatically and independently of the telemetry switch. Accessibility permission is used to detect target screens and scrolling gestures.
+                            Screen-content analysis runs locally. Pseudonymous telemetry is disabled by default and nothing is sent to awaydoomscrollin.com unless the user explicitly opts in. A separate network path automatically requests GitHub rule/configuration data even while telemetry is off; turning telemetry off does not disable it, and there is currently no separate switch. Accessibility permission is used to detect target screens and scrolling gestures.
                         </div>
                     </div>
                 </div>
@@ -826,7 +826,7 @@
                     </button>
                     <div class="faq-answer-wrapper">
                         <div class="faq-answer-content" data-i18n="faq_a2">
-                            No! Thanks to our Smart Safe Zone algorithm, scrolling in direct messages and comment reading sheets is recognized as a safe zone. You can read comments comfortably without any blocking.
+                            The beta rules are designed to exclude direct messages and comment sheets, but Instagram interface changes can cause missed detections or false positives. Please report compatibility problems.
                         </div>
                     </div>
                 </div>
@@ -1026,7 +1026,7 @@
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p2_title">2. Network Data Collection</h3>
-                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Pseudonymous telemetry is disabled by default and nothing is sent unless the user explicitly opts in. While enabled, it sends a random per-installation ID, the disclosed device/app fields, and aggregate blocking statistics to awaydoomscrollin.com. Turning telemetry off stops future submissions; the latest server snapshot expires within 90 days. The installation ID is not derived from a hardware, advertising, or account identifier. The App also contacts GitHub automatically for rule/configuration updates; this is independent of the telemetry switch. Screen contents, messages, passwords, and location are not transmitted.</p>
+                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Pseudonymous telemetry is disabled by default and nothing is sent to awaydoomscrollin.com unless the user explicitly opts in. While enabled, it sends a random per-installation ID, the disclosed device/app fields, and aggregate blocking statistics; the latest server snapshot expires within 90 days. Separately, the App automatically requests GitHub rule/configuration data at app or service startup. Turning telemetry off does not disable GitHub requests, and there is currently no separate opt-out. Screen contents, messages, passwords, and location are not transmitted.</p>
                     </div>
 
                     <div class="legal-section">

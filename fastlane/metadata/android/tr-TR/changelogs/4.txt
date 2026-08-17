@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.3
+- Instagram, TikTok ve YouTube Shorts ile birlikte açıkça Beta olarak etiketlendi.
+- Algılama ve güvenli alan sınırlamaları uygulama ve mağaza metninde açıklandı.
+- GitHub kural isteklerinin telemetri kapalıyken de çalıştığı açıkça belirtildi.
