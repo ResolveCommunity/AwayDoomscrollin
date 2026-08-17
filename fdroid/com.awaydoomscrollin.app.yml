@@ -32,9 +32,9 @@ Binaries:
   https://github.com/ResolveCommunity/AwayDoomscrollin/releases/download/v%v/AwayDoomscrollin-v%v.apk
 
 Builds:
-  - versionName: 1.0.2
-    versionCode: 3
-    commit: 50ef3812b4a1b5e5cddeba3e410e45af5005414b
+  - versionName: 1.0.4
+    versionCode: 5
+    commit: ed8ff8e86c49d076fa6022c4cad92c59bcc8d06b
     subdir: app
     gradle:
       - yes
@@ -43,5 +43,5 @@ AllowedAPKSigningKeys: c59c79a593d1e026f92f5ab264626dfc0799046df6b7ee83b254863db
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.2
-CurrentVersionCode: 3
+CurrentVersion: 1.0.4
+CurrentVersionCode: 5
