@@ -1,4 +1,4 @@
-package com.awaydoomscrollin.app
+﻿package com.awaydoomscrollin.app
 
 import android.content.ComponentName
 import android.content.Context
@@ -4034,13 +4034,109 @@ fun DoomscrollFrequencyWaveform(
         }
     }
 
-    // Gerçek veri yoksa demo mock data kullan
+    // Gerçek veri yoksa şık bir Boş Durum (Empty State) kartı göster
     val hasRealData = hourlyData.any { it > 0 }
-    val displayData = if (hasRealData) hourlyData else listOf(
-        0, 0, 1, 0, 0, 0, 2, 4, 3, 1, 0, 2,
-        5, 3, 1, 0, 2, 4, 8, 6, 3, 9, 5, 2
-    )
 
+    if (!hasRealData) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xFF0F1523),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Text("🛡️", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = if (isEn) "DOOMSCROLL FREQUENCY" else "DOOMSCROLL FREKANSI",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00F2FE),
+                                letterSpacing = 0.8.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (isEn) "No Activity Yet" else "Henüz Aktivite Yok",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF00FF87),
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF00FF87).copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = if (isEn) "⚡ SCORE: 100%" else "⚡ SKOR: %100",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF00FF87),
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF070A12),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("✨", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isEn) "Focus Shield Active" else "Odaklanma Kalkanı Devrede",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (isEn)
+                                    "No doomscroll attempts recorded today. Your focus is completely safe!"
+                                else
+                                    "Bugün henüz hiç doomscroll tuzağı kaydedilmedi. Telefonunuz temiz ve odağınız güvende!",
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp,
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    val displayData = hourlyData
     val totalBlocksToday = displayData.sum()
     val maxVal = displayData.maxOrNull()?.takeIf { it > 0 } ?: 1
     val peakHourIdx = displayData.indexOf(displayData.maxOrNull() ?: 0)
