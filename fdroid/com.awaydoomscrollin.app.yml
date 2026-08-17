@@ -3,9 +3,10 @@ AntiFeatures:
     en-US: Telemetry is disabled by default and no telemetry is sent until the user
       explicitly opts in. While enabled, the app sends a random per-installation UUID,
       device manufacturer/model, Android/SDK/app version, aggregate platform and total
-      block counts, streak days, and XP to awaydoomscrollin.com immediately after opt-in,
-      at startup (subject to a 24-hour throttle), and after blocking events. Opting
-      out stops future submissions; the latest server snapshot expires within 90 days.
+      block counts, streak days, and XP to awaydoomscrollin.com immediately after
+      opt-in, at startup (subject to a 24-hour throttle), and after blocking events.
+      Opting out stops future submissions; the latest server snapshot expires within
+      90 days.
   NonFreeNet:
     en-US: The app automatically contacts GitHub when the app or accessibility service
       starts to fetch rule/configuration data. Successful fetches are cached for six
@@ -25,7 +26,7 @@ AutoName: AwayDoomscrollin'
 
 RepoType: git
 Repo: https://github.com/resolvecommunity/AwayDoomscrollin.git
-Binaries:
+Binaries: 
   https://github.com/ResolveCommunity/AwayDoomscrollin/releases/download/v%v/AwayDoomscrollin-v%v.apk
 
 Builds:
