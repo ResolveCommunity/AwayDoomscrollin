@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.1
+- Telemetry is now disabled by default and starts only after explicit user opt-in.
+- Turning telemetry off stops future submissions; retained snapshots expire within 90 days.
+- Improved transparency for automatic GitHub rule updates.

@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Min%20SDK-26%20(Android%208.0%2B)-blue.svg" alt="Min SDK 26"/></a>
-  <img src="https://img.shields.io/badge/Status-Privacy--First%20%26%20Default--On%20Telemetry-00F2FE.svg" alt="Privacy-First & Default-On Telemetry"/>
+  <img src="https://img.shields.io/badge/Status-Privacy--First%20%26%20Opt--In%20Telemetry-00F2FE.svg" alt="Privacy-First & Opt-In Telemetry"/>
   <img src="https://img.shields.io/badge/Samsung%20One%20UI-100%25%20Verified-00FF87.svg" alt="Samsung One UI Verified"/>
 </p>
 
@@ -33,7 +33,7 @@ Unlike standard "screen time" apps that negotiate with you, AwayDoomscrollin' us
 |---|---|
 | ⚡ **Instant Shield** | Detects scroll gesture → returns to home screen immediately |
 | 💬 **Smart Safe Zones** | DMs, comments, and long-form YouTube are never blocked |
-| 🛡️ **Privacy-First Core** | Screen analysis and blocking run on-device. Network access is used by default-on, user-disableable telemetry and automatic GitHub rule updates. |
+| 🛡️ **Privacy-First Core** | Screen analysis and blocking run on-device. Network access is used by user-enabled opt-in telemetry and automatic GitHub rule updates. |
 | 🚨 **Anti-Cheat** | Prevents impulsive service deactivation from Settings |
 | 🏆 **Gamification** | Daily streaks (3 / 7 / 14 / 30 days) |
 | 🕒 **24-Hour Heatmap** | Visualize your hourly block patterns — know your weak hours |
@@ -77,14 +77,14 @@ cd AwayDoomscrollin
 # Run → Run 'app'  (Shift+F10)
 ```
 
-> **Note:** This project does not include a `gradlew` wrapper. Build via Android Studio or set up your own Gradle installation.
+> **Note:** The Gradle wrapper is included. On Linux/macOS, run `./gradlew assembleRelease`; on Windows, run `gradlew.bat assembleRelease`.
 
 ---
 
 ## 🔒 Privacy
 
 - **On-device core**: Accessibility screen analysis and blocking work locally without a network connection.
-- **Default-on telemetry**: Telemetry is enabled by default and can be disabled in the app. On its first submission it creates a random per-installation UUID that is not derived from hardware, account, Android ID, IMEI, or MAC data. While enabled, it sends that identifier, device manufacturer/model, Android/SDK/app version, aggregate block counts, streak days, and XP to `awaydoomscrollin.com`.
+- **Opt-in telemetry**: Telemetry is disabled by default. No telemetry is sent until the user explicitly enables it in the app. On its first submission it creates a random per-installation UUID that is not derived from hardware, account, Android ID, IMEI, or MAC data. While enabled, it sends that identifier, device manufacturer/model, Android/SDK/app version, aggregate block counts, streak days, and XP to `awaydoomscrollin.com`. Turning telemetry off stops future submissions; the latest server snapshot expires within 90 days.
 - **Automatic remote rules**: The app contacts GitHub when the app or accessibility service starts to fetch rule/configuration updates. Successful fetches are cached for six hours. This traffic is independent of the telemetry switch.
 - Block statistics are stored locally via `SharedPreferences`; the aggregate fields listed above are also transmitted while telemetry is enabled.
 - Full source code available for audit.

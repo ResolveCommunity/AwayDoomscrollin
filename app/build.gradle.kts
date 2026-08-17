@@ -11,8 +11,8 @@ android {
         applicationId = "com.awaydoomscrollin.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 dependenciesInfo {
         includeInApk = false
@@ -54,6 +54,9 @@ dependenciesInfo {
     lint {
         abortOnError = false
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
     kotlinOptions {
         jvmTarget = "1.8"
     }
@@ -70,6 +73,11 @@ dependenciesInfo {
     }
 }
 
+tasks.withType<Test>().configureEach {
+    systemProperty("user.language", "en")
+    systemProperty("user.country", "US")
+}
+
 dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.core:core-ktx:1.12.0")
@@ -80,4 +88,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("org.robolectric:robolectric:4.12.2")
 }

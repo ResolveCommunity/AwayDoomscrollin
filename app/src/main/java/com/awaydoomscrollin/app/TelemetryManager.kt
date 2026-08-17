@@ -4,8 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -20,15 +21,20 @@ object TelemetryManager {
     private const val KEY_LAST_TELEMETRY_SEND = "telemetry_last_send_ms"
     private const val KEY_INSTALLATION_ID = "telemetry_installation_id"
     private const val VDS_TELEMETRY_ENDPOINT = "https://awaydoomscrollin.com/api/telemetry"
+    private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun isTelemetryEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_TELEMETRY_ENABLED, true)
+        return prefs.getBoolean(KEY_TELEMETRY_ENABLED, false)
     }
 
     fun setTelemetryEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_TELEMETRY_ENABLED, enabled).apply()
+        val saved = prefs.edit().putBoolean(KEY_TELEMETRY_ENABLED, enabled).commit()
+        if (!saved) {
+            Log.e(TAG, "Telemetri tercihi kaydedilemedi; veri gönderimi başlatılmadı.")
+            return
+        }
         Log.d(TAG, "Telemetri durumu güncellendi: $enabled")
         
         if (enabled) {
@@ -52,10 +58,16 @@ object TelemetryManager {
             return
         }
 
-        GlobalScope.launch(Dispatchers.IO) {
+        telemetryScope.launch {
             val installationId = getOrCreateInstallationId(prefs)
             if (installationId == null) {
                 Log.e(TAG, "Rastgele telemetri kurulum kimliği kaydedilemedi; gönderim atlandı.")
+                return@launch
+            }
+
+            // Kullanıcı gönderim hazırlanırken tercihini kapatmış olabilir.
+            if (!isTelemetryEnabled(context)) {
+                Log.d(TAG, "Telemetri gönderimden önce kapatıldı; istek iptal edildi.")
                 return@launch
             }
 
@@ -88,6 +100,12 @@ object TelemetryManager {
                 put("androidVersion", androidVer)
                 put("sdkInt", sdkInt)
                 put("appVersion", appVersion)
+            }
+
+            // Payload hazırlandıktan sonra tercihi son kez kontrol et.
+            if (!isTelemetryEnabled(context)) {
+                Log.d(TAG, "Telemetri gönderimden önce kapatıldı; istek iptal edildi.")
+                return@launch
             }
 
             // VDS Sunucusuna Gönder

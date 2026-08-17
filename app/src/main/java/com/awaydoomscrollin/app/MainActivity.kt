@@ -78,9 +78,11 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // Remote Config & Telemetry: Uzaktan kuralları çek ve anonim analitiği kontrol et
+        // Remote rules are automatic. Telemetry is sent only after explicit opt-in.
         RemoteRuleManager.fetchRulesAsync(this)
-        TelemetryManager.sendTelemetryAsync(this)
+        if (TelemetryManager.isTelemetryEnabled(this)) {
+            TelemetryManager.sendTelemetryAsync(this)
+        }
 
         val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
         val initialOnboardingDone = prefs.getBoolean("onboarding_completed", false)
@@ -1093,7 +1095,7 @@ fun OnboardingStepFourAppsAndPrefs(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isEn) "📊 Anonymous Analytics (On by Default)" else "📊 Anonim Analitik (Varsayılan Açık)",
+                        text = if (isEn) "📊 Pseudonymous Telemetry (Opt-in)" else "📊 Takma Adlı Telemetri (İsteğe Bağlı)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1101,9 +1103,9 @@ fun OnboardingStepFourAppsAndPrefs(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) {
-                            "This switch controls telemetry only. When on, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
+                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
                         } else {
-                            "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
+                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
                         },
                         fontSize = 10.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
@@ -2182,16 +2184,16 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isEn) "📊 Anonymous Telemetry (On by Default)" else "📊 Anonim Telemetri (Varsayılan Açık)",
+                            text = if (isEn) "📊 Pseudonymous Telemetry (Opt-in)" else "📊 Takma Adlı Telemetri (İsteğe Bağlı)",
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
                             text = if (isEn) {
-                                "This switch controls telemetry only. When on, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. GitHub rule updates run automatically and are not controlled by this switch."
+                                "Telemetry is off by default and nothing is sent unless you enable this switch. When enabled, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent immediately, at startup (24-hour throttle), and after blocks. Turning it off stops future submissions; the last server snapshot expires within 90 days. GitHub rule updates run automatically and are not controlled by this switch."
                             } else {
-                                "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
+                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir veri gönderilmez. Açıldığında rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri hemen, açılışta (24 saatlik sınırla) ve engellemelerden sonra gönderilir. Kapatmak gelecekteki gönderimleri durdurur; son sunucu kaydı en geç 90 gün içinde silinir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
                             },
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.6f),

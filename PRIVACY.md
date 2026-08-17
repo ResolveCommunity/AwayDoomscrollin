@@ -1,6 +1,6 @@
 ﻿# Privacy Policy
 
-**Effective Date:** August 8, 2026
+**Effective Date:** August 17, 2026
 
 ## 1. Introduction
 Resolve Community ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains our data collection and processing practices for the **AwayDoomscrollin'** Android application.
@@ -14,7 +14,7 @@ AwayDoomscrollin' utilizes the Android Accessibility Service API exclusively to 
 
 ## 3. Data Collection, Telemetry, and Remote Rules
 The core screen analysis and blocking functionality of AwayDoomscrollin' operates locally. The app requests the `INTERNET` permission for the following two network paths:
-- **Default-on telemetry:** Telemetry is enabled by default and can be disabled at any time in the app settings. On the first telemetry submission, the app creates a random per-installation UUID in `SharedPreferences`. It is not derived from hardware, account, Android ID, IMEI, MAC address, or advertising data; clearing app data or uninstalling the app removes it. The app attempts a telemetry submission at startup subject to a 24-hour throttle, and after blocking events.
+- **Explicit opt-in telemetry:** Telemetry is disabled by default. The app sends no telemetry on first launch unless the user explicitly enables the telemetry switch. When enabled, the app immediately attempts its first submission and creates a random per-installation UUID in `SharedPreferences`. It is not derived from hardware, account, Android ID, IMEI, MAC address, or advertising data; clearing app data or uninstalling the app removes it. Later submissions are attempted at startup subject to a 24-hour throttle and after blocking events. Turning telemetry off stops future submissions. The latest previously submitted server snapshot is retained for no more than 90 days and then deleted; the server stores a SHA-256 installation key rather than the raw UUID.
 - **Automatic remote rules:** Independently of the telemetry switch, the app contacts GitHub when the app or accessibility service starts to fetch updated rule/configuration data. Successful fetches are cached for six hours. There is currently no separate in-app switch for this request.
 - We do not collect, transmit, monetize, or share any Personally Identifiable Information (PII).
 - **If telemetry is enabled, the following pseudonymous data is collected and sent to our servers:**

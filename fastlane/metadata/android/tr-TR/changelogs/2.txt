@@ -1,0 +1,4 @@
+AwayDoomscrollin' v1.0.1
+- Telemetri artık varsayılan kapalıdır ve yalnızca kullanıcının açıkça etkinleştirmesiyle başlar.
+- Telemetriyi kapatmak gelecekteki gönderimleri durdurur; tutulan son kayıt en geç 90 gün içinde silinir.
+- Otomatik GitHub kural güncellemeleri için şeffaflık artırıldı.

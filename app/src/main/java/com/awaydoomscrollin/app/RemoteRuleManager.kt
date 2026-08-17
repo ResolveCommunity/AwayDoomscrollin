@@ -2,8 +2,9 @@ package com.awaydoomscrollin.app
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -41,6 +42,7 @@ object RemoteRuleManager {
 
     // Varsayılan Remote Rules URL (GitHub Raw veya özel sunucu)
     private const val DEFAULT_RULES_URL = "https://raw.githubusercontent.com/ResolveCommunity/rules/main/rules.json"
+    private val remoteRuleScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Varsayılan Çevrimdışı Kurallar (İnternet olmasa da çalışan yedek)
     private val DEFAULT_CONFIG = RemoteConfig(
@@ -106,7 +108,7 @@ object RemoteRuleManager {
             return
         }
 
-        GlobalScope.launch(Dispatchers.IO) {
+        remoteRuleScope.launch {
             try {
                 val url = URL(DEFAULT_RULES_URL)
                 val conn = url.openConnection() as HttpURLConnection
