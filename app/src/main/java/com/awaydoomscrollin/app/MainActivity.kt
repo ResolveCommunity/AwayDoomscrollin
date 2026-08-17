@@ -963,9 +963,9 @@ fun OnboardingStepFourAppsAndPrefs(
     prefs: SharedPreferences,
     context: Context
 ) {
-    var isInstaEnabled by remember { mutableStateOf(prefs.getBoolean("is_instagram_enabled", true)) }
-    var isTiktokEnabled by remember { mutableStateOf(prefs.getBoolean("is_tiktok_enabled", true)) }
-    var isYoutubeEnabled by remember { mutableStateOf(prefs.getBoolean("is_youtube_enabled", true)) }
+    var isInstaEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.INSTAGRAM)) }
+    var isTiktokEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.TIKTOK)) }
+    var isYoutubeEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.YOUTUBE)) }
     var showScopeDialog by remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1010,8 +1010,9 @@ fun OnboardingStepFourAppsAndPrefs(
             brandColor = Color(0xFFE1306C),
             isEnabled = isInstaEnabled,
             onToggle = { enabled ->
-                isInstaEnabled = enabled
-                prefs.edit().putBoolean("is_instagram_enabled", enabled).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.INSTAGRAM, enabled)) {
+                    isInstaEnabled = enabled
+                }
             }
         )
 
@@ -1026,8 +1027,9 @@ fun OnboardingStepFourAppsAndPrefs(
             isEnabled = isTiktokEnabled,
             isBeta = true,
             onToggle = { enabled ->
-                isTiktokEnabled = enabled
-                prefs.edit().putBoolean("is_tiktok_enabled", enabled).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.TIKTOK, enabled)) {
+                    isTiktokEnabled = enabled
+                }
             }
         )
 
@@ -1042,8 +1044,9 @@ fun OnboardingStepFourAppsAndPrefs(
             isEnabled = isYoutubeEnabled,
             isBeta = true,
             onToggle = { enabled ->
-                isYoutubeEnabled = enabled
-                prefs.edit().putBoolean("is_youtube_enabled", enabled).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.YOUTUBE, enabled)) {
+                    isYoutubeEnabled = enabled
+                }
             }
         )
 
@@ -3039,9 +3042,9 @@ fun CyberShieldActivityLogCard(prefs: android.content.SharedPreferences) {
 fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
     val context = LocalContext.current
     val isEn = getAppLanguage(prefs) == "en"
-    var isInstagramEnabled by remember { mutableStateOf(prefs.getBoolean("is_instagram_enabled", true)) }
-    var isTiktokEnabled by remember { mutableStateOf(prefs.getBoolean("is_tiktok_enabled", true)) }
-    var isYoutubeEnabled by remember { mutableStateOf(prefs.getBoolean("is_youtube_enabled", true)) }
+    var isInstagramEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.INSTAGRAM)) }
+    var isTiktokEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.TIKTOK)) }
+    var isYoutubeEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.YOUTUBE)) }
     var pendingDisableApp by remember { mutableStateOf<String?>(null) }
     var showPhilosophyDialog by remember { mutableStateOf(false) }
     var activeAppInfoDialog by remember { mutableStateOf<String?>(null) }
@@ -3139,36 +3142,44 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                             "youtube" -> "YouTube Shorts"
                             else -> "Hedef Uygulama"
                         }
-                        when (pendingDisableApp) {
+                        val disabled = when (pendingDisableApp) {
                             "instagram" -> {
-                                isInstagramEnabled = false
-                                prefs.edit()
-                                    .putBoolean("is_instagram_enabled", false)
-                                    .putInt("streak_days", 0)
-                                    .apply()
+                                ProtectionPreferences.setEnabled(
+                                    prefs,
+                                    ProtectedApp.INSTAGRAM,
+                                    enabled = false,
+                                    resetStreak = true
+                                ).also { if (it) isInstagramEnabled = false }
                             }
                             "tiktok" -> {
-                                isTiktokEnabled = false
-                                prefs.edit()
-                                    .putBoolean("is_tiktok_enabled", false)
-                                    .putInt("streak_days", 0)
-                                    .apply()
+                                ProtectionPreferences.setEnabled(
+                                    prefs,
+                                    ProtectedApp.TIKTOK,
+                                    enabled = false,
+                                    resetStreak = true
+                                ).also { if (it) isTiktokEnabled = false }
                             }
                             "youtube" -> {
-                                isYoutubeEnabled = false
-                                prefs.edit()
-                                    .putBoolean("is_youtube_enabled", false)
-                                    .putInt("streak_days", 0)
-                                    .apply()
+                                ProtectionPreferences.setEnabled(
+                                    prefs,
+                                    ProtectedApp.YOUTUBE,
+                                    enabled = false,
+                                    resetStreak = true
+                                ).also { if (it) isYoutubeEnabled = false }
                             }
+                            else -> false
                         }
-                        
-                        AntiScrollService().showShieldStatusNotification(
-                            context,
-                            if (isEn) "🛑 $appName Shield Lowered!" else "🛑 $appName Kalkanı İndirildi!",
-                            if (isEn) "$appName protection shield disabled. Your daily streak has been reset to 0." else "$appName koruma kalkanı kapatıldı. Günlük seriniz 0'a düştü.",
-                            1004
-                        )
+
+                        if (disabled) {
+                            AntiScrollService().showShieldStatusNotification(
+                                context,
+                                if (isEn) "🛑 $appName Shield Lowered!" else "🛑 $appName Kalkanı İndirildi!",
+                                if (isEn) "$appName protection shield disabled. Your daily streak has been reset to 0." else "$appName koruma kalkanı kapatıldı. Günlük seriniz 0'a düştü.",
+                                1004
+                            )
+                        } else {
+                            android.util.Log.e("ProtectionPreferences", "$appName koruma tercihi kaydedilemedi.")
+                        }
 
                         pendingDisableApp = null
                     }
@@ -3316,8 +3327,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             if (!checked) {
                 pendingDisableApp = "instagram"
             } else {
-                isInstagramEnabled = true
-                prefs.edit().putBoolean("is_instagram_enabled", true).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.INSTAGRAM, true)) {
+                    isInstagramEnabled = true
+                }
             }
         }
         
@@ -3337,8 +3349,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             if (!checked) {
                 pendingDisableApp = "tiktok"
             } else {
-                isTiktokEnabled = true
-                prefs.edit().putBoolean("is_tiktok_enabled", true).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.TIKTOK, true)) {
+                    isTiktokEnabled = true
+                }
             }
         }
         
@@ -3358,8 +3371,9 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
             if (!checked) {
                 pendingDisableApp = "youtube"
             } else {
-                isYoutubeEnabled = true
-                prefs.edit().putBoolean("is_youtube_enabled", true).apply()
+                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.YOUTUBE, true)) {
+                    isYoutubeEnabled = true
+                }
             }
         }
         

@@ -1,0 +1,6 @@
+AwayDoomscrollin' v1.0.2
+
+- Instagram kalkanı kapatıldıktan sonra engellemenin sürmesi düzeltildi.
+- Kalkan tercihleri hedef uygulamaya dönmeden önce kalıcı olarak kaydediliyor.
+- Instagram kalkanı kapatıldığında devam eden engelleme işlemi anında iptal ediliyor.
+- Telemetri varsayılan olarak kapalı kalır ve açıkça etkinleştirilmesi gerekir.

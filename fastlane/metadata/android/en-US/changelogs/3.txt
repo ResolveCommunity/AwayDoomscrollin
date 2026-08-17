@@ -1,0 +1,6 @@
+AwayDoomscrollin' v1.0.2
+
+- Fixed Instagram protection remaining active after its shield was disabled.
+- Shield choices are now saved before returning to a target app.
+- An in-progress Instagram block is cancelled immediately when its shield is disabled.
+- Telemetry remains disabled by default and requires explicit opt-in.

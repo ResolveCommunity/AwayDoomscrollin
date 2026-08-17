@@ -402,6 +402,14 @@ class AntiScrollService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         val currentTime = System.currentTimeMillis()
 
+        // A shield can be disabled while a previous block flow is still active.
+        // Cancel that flow before it can force-stop or redirect the target again.
+        if (isPunishing && !ProtectionPreferences.isPackageEnabled(this, currentTargetPackage)) {
+            Log.d(TAG, "$currentTargetPackage koruması kapatıldı; aktif engelleme akışı iptal edildi.")
+            isPunishing = false
+            forceStopClicked = false
+        }
+
         // 0. ANINDA ANA EKRAN KONTROLÜ: Eğer kullanıcı veya sistem Ana Ekrana (Launcher) geldiyse, ceza modunu anında sonlandır!
         if (isLauncherPackage(packageName)) {
             if (isPunishing) {
@@ -459,9 +467,7 @@ class AntiScrollService : AccessibilityService() {
 
         // REELS SEKMESİNE YATAY KAYDIRMA (SWIPE) İLE GEÇİŞ KONTROLÜ
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android" && !isPunishing) {
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            val isInstagramEnabled = prefs.getBoolean("is_instagram_enabled", true)
-            if (!isInstagramEnabled) return
+            if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) return
 
             if (currentTime - lastSignatureCheckTime > 500) {
                 lastSignatureCheckTime = currentTime
@@ -556,9 +562,7 @@ class AntiScrollService : AccessibilityService() {
             if (!isAppInForeground("com.instagram.android")) return
 
             if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            val isInstagramEnabled = prefs.getBoolean("is_instagram_enabled", true)
-            if (!isInstagramEnabled) return
+            if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) return
             
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
                 val nodeText = event.text?.toString() ?: ""
@@ -630,9 +634,7 @@ class AntiScrollService : AccessibilityService() {
             if (!isAppInForeground("com.zhiliaoapp.musically")) return
 
             if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            val isTiktokEnabled = prefs.getBoolean("is_tiktok_enabled", true)
-            if (!isTiktokEnabled) return
+            if (!ProtectionPreferences.isEnabled(this, ProtectedApp.TIKTOK)) return
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
                 if (currentTime - lastPunishTime > 3000) {
@@ -647,9 +649,7 @@ class AntiScrollService : AccessibilityService() {
             if (!isAppInForeground("com.google.android.youtube")) return
 
             if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            val isYoutubeEnabled = prefs.getBoolean("is_youtube_enabled", true)
-            if (!isYoutubeEnabled) return
+            if (!ProtectionPreferences.isEnabled(this, ProtectedApp.YOUTUBE)) return
             
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
                 val rootNode = rootInActiveWindow
@@ -800,12 +800,9 @@ class AntiScrollService : AccessibilityService() {
     }
 
     private fun punishUser(targetPackageName: String = "com.instagram.android") {
-        if (targetPackageName == "com.instagram.android") {
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            if (!prefs.getBoolean("is_instagram_enabled", true)) {
-                Log.d(TAG, "Instagram koruması kapalı; engelleme isteği yok sayıldı.")
-                return
-            }
+        if (!ProtectionPreferences.isPackageEnabled(this, targetPackageName)) {
+            Log.d(TAG, "$targetPackageName koruması kapalı; engelleme isteği yok sayıldı.")
+            return
         }
 
         val currentTime = System.currentTimeMillis()
