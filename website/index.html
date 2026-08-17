@@ -813,7 +813,7 @@
                     </button>
                     <div class="faq-answer-wrapper">
                         <div class="faq-answer-content" data-i18n="faq_a1">
-                            Privacy First. Screen-content analysis and blocking run locally. Anonymous telemetry is enabled by default and can be disabled in the app; GitHub rule updates run automatically and independently of the telemetry switch. Accessibility permission is used to detect target screens and scrolling gestures.
+                            Privacy First. Screen-content analysis and blocking run locally. Pseudonymous telemetry is enabled by default and can be disabled in the app; while enabled it includes a random per-installation ID that is not derived from hardware, advertising, or account identifiers. GitHub rule updates run automatically and independently of the telemetry switch. Accessibility permission is used to detect target screens and scrolling gestures.
                         </div>
                     </div>
                 </div>
@@ -1017,16 +1017,16 @@
                 <!-- Privacy Policy Content -->
                 <div class="legal-content-pane active" id="privacyContent">
                     <h2 data-i18n="legal_privacy_title">Privacy Policy</h2>
-                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 1, 2026</p>
+                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 17, 2026</p>
                     
                     <div class="legal-section">
                         <h3 data-i18n="legal_p1_title">1. Introduction & Transparency Commitment</h3>
-                        <p data-i18n="legal_p1_text">At AwayDoomscrollin', we believe digital well-being tools should disclose their behavior clearly. This policy explains accessibility processing, local storage, default-on anonymous telemetry, and automatic GitHub rule updates. We do not sell personal information or use third-party advertising analytics.</p>
+                        <p data-i18n="legal_p1_text">At AwayDoomscrollin', we believe digital well-being tools should disclose their behavior clearly. This policy explains accessibility processing, local storage, default-on pseudonymous telemetry, and automatic GitHub rule updates. We do not sell personal information or use third-party advertising analytics.</p>
                     </div>
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p2_title">2. Network Data Collection</h3>
-                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Anonymous telemetry is enabled by default and can be disabled in the App. While enabled, it sends the disclosed device/app fields and aggregate blocking statistics to awaydoomscrollin.com. The App also contacts GitHub automatically for rule/configuration updates; this is independent of the telemetry switch. Screen contents, messages, passwords, and location are not transmitted.</p>
+                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Pseudonymous telemetry is enabled by default and can be disabled in the App. While enabled, it sends a random per-installation ID, the disclosed device/app fields, and aggregate blocking statistics to awaydoomscrollin.com. The installation ID is not derived from a hardware, advertising, or account identifier. The App also contacts GitHub automatically for rule/configuration updates; this is independent of the telemetry switch. Screen contents, messages, passwords, and location are not transmitted.</p>
                     </div>
 
                     <div class="legal-section">
@@ -1038,7 +1038,7 @@
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p4_title">4. Local Data Storage & Preferences</h3>
-                        <p data-i18n="legal_p4_text">Blocking statistics, streak counters, target-app toggles, and recent shield activity are stored locally via SharedPreferences ('away_doomscroll_prefs') and are removed when the App is uninstalled. While telemetry is enabled, the disclosed aggregate block, streak, and XP fields are also submitted to awaydoomscrollin.com.</p>
+                        <p data-i18n="legal_p4_text">Blocking statistics, streak counters, target-app toggles, recent shield activity, and the random installation ID are stored locally via SharedPreferences ('away_doomscroll_prefs') and are removed when the App's data is cleared or the App is uninstalled. While telemetry is enabled, the installation ID and disclosed aggregate block, streak, and XP fields are also submitted to awaydoomscrollin.com.</p>
                     </div>
 
                     <div class="legal-section">
@@ -1055,7 +1055,7 @@
                 <!-- Terms of Service Content -->
                 <div class="legal-content-pane" id="termsContent">
                     <h2 data-i18n="legal_terms_title">Terms of Service</h2>
-                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 1, 2026</p>
+                    <p class="legal-last-updated" data-i18n="legal_last_updated">Last Updated: August 17, 2026</p>
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_t1_title">1. Acceptance of Terms</h3>

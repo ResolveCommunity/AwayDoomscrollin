@@ -28,8 +28,9 @@ We will respond within **72 hours** and aim to release a fix within **14 days** 
 
 This app:
 - Performs screen-content analysis and blocking locally on the device
-- Enables anonymous telemetry by default; users can disable it in the app
-- Sends the disclosed device/app fields and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
+- Enables telemetry by default; users can disable it in the app
+- Generates a random per-installation UUID for telemetry that is not derived from Android ID, IMEI, MAC address, hardware, account, or advertising data
+- Sends that UUID, the disclosed device/app fields, and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
 - Automatically fetches rule/configuration updates from GitHub at app or accessibility-service startup; successful fetches are cached for six hours and this path is independent of the telemetry switch
 - Stores blocking statistics locally via `SharedPreferences` in addition to the disclosed aggregate telemetry submissions
 

@@ -84,7 +84,7 @@ cd AwayDoomscrollin
 ## 🔒 Privacy
 
 - **On-device core**: Accessibility screen analysis and blocking work locally without a network connection.
-- **Default-on telemetry**: Anonymous telemetry is enabled by default and can be disabled in the app. While enabled, it sends device manufacturer/model, Android/SDK/app version, aggregate block counts, streak days, and XP to `awaydoomscrollin.com`.
+- **Default-on telemetry**: Telemetry is enabled by default and can be disabled in the app. On its first submission it creates a random per-installation UUID that is not derived from hardware, account, Android ID, IMEI, or MAC data. While enabled, it sends that identifier, device manufacturer/model, Android/SDK/app version, aggregate block counts, streak days, and XP to `awaydoomscrollin.com`.
 - **Automatic remote rules**: The app contacts GitHub when the app or accessibility service starts to fetch rule/configuration updates. Successful fetches are cached for six hours. This traffic is independent of the telemetry switch.
 - Block statistics are stored locally via `SharedPreferences`; the aggregate fields listed above are also transmitted while telemetry is enabled.
 - Full source code available for audit.

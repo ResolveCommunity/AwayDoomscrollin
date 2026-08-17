@@ -1101,9 +1101,9 @@ fun OnboardingStepFourAppsAndPrefs(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) {
-                            "This switch controls telemetry only. When on, device model/OS and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
+                            "This switch controls telemetry only. When on, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
                         } else {
-                            "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
+                            "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
                         },
                         fontSize = 10.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
@@ -2189,9 +2189,9 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                         )
                         Text(
                             text = if (isEn) {
-                                "This switch controls telemetry only. When on, device model/OS and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. GitHub rule updates run automatically and are not controlled by this switch."
+                                "This switch controls telemetry only. When on, a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. GitHub rule updates run automatically and are not controlled by this switch."
                             } else {
-                                "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
+                                "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
                             },
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.6f),
