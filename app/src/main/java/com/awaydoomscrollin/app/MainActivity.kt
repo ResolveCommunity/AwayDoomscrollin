@@ -922,7 +922,11 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "100% Offline: Your data never leaves your device." else "%100 Çevrimdışı Çalışır: Verileriniz cihazınızda kalır.", isNegative = true)
+                MatrixBullet(
+                    if (isEn) "On-device core: Screen analysis stays on your device; network access is used for telemetry and automatic rule updates."
+                    else "Cihaz içi çekirdek: Ekran analizi cihazınızda kalır; ağ erişimi telemetri ve otomatik kural güncellemeleri için kullanılır.",
+                    isNegative = true
+                )
                 MatrixBullet(if (isEn) "Does NOT record your messages, passwords, or photos." else "Mesajlarınızı, şifrelerinizi ve fotoğraflarınızı kaydetmez.", isNegative = true)
                 MatrixBullet(if (isEn) "Does NOT drain battery or memory in the background." else "Arka planda pilinizi ve belleğinizi tüketmez.", isNegative = true)
             }
@@ -1089,14 +1093,18 @@ fun OnboardingStepFourAppsAndPrefs(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isEn) "📊 Anonymous Analytics (Telemetry)" else "📊 Anonim Geliştirici Analitiği",
+                        text = if (isEn) "📊 Anonymous Analytics (On by Default)" else "📊 Anonim Analitik (Varsayılan Açık)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isEn) "Helps us improve shielding by sharing total block counts anonymously." else "Uygulamayı geliştirmemize yardımcı olmak için anonim engelleme verilerini paylaşır.",
+                        text = if (isEn) {
+                            "This switch controls telemetry only. When on, device model/OS and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. Rule updates are fetched separately and automatically from GitHub at startup/service activation, with successful fetches cached for 6 hours."
+                        } else {
+                            "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. Kural güncellemeleri ayrıca uygulama/servis başlangıcında GitHub'dan otomatik alınır; başarılı indirmeler 6 saat önbelleğe alınır."
+                        },
                         fontSize = 10.5.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                         lineHeight = 14.sp
@@ -2174,13 +2182,17 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isEn) "📊 Anonymous Telemetry" else "📊 Anonim Kullanım Telemetrisi",
+                            text = if (isEn) "📊 Anonymous Telemetry (On by Default)" else "📊 Anonim Telemetri (Varsayılan Açık)",
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = if (isEn) "Helps developer optimize blocking rules by sending anonymous usage stats." else "Engelleme algoritmalarını iyileştirmemiz için anonim kullanım verilerini paylaşır.",
+                            text = if (isEn) {
+                                "This switch controls telemetry only. When on, device model/OS and aggregate block, streak, and XP statistics are sent to awaydoomscrollin.com at startup (24-hour throttle) and after blocks. GitHub rule updates run automatically and are not controlled by this switch."
+                            } else {
+                                "Bu anahtar yalnızca telemetriyi kontrol eder. Açıkken cihaz modeli/işletim sistemi ile toplam engelleme, seri ve XP istatistikleri açılışta (24 saatlik sınırla) ve engellemelerden sonra awaydoomscrollin.com adresine gönderilir. GitHub kural güncellemeleri otomatik çalışır ve bu anahtar tarafından kontrol edilmez."
+                            },
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.6f),
                             lineHeight = 15.sp,

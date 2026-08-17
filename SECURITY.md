@@ -27,9 +27,11 @@ We will respond within **72 hours** and aim to release a fix within **14 days** 
 ## Scope
 
 This app:
-- Requests **optional telemetry** — no network traffic in production builds
-- Stores all data locally via `SharedPreferences` on the device
-- Optional telemetry (disabled by default) sends only anonymous aggregate counts
+- Performs screen-content analysis and blocking locally on the device
+- Enables anonymous telemetry by default; users can disable it in the app
+- Sends the disclosed device/app fields and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
+- Automatically fetches rule/configuration updates from GitHub at app or accessibility-service startup; successful fetches are cached for six hours and this path is independent of the telemetry switch
+- Stores blocking statistics locally via `SharedPreferences` in addition to the disclosed aggregate telemetry submissions
 
 Out of scope: vulnerabilities in Android OS, third-party libraries, or user device configurations.
 

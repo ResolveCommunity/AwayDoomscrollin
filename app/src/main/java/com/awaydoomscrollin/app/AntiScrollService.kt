@@ -459,6 +459,10 @@ class AntiScrollService : AccessibilityService() {
 
         // REELS SEKMESİNE YATAY KAYDIRMA (SWIPE) İLE GEÇİŞ KONTROLÜ
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android" && !isPunishing) {
+            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
+            val isInstagramEnabled = prefs.getBoolean("is_instagram_enabled", true)
+            if (!isInstagramEnabled) return
+
             if (currentTime - lastSignatureCheckTime > 500) {
                 lastSignatureCheckTime = currentTime
                 val rootNode = rootInActiveWindow
@@ -796,6 +800,14 @@ class AntiScrollService : AccessibilityService() {
     }
 
     private fun punishUser(targetPackageName: String = "com.instagram.android") {
+        if (targetPackageName == "com.instagram.android") {
+            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("is_instagram_enabled", true)) {
+                Log.d(TAG, "Instagram koruması kapalı; engelleme isteği yok sayıldı.")
+                return
+            }
+        }
+
         val currentTime = System.currentTimeMillis()
         
         if (isPunishing && currentTime - punishStartTime > 3000) {

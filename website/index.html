@@ -120,7 +120,7 @@
                     </div>
                     <div class="spec-item">
                         <i class="fa-solid fa-circle-check"></i>
-                        <span data-i18n="hero_spec_privacy">Privacy First & Optional Telemetry</span>
+                        <span data-i18n="hero_spec_privacy">Privacy First & Default-On Telemetry</span>
                     </div>
                     <div class="spec-item">
                         <i class="fa-solid fa-circle-check"></i>
@@ -630,8 +630,8 @@
                                 <p data-i18n="vs_row4_trad">Pek çok uygulama kullanım verilerinizi sunuculara işler, aylık abonelik satar veya reklam gösterir.</p>
                             </td>
                             <td class="away-cell">
-                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row4_away">%100 Çevrimdışı & Açık Kaynak</span></div>
-                                <p data-i18n="vs_row4_away">Sıfır İnternet İzni! Tüm verileriniz cihazınızda kalır. %100 Ücretsiz ve tamamen açık kaynak kodludur.</p>
+                                <div class="status-badge status-check"><i class="fa-solid fa-check"></i> <span data-i18n="vs_badge_row4_away">Şeffaf Ağ Kullanımı & Açık Kaynak</span></div>
+                                <p data-i18n="vs_row4_away">Ekran analizi cihazda kalır. Varsayılan açık telemetri kapatılabilir; GitHub kural güncellemeleri otomatik çalışır. %100 ücretsiz ve tamamen açık kaynak kodludur.</p>
                             </td>
                         </tr>
 
@@ -813,7 +813,7 @@
                     </button>
                     <div class="faq-answer-wrapper">
                         <div class="faq-answer-content" data-i18n="faq_a1">
-                            Privacy First. The core blocking mechanism operates locally on your device. Network access is strictly used for optional anonymous telemetry and periodically fetching updated blocking rules from GitHub. Accessibility permission is strictly used to detect on-screen scroll gestures.
+                            Privacy First. Screen-content analysis and blocking run locally. Anonymous telemetry is enabled by default and can be disabled in the app; GitHub rule updates run automatically and independently of the telemetry switch. Accessibility permission is used to detect target screens and scrolling gestures.
                         </div>
                     </div>
                 </div>
@@ -1021,24 +1021,24 @@
                     
                     <div class="legal-section">
                         <h3 data-i18n="legal_p1_title">1. Introduction & Transparency Commitment</h3>
-                        <p data-i18n="legal_p1_text">At AwayDoomscrollin', we believe that digital well-being tools should respect your privacy above all else. This Privacy Policy outlines in full detail how AwayDoomscrollin' ("the App", "we", "us") handles user privacy, accessibility permissions, and local data storage. We do not track you, sell your information, or store any personal data on external servers.</p>
+                        <p data-i18n="legal_p1_text">At AwayDoomscrollin', we believe digital well-being tools should disclose their behavior clearly. This policy explains accessibility processing, local storage, default-on anonymous telemetry, and automatic GitHub rule updates. We do not sell personal information or use third-party advertising analytics.</p>
                     </div>
 
                     <div class="legal-section">
-                        <h3 data-i18n="legal_p2_title">2. Zero Server Data Collection & No Internet Access</h3>
-                        <p data-i18n="legal_p2_text">AwayDoomscrollin' is built with privacy at its core. The App strictly uses the INTERNET permission only for an optional, anonymous telemetry dashboard. The core blocking mechanism operates locally. The App does not transmit, export, or leak any of your personal information, app usage logs, or interaction data to third-party analytics providers.</p>
+                        <h3 data-i18n="legal_p2_title">2. Network Data Collection</h3>
+                        <p data-i18n="legal_p2_text">Screen-content analysis and blocking run on-device. Anonymous telemetry is enabled by default and can be disabled in the App. While enabled, it sends the disclosed device/app fields and aggregate blocking statistics to awaydoomscrollin.com. The App also contacts GitHub automatically for rule/configuration updates; this is independent of the telemetry switch. Screen contents, messages, passwords, and location are not transmitted.</p>
                     </div>
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p3_title">3. Accessibility Service Permission & Scope</h3>
                         <p data-i18n="legal_p3_text1">To detect endless scrolling behavior on target short video platforms (Instagram Reels, TikTok, and YouTube Shorts) and perform intervention actions, AwayDoomscrollin' utilizes the Android AccessibilityService API.</p>
-                        <p data-i18n="legal_p3_text2"><strong>What Accessibility Service Does:</strong> Monitored events are strictly limited to TYPE_VIEW_SCROLLED and TYPE_WINDOW_STATE_CHANGED within specified package names (com.instagram.android, com.zhiliaoapp.musically, com.google.android.youtube). When vertical scroll gestures are detected on short video feed views, the service performs the GLOBAL_ACTION_HOME action to return your device to the home screen and force stop the target app via Settings.</p>
-                        <p data-i18n="legal_p3_text3"><strong>What Accessibility Service NEVER Does:</strong> AwayDoomscrollin' NEVER reads, inspects, logs, or stores text inputs, keystrokes, passwords, credit card information, private messages (DMs), contact lists, photos, or browsing history. Accessibility data is evaluated strictly in real-time in RAM and discarded immediately.</p>
+                        <p data-i18n="legal_p3_text2"><strong>What Accessibility Service Does:</strong> Within supported app packages, it receives scroll, window-state, window-content, and click events and inspects accessibility node text, content descriptions, and view identifiers in memory to distinguish target feeds from safe areas.</p>
+                        <p data-i18n="legal_p3_text3"><strong>Data handling:</strong> Accessibility content is not retained or transmitted. Screen text, messages, comments, passwords, keystrokes, contacts, photos, and browsing history are not included in network payloads.</p>
                     </div>
 
                     <div class="legal-section">
                         <h3 data-i18n="legal_p4_title">4. Local Data Storage & Preferences</h3>
-                        <p data-i18n="legal_p4_text">All gamification statistics, including total blocked counts, daily streak counters, selected target app toggles, and recent shield activity logs, are saved exclusively in your device's local memory via SharedPreferences ('away_doomscroll_prefs'). This data remains strictly on your physical device and is automatically removed upon uninstalling the App.</p>
+                        <p data-i18n="legal_p4_text">Blocking statistics, streak counters, target-app toggles, and recent shield activity are stored locally via SharedPreferences ('away_doomscroll_prefs') and are removed when the App is uninstalled. While telemetry is enabled, the disclosed aggregate block, streak, and XP fields are also submitted to awaydoomscrollin.com.</p>
                     </div>
 
                     <div class="legal-section">
