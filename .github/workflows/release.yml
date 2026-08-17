@@ -5,6 +5,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Existing release tag to build, for example v1.0.2'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_REF: ${{ github.event.inputs.source_ref || github.ref_name }}
 
 jobs:
   build:
@@ -13,16 +24,24 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Validate Release Ref
+        shell: bash
+        run: |
+          [[ "$RELEASE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git describe --tags --exact-match)" = "$RELEASE_REF"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew || true
@@ -45,14 +64,22 @@ jobs:
         run: |
           mkdir -p release_output
           test -f "app/build/outputs/apk/release/app-release.apk"
-          cp app/build/outputs/apk/release/app-release.apk release_output/AwayDoomscrollin-${{ github.ref_name }}.apk
+          cp app/build/outputs/apk/release/app-release.apk "release_output/AwayDoomscrollin-${RELEASE_REF}.apk"
+
+      - name: Retain Signed APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AwayDoomscrollin-${{ env.RELEASE_REF }}-signed
+          path: release_output/AwayDoomscrollin-${{ env.RELEASE_REF }}.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release_output/AwayDoomscrollin-${{ github.ref_name }}.apk
-          name: "AwayDoomscrollin' ${{ github.ref_name }}"
+          files: release_output/AwayDoomscrollin-${{ env.RELEASE_REF }}.apk
+          name: "AwayDoomscrollin' ${{ env.RELEASE_REF }}"
           draft: false
           prerelease: false
         env:
