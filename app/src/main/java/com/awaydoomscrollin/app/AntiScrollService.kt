@@ -1,12 +1,10 @@
 package com.awaydoomscrollin.app
 
 import android.accessibilityservice.AccessibilityService
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -133,7 +131,6 @@ class AntiScrollService : AccessibilityService() {
     private var lastHomeActionTime = 0L
     
     private var instagramLaunchTime = 0L
-    private var lastAntiCheatTime = 0L
     private var lastScrollIndex = -1
     private var lastPackage = ""
     private var serviceStartTime = 0L
@@ -217,13 +214,6 @@ class AntiScrollService : AccessibilityService() {
         return activePkg == targetPackage
     }
 
-    private fun isSettingsApp(pkg: String): Boolean {
-        val lower = pkg.lowercase()
-        return lower == "com.android.settings" || 
-               lower == "com.samsung.android.settings" || 
-               lower == "com.sec.android.app.settings" ||
-               lower == "android"
-    }
 
     private fun isLauncherPackage(pkg: String): Boolean {
         if (pkg.isEmpty()) return false
@@ -295,23 +285,6 @@ class AntiScrollService : AccessibilityService() {
             }
         }
 
-        // Anti-Cheat: Kullanıcı Ayarlar'da erişilebilirlik anahtarına tıkladığında VEYA Samsung'un "Kapatılsın mı?" onay penceresi çıktığında anında yakala!
-        if (isSettingsApp(packageName)) {
-            val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
-            val totalBlocks = prefs.getInt("total_blocks", 0)
-
-            if (totalBlocks > 0 && currentTime - lastAntiCheatTime > 5000) {
-                val rootNode = rootInActiveWindow
-                if (isSwitchClickedInDetailPage(event, rootNode) || isSamsungTurnOffDialog(rootNode)) {
-                    lastAntiCheatTime = currentTime
-                    Log.d(TAG, "Anti-Cheat Samsung / Genel Onay Penceresi Yakalandı! Suçluluk ekranı açılıyor.")
-                    val intent = Intent(this, AntiCheatGuiltActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    startActivity(intent)
-                }
-            }
-        }
 
         // 1. Instagram Aşaması - Kaydırma ve Tıklama algılandığında
         if (packageName == "com.instagram.android") {
@@ -587,13 +560,6 @@ class AntiScrollService : AccessibilityService() {
             Log.e(TAG, "Task Wiper başlatılırken hata", e)
         }
 
-        // 3. ARKA PLAN SÜREÇLERİNİ TEMİZLE
-        try {
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            am.killBackgroundProcesses(targetPackageName)
-        } catch (e: Exception) {
-            Log.e(TAG, "killBackgroundProcesses error in punishUser", e)
-        }
 
         // 4. ANINDA ANA EKRANA DÖNÜŞ (HOME)
         performGlobalAction(GLOBAL_ACTION_HOME)
@@ -733,48 +699,5 @@ class AntiScrollService : AccessibilityService() {
 
     override fun onInterrupt() {
         Log.d(TAG, "Service Interrupted")
-    }
-
-    override fun onKeyEvent(event: KeyEvent): Boolean {
-        return super.onKeyEvent(event)
-    }
-
-    private fun isSwitchClickedInDetailPage(event: AccessibilityEvent, rootNode: AccessibilityNodeInfo?): Boolean {
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return false
-        val className = event.className?.toString() ?: ""
-        val isSwitch = className.contains("Switch", ignoreCase = true) || 
-                        className.contains("ToggleButton", ignoreCase = true) || 
-                        className.contains("CheckBox", ignoreCase = true)
-        
-        if (!isSwitch) return false
-
-        return isAwayDetailPage(rootNode)
-    }
-
-    private fun isAwayDetailPage(rootNode: AccessibilityNodeInfo?): Boolean {
-        if (rootNode == null) return false
-        
-        val talkBackNodes = rootNode.findAccessibilityNodeInfosByText("TalkBack")
-        val selectToSpeakNodes = rootNode.findAccessibilityNodeInfosByText("Select to Speak")
-        
-        if ((talkBackNodes != null && talkBackNodes.isNotEmpty()) || 
-            (selectToSpeakNodes != null && selectToSpeakNodes.isNotEmpty())) {
-            return false
-        }
-
-        val ourAppNodes = rootNode.findAccessibilityNodeInfosByText("AwayDoomscrollin")
-        return (ourAppNodes != null && ourAppNodes.isNotEmpty())
-    }
-
-    private fun isSamsungTurnOffDialog(rootNode: AccessibilityNodeInfo?): Boolean {
-        if (rootNode == null) return false
-        val nodes1 = rootNode.findAccessibilityNodeInfosByText("kapatılsın")
-        val nodes2 = rootNode.findAccessibilityNodeInfosByText("Turn off")
-        val nodes3 = rootNode.findAccessibilityNodeInfosByText("kapanacak")
-        val nodes4 = rootNode.findAccessibilityNodeInfosByText("Durdurulsun")
-        return (nodes1 != null && nodes1.isNotEmpty()) ||
-               (nodes2 != null && nodes2.isNotEmpty()) ||
-               (nodes3 != null && nodes3.isNotEmpty()) ||
-               (nodes4 != null && nodes4.isNotEmpty())
     }
 }
