@@ -8,11 +8,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.awaydoomscrollin.app"
+        applicationId = "com.resolvecommunity.awaydoomscrollin"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.1.0"
     }
 dependenciesInfo {
         includeInApk = false
@@ -22,13 +22,10 @@ dependenciesInfo {
     signingConfigs {
         create("release") {
             val keystoreFile = file("release.keystore")
-            if (keystoreFile.exists()) {
-                val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
-                val releaseKeyAlias = System.getenv("KEY_ALIAS")
-                val releaseKeyPassword = System.getenv("KEY_PASSWORD")
-                require(!releaseStorePassword.isNullOrBlank()) { "KEYSTORE_PASSWORD is required when release.keystore exists" }
-                require(!releaseKeyAlias.isNullOrBlank()) { "KEY_ALIAS is required when release.keystore exists" }
-                require(!releaseKeyPassword.isNullOrBlank()) { "KEY_PASSWORD is required when release.keystore exists" }
+            val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
+            val releaseKeyAlias = System.getenv("KEY_ALIAS")
+            val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+            if (keystoreFile.exists() && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
                 storeFile = keystoreFile
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
@@ -41,7 +38,9 @@ dependenciesInfo {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            if (file("release.keystore").exists()) {
+            val keystoreFile = file("release.keystore")
+            val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
+            if (keystoreFile.exists() && !releaseStorePassword.isNullOrBlank()) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

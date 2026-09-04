@@ -1,14 +1,10 @@
 package com.awaydoomscrollin.app
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.GestureDescription
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Path
-import android.graphics.Rect
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -37,26 +33,26 @@ class AntiScrollService : AccessibilityService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val title = if (isEn) "🔥 $streakDays Day Streak!" else "🔥 $streakDays Günlük Seri!"
+        val title = if (isEn) "$streakDays Day Streak!" else "$streakDays Günlük Seri!"
 
         val message = if (isEn) {
             when (streakDays) {
-                3 -> "Great job! You reached a 3-day streak. Your dopamine receptors are healing! 🔥"
-                7 -> "1 Week without lowering the shield! You are back in control of your mind. 🔥"
-                14 -> "2 Weeks! Showing incredible willpower. Keep going! 🔥"
-                21 -> "21-Day rule! Your old habit is breaking. Congratulations! 🔥"
-                30 -> "1 MONTH! Reached Unchained Mind level. You're a legend! 🔥"
-                60 -> "2 MONTHS! Your focus is fully restored. Superb! 🔥"
+                3 -> "Great job! You reached a 3-day streak. Your dopamine receptors are healing!"
+                7 -> "1 Week without lowering the shield! You are back in control of your mind."
+                14 -> "2 Weeks! Showing incredible willpower. Keep going!"
+                21 -> "21-Day rule! Your old habit is breaking. Congratulations!"
+                30 -> "1 MONTH! Reached Unchained Mind level. You're a legend!"
+                60 -> "2 MONTHS! Your focus is fully restored. Superb!"
                 else -> return
             }
         } else {
             when (streakDays) {
-                3 -> "Harika gidiyorsun! 3 günlük seriye ulaştın, dopamin reseptörlerin iyileşmeye başladı bile! 🔥"
-                7 -> "1 Haftadır kalkanı indirmedin! Zihninin kontrolü tekrar sende. 🔥"
-                14 -> "2 Hafta oldu! İnanılmaz bir irade örneği gösteriyorsun. 🔥"
-                21 -> "21 Gün kuralı! Alışkanlığın kırılmaya başladı. Kutlarız! 🔥"
-                30 -> "1 AY! Özgür Zihin seviyesine ulaştın. Sen bir efsanesin! 🔥"
-                60 -> "2 AY! Zihnin tamamen yenilendi. Süpersin! 🔥"
+                3 -> "Harika gidiyorsun! 3 günlük seriye ulaştın, dopamin reseptörlerin iyileşmeye başladı bile!"
+                7 -> "1 Haftadır kalkanı indirmedin! Zihninin kontrolü tekrar sende."
+                14 -> "2 Hafta oldu! İnanılmaz bir irade örneği gösteriyorsun."
+                21 -> "21 Gün kuralı! Alışkanlığın kırılmaya başladı. Kutlarız!"
+                30 -> "1 AY! Özgür Zihin seviyesine ulaştın. Sen bir efsanesin!"
+                60 -> "2 AY! Zihnin tamamen yenilendi. Süpersin!"
                 else -> return
             }
         }
@@ -133,13 +129,8 @@ class AntiScrollService : AccessibilityService() {
     }
 
     private val TAG = "AntiScrollService"
-    private var isPunishing = false
-    private var currentTargetPackage = "com.instagram.android"
     private var lastPunishTime = 0L
-    private var punishStartTime = 0L
     private var lastHomeActionTime = 0L
-    private var forceStopClicked = false
-    private var lastSettingsClickTime = 0L
     
     private var instagramLaunchTime = 0L
     private var lastAntiCheatTime = 0L
@@ -156,7 +147,7 @@ class AntiScrollService : AccessibilityService() {
         // Remote Config: Uzaktan engelleme kurallarını arka planda güncelle
         RemoteRuleManager.fetchRulesAsync(this)
         
-        Log.d(TAG, "AntiScrollService başlatıldı. Uygulama ana sayfasına dönülüyor...")
+        Log.d(TAG, "AntiScrollService başlatıldı.")
 
         try {
             val info = serviceInfo
@@ -173,7 +164,7 @@ class AntiScrollService : AccessibilityService() {
 
         showShieldStatusNotification(
             this,
-            if (isEn) "🛡️ Shield Active!" else "🛡️ Koruma Kalkanı Devrede!",
+            if (isEn) "Shield Active!" else "Koruma Kalkanı Devrede!",
             if (isEn) "AwayDoomscrollin' is guarding Instagram, TikTok, and YouTube." else "AwayDoomscrollin' nöbette. Instagram, TikTok ve YouTube koruma altında.",
             1001
         )
@@ -199,7 +190,7 @@ class AntiScrollService : AccessibilityService() {
 
         showShieldStatusNotification(
             this,
-            if (isEn) "⚠️ Protection Disabled!" else "⚠️ Koruma Kalkanı Devre Dışı Kaldı!",
+            if (isEn) "Protection Disabled!" else "Koruma Kalkanı Devre Dışı Kaldı!",
             if (isEn) "Accessibility service turned off. Re-enable to keep your streak." else "AwayDoomscrollin' erişilebilirlik servisi kapatıldı. Serinizin bozulmaması için kalkanı tekrar açın.",
             1002
         )
@@ -213,7 +204,7 @@ class AntiScrollService : AccessibilityService() {
 
         showShieldStatusNotification(
             this,
-            if (isEn) "⚠️ Shield Stopped!" else "⚠️ Kalkan Kapandı!",
+            if (isEn) "Shield Stopped!" else "Kalkan Kapandı!",
             if (isEn) "Protection service stopped. Please check accessibility permissions in Settings." else "Koruma servisi durduruldu. Lütfen Ayarlar'dan erişilebilirlik iznini kontrol edin.",
             1003
         )
@@ -243,192 +234,12 @@ class AntiScrollService : AccessibilityService() {
                (lower.contains("launcher") && !lower.contains("settings"))
     }
 
-    private fun findClickableNode(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
-        var current: AccessibilityNodeInfo? = node
-        var depth = 0
-        while (current != null && depth < 6) {
-            if (current.isEnabled && current.isClickable) {
-                return current
-            }
-            current = current.parent
-            depth++
-        }
-        current = node
-        depth = 0
-        while (current != null && depth < 4) {
-            if (current.isEnabled) {
-                return current
-            }
-            current = current.parent
-            depth++
-        }
-        return node
-    }
-
-    private fun clickAtCoordinates(x: Float, y: Float) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val path = Path().apply {
-                moveTo(x, y)
-            }
-            val gesture = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
-                .build()
-            dispatchGesture(gesture, null, null)
-        }
-    }
-
-    private fun clickNodeWithGesture(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
-
-        val targetNode = findClickableNode(node)
-        var actionClicked = false
-        if (targetNode != null && targetNode.isEnabled) {
-            actionClicked = targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        }
-
-        val rect = Rect()
-        node.getBoundsInScreen(rect)
-        if (rect.width() > 0 && rect.height() > 0) {
-            val x = rect.centerX().toFloat()
-            val y = rect.centerY().toFloat()
-            Log.d(TAG, "Samsung One UI fiziki dokunma (dispatchGesture) gönderiliyor: ($x, $y)")
-            clickAtCoordinates(x, y)
-            return true
-        }
-
-        return actionClicked
-    }
-
-    private fun findForceStopNodeInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
-
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        val viewId = node.viewIdResourceName?.toString() ?: ""
-        val combined = "$text $desc $viewId".lowercase()
-
-        if (combined.contains("kaldır") || combined.contains("uninstall")) {
-            return null
-        }
-
-        if (combined.contains("durmaya") ||
-            combined.contains("zorla") ||
-            combined.contains("durdur") ||
-            combined.contains("force") ||
-            combined.contains("force_stop") ||
-            combined.contains("button_force_stop")) {
-            return node
-        }
-
-        for (i in 0 until node.childCount) {
-            val result = findForceStopNodeInTree(node.getChild(i))
-            if (result != null) return result
-        }
-        return null
-    }
-
-    private fun isNodeOrAncestorEnabled(node: AccessibilityNodeInfo?): Boolean {
-        var curr: AccessibilityNodeInfo? = node
-        while (curr != null) {
-            if (curr.isEnabled) return true
-            curr = curr.parent
-        }
-        return false
-    }
-
-    private fun isCancelButtonInTree(node: AccessibilityNodeInfo?): Boolean {
-        if (node == null) return false
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
-        val viewId = node.viewIdResourceName?.toString() ?: ""
-        val combined = "$text $desc $viewId".lowercase()
-
-        if (combined.contains("iptal") || combined.contains("cancel") || viewId.endsWith("button2")) {
-            return true
-        }
-
-        for (i in 0 until node.childCount) {
-            if (isCancelButtonInTree(node.getChild(i))) return true
-        }
-        return false
-    }
-
-    private fun findDialogConfirmNodeInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
-        if (node == null) return null
-
-        val text = node.text?.toString()?.trim() ?: ""
-        val desc = node.contentDescription?.toString()?.trim() ?: ""
-        val viewId = node.viewIdResourceName?.toString()?.lowercase() ?: ""
-        val className = node.className?.toString() ?: ""
-        val combinedText = "$text $desc".lowercase()
-
-        // 1. "İptal" / "Cancel" olanları es geç
-        if (combinedText.contains("iptal") || combinedText.contains("cancel") || viewId.endsWith("button2")) {
-            // Skip
-        } else {
-            // 2. Başlık veya mesaj TextView'lerini es geç (alertTitle, message)
-            val isTitleOrMessage = viewId.contains("title") || viewId.contains("message")
-
-            if (!isTitleOrMessage) {
-                val isButtonClassOrClickable = className.contains("Button", ignoreCase = true) ||
-                                               node.isClickable ||
-                                               (node.parent != null && node.parent.isClickable)
-                
-                val isPositiveButtonId = viewId.endsWith("button1") || viewId.contains("positive") || viewId.endsWith("confirm")
-
-                val matchesText = combinedText == "tamam" ||
-                                  combinedText == "ok" ||
-                                  combinedText.contains("durmaya zorla") ||
-                                  combinedText == "durdur" ||
-                                  combinedText.contains("force stop")
-
-                if ((isPositiveButtonId || matchesText) && isButtonClassOrClickable) {
-                    return node
-                }
-            }
-        }
-
-        for (i in 0 until node.childCount) {
-            val result = findDialogConfirmNodeInTree(node.getChild(i))
-            if (result != null) return result
-        }
-        return null
-    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
         val packageName = event.packageName?.toString() ?: return
         val currentTime = System.currentTimeMillis()
-
-        // A shield can be disabled while a previous block flow is still active.
-        // Cancel that flow before it can force-stop or redirect the target again.
-        if (isPunishing && !ProtectionPreferences.isPackageEnabled(this, currentTargetPackage)) {
-            Log.d(TAG, "$currentTargetPackage koruması kapatıldı; aktif engelleme akışı iptal edildi.")
-            isPunishing = false
-            forceStopClicked = false
-        }
-
-        // 0. ANINDA ANA EKRAN KONTROLÜ: Eğer kullanıcı veya sistem Ana Ekrana (Launcher) geldiyse, ceza modunu anında sonlandır!
-        if (isLauncherPackage(packageName)) {
-            if (isPunishing) {
-                Log.d(TAG, "Ana ekrana ($packageName) dönüldü, ceza modu anında sıfırlandı.")
-                isPunishing = false
-                forceStopClicked = false
-            }
-        }
-
-        // GLOBAL GÜVENLİK (FAIL-SAFE): 4 saniyeden fazla kilitli kalırsa zorla aç
-        if (isPunishing && currentTime - punishStartTime > 4000) {
-            Log.d(TAG, "Ceza süresi doldu (Global Fail-Safe), kilit açılıyor.")
-            isPunishing = false
-            forceStopClicked = false
-            lastPunishTime = currentTime
-            lastHomeActionTime = currentTime
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            return
-        }
 
         // Paket değişimlerini takip et
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -459,14 +270,13 @@ class AntiScrollService : AccessibilityService() {
 
                 if (packageName == "com.instagram.android") {
                     instagramLaunchTime = System.currentTimeMillis()
-                    isPunishing = false
                 }
             }
             lastPackage = packageName
         }
 
         // REELS SEKMESİNE YATAY KAYDIRMA (SWIPE) İLE GEÇİŞ KONTROLÜ
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android" && !isPunishing) {
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && packageName == "com.instagram.android") {
             if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) return
 
             if (currentTime - lastSignatureCheckTime > 500) {
@@ -476,67 +286,13 @@ class AntiScrollService : AccessibilityService() {
                 // İlk açılış animasyonlarını es geç (1.5 saniye)
                 if (currentTime - instagramLaunchTime > 1500) {
                     if (rootNode != null && isStrictlyReelsScreen(rootNode) && !isSafeScreen(rootNode)) {
-                        // Kullanıcı Ana Sayfadan yatay kaydırarak (swipe) Reels sekmesine girdi!
-                        // ZERO TOLERANCE: Anında engelle!
-                        if (currentTime - lastPunishTime > 3000 && currentTime - lastHomeActionTime > 3000) {
-                            Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Toleranssız engelleme tetiklendi.")
+                        if (currentTime - lastPunishTime > 2500 && currentTime - lastHomeActionTime > 2500) {
+                            Log.d(TAG, "Yatay Swipe ile Reels sekmesine geçiş algılandı! Engelleme tetiklendi.")
                             punishUser("com.instagram.android")
                         }
                     }
                 }
             }
-        }
-
-        // KESİN KİLİT KONTROLÜ: Eğer ceza modundaysak:
-        if (isPunishing) {
-            if (isSettingsApp(packageName)) {
-                handleSettingsApp(event)
-                return
-            }
-            if (packageName == this.packageName) {
-                // Bizim temizleyici aktivitemiz (ClearTaskActivity) çalışıyor, izin ver
-                return
-            }
-            if (packageName == currentTargetPackage) {
-                if (currentTime - punishStartTime < 400) {
-                    // Settings açılırken gelen geçici ilk olay, yok say
-                    return
-                } else {
-                    // Kullanıcı geri tuşuyla veya jestle Instagram'a geri kaçtı!
-                    Log.d(TAG, "Kullanıcı Ayarlar'dan geri kaçmaya çalıştı ($packageName)! Süreç öldürülüp HOME fırlatılıyor.")
-                    try {
-                        val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-                        am.killBackgroundProcesses(currentTargetPackage)
-                    } catch (e: Exception) {}
-
-                    val now = System.currentTimeMillis()
-                    isPunishing = false
-                    lastPunishTime = now
-                    lastHomeActionTime = now
-
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    return
-                }
-            }
-            if (isLauncherPackage(packageName)) {
-                if (currentTime - punishStartTime > 1000) {
-                    Log.d(TAG, "Ceza sırasında Ana Ekrana ($packageName) ulaşıldı. Kilit sıfırlanıyor.")
-                    isPunishing = false
-                    forceStopClicked = false
-                }
-                return
-            }
-            
-            // Eğer 3.5 saniye geçtiyse ve başka paket araya girdiyse fail-safe olarak sonlandır
-            if (currentTime - punishStartTime > 3500) {
-                Log.d(TAG, "Ceza sırasında zaman aşımı ($packageName). HOME yönlendiriliyor.")
-                val now = System.currentTimeMillis()
-                isPunishing = false
-                lastPunishTime = now
-                lastHomeActionTime = now
-                performGlobalAction(GLOBAL_ACTION_HOME)
-            }
-            return
         }
 
         // Anti-Cheat: Kullanıcı Ayarlar'da erişilebilirlik anahtarına tıkladığında VEYA Samsung'un "Kapatılsın mı?" onay penceresi çıktığında anında yakala!
@@ -557,23 +313,22 @@ class AntiScrollService : AccessibilityService() {
             }
         }
 
-        // 2. Instagram Aşaması - Kaydırma (Scroll) algılandığında
+        // 1. Instagram Aşaması - Kaydırma ve Tıklama algılandığında
         if (packageName == "com.instagram.android") {
             if (!isAppInForeground("com.instagram.android")) return
-
-            if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
+            if (currentTime - lastPunishTime < 2500 || currentTime - lastHomeActionTime < 2500) return
             if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) return
             
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-                val nodeText = event.text?.toString() ?: ""
+                val nodeText = event.text.joinToString(" ")
                 val nodeDesc = event.contentDescription?.toString() ?: ""
                 val combined = "$nodeText $nodeDesc".lowercase()
                 
                 if (combined.contains("home") || combined.contains("ana sayfa") || combined.contains("akış") || combined.contains("yenile") || combined.contains("reels")) {
                     val rootNode = rootInActiveWindow
                     if (rootNode != null && isDangerousScreen(rootNode) && !isSafeScreen(rootNode)) {
-                        if (currentTime - lastPunishTime > 3000) {
-                            Log.d(TAG, "Refresh açığı (Click) yakalandı!")
+                        if (currentTime - lastPunishTime > 2500) {
+                            Log.d(TAG, "Refresh / Reels açığı (Click) yakalandı!")
                             punishUser("com.instagram.android")
                             return
                         }
@@ -600,11 +355,9 @@ class AntiScrollService : AccessibilityService() {
                     }
 
                     // Sıfır piksellik sahte dokunma titremelerini yoksay
-                    // Ancak 1 piksellik (çok yavaş) pull-to-refresh çekmelerini BİLE yakala!
                     if (deltaY == 0 && deltaX == 0) {
                         return
                     }
-                    Log.d(TAG, "Gerçek dikey kaydırma algılandı! deltaY: $deltaY, deltaX: $deltaX")
                 } else {
                     if (event.toIndex == -1 || event.toIndex == lastScrollIndex) return
                     lastScrollIndex = event.toIndex
@@ -614,41 +367,37 @@ class AntiScrollService : AccessibilityService() {
                 val sourceNode = event.source
 
                 if (isCommentListView(sourceNode) || (rootNode != null && isSafeScreen(rootNode))) {
-                    Log.d(TAG, "Güvenli alan / Yorumlar listesi kaydırması tespit edildi. İzin verildi.")
                     return
                 }
 
                 if (rootNode != null && !isDangerousScreen(rootNode)) {
-                    Log.d(TAG, "Tehlikeli bir ekranda değilsiniz (Örn: Mesajlar DM). Kaydırmaya izin verildi.")
                     return
                 }
                 
-                if (currentTime - lastPunishTime > 3000) {
+                if (currentTime - lastPunishTime > 2500) {
                     punishUser("com.instagram.android")
                 }
             }
         }
 
-        // 3. TikTok Aşaması
+        // 2. TikTok Aşaması
         if (packageName == "com.zhiliaoapp.musically") {
             if (!isAppInForeground("com.zhiliaoapp.musically")) return
-
-            if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
+            if (currentTime - lastPunishTime < 2500 || currentTime - lastHomeActionTime < 2500) return
             if (!ProtectionPreferences.isEnabled(this, ProtectedApp.TIKTOK)) return
 
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-                if (currentTime - lastPunishTime > 3000) {
-                    Log.d(TAG, "TikTok SCROLL DETECTED! Punishing TikTok...")
+                if (currentTime - lastPunishTime > 2500) {
+                    Log.d(TAG, "TikTok SCROLL DETECTED! Intervening TikTok...")
                     punishUser("com.zhiliaoapp.musically")
                 }
             }
         }
 
-        // 4. YouTube Shorts Aşaması
+        // 3. YouTube Shorts Aşaması
         if (packageName == "com.google.android.youtube") {
             if (!isAppInForeground("com.google.android.youtube")) return
-
-            if (currentTime - lastPunishTime < 3500 || currentTime - lastHomeActionTime < 3500) return
+            if (currentTime - lastPunishTime < 2500 || currentTime - lastHomeActionTime < 2500) return
             if (!ProtectionPreferences.isEnabled(this, ProtectedApp.YOUTUBE)) return
             
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
@@ -656,8 +405,8 @@ class AntiScrollService : AccessibilityService() {
                 val isShorts = isYoutubeShortsScreen(rootNode)
                 
                 if (rootNode != null && isShorts) {
-                    if (currentTime - lastPunishTime > 3000) {
-                        Log.d(TAG, "YouTube Shorts punished!")
+                    if (currentTime - lastPunishTime > 2500) {
+                        Log.d(TAG, "YouTube Shorts SCROLL DETECTED! Intervening YouTube...")
                         punishUser("com.google.android.youtube")
                     }
                 }
@@ -807,30 +556,16 @@ class AntiScrollService : AccessibilityService() {
 
         val currentTime = System.currentTimeMillis()
         
-        if (isPunishing && currentTime - punishStartTime > 3000) {
-            Log.d(TAG, "isPunishing 3 saniyeden fazla takılı kaldı. Sıfırlanıyor!")
-            isPunishing = false
-        }
-        
-        // Cooldown and lock check: Acquire lock IMMEDIATELY to prevent duplicate scroll events from re-entering!
-        if (isPunishing || (currentTime - lastPunishTime < 3500) || (currentTime - lastHomeActionTime < 3500)) return
+        // Cooldown check: 2.5s debounce
+        if ((currentTime - lastPunishTime < 2500) || (currentTime - lastHomeActionTime < 2500)) return
 
-        isPunishing = true
         lastPunishTime = currentTime
-        punishStartTime = currentTime
         lastHomeActionTime = currentTime
-        forceStopClicked = false
-        currentTargetPackage = targetPackageName
 
-        Log.d(TAG, "CEZA VERILIYOR: $targetPackageName Task Stack tamamen temizlenip yok edilecek!")
+        Log.d(TAG, "MÜDAHALE EDİLİYOR: $targetPackageName temizleniyor...")
         
-        // 1. ANINDA SİSTEM SÜREÇ ÖLDÜRÜCÜ (ActivityManager Kill)
-        try {
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            am.killBackgroundProcesses(targetPackageName)
-        } catch (e: Exception) {
-            Log.e(TAG, "killBackgroundProcesses error in punishUser", e)
-        }
+        // 1. ANINDA Geri Eylemi (Video oynatıcı katmanını anında geri sar/kapat)
+        performGlobalAction(GLOBAL_ACTION_BACK)
 
         // 2. KESİN TASK SİLİCİ (Task Affinity Clear Strike):
         // Target app'in (Instagram/TikTok/YouTube) Android ActivityManager üzerindeki TÜM TASK STACK'İNİ RAM VE SON UYGULAMALARDAN ANINDA YOK EDER!
@@ -852,22 +587,34 @@ class AntiScrollService : AccessibilityService() {
             Log.e(TAG, "Task Wiper başlatılırken hata", e)
         }
 
-        // 3. UYGULAMA AYARLAR SAYFASINI AÇ (DURMAYA ZORLA İÇİN)
+        // 3. ARKA PLAN SÜREÇLERİNİ TEMİZLE
         try {
-            val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", targetPackageName, null)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
-                        Intent.FLAG_ACTIVITY_CLEAR_TASK or 
-                        Intent.FLAG_ACTIVITY_NO_ANIMATION
-            }
-            startActivity(settingsIntent)
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            am.killBackgroundProcesses(targetPackageName)
         } catch (e: Exception) {
-            Log.e(TAG, "Ayarlar sayfası açılırken hata", e)
-            performGlobalAction(GLOBAL_ACTION_HOME)
+            Log.e(TAG, "killBackgroundProcesses error in punishUser", e)
         }
 
-        // --- BACK-END GAMIFICATION INTEGRATION ---
+        // 4. ANINDA ANA EKRANA DÖNÜŞ (HOME)
+        performGlobalAction(GLOBAL_ACTION_HOME)
+
+        // 5. KULLANICIYA KISA VE ETKİLİ "KAYDIRMA UYARISI" BİLDİRİMİ GÖNDER (Kilit/Pop-up yok)
         val prefs = getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE)
+        val isEn = prefs.getString("app_language", null) == "en"
+        val appName = when {
+            targetPackageName.contains("musically") -> "TikTok"
+            targetPackageName.contains("youtube") -> "YouTube Shorts"
+            else -> if (isEn) "Instagram Reels & Feed" else "Instagram Reels & Akış"
+        }
+        val alertTitle = if (isEn) "Scroll Alert!" else "Kaydırma Uyarısı!"
+        val alertMessage = if (isEn) {
+            "Doomscrolling interrupted on $appName. Take control of your time!"
+        } else {
+            "$appName üzerindeki sonsuz kaydırma durduruldu. Zihninin ve vaktinin kontrolünü eline al!"
+        }
+        showShieldStatusNotification(this, alertTitle, alertMessage, 1004)
+
+        // --- BACK-END GAMIFICATION INTEGRATION ---
         val currentBlocks = prefs.getInt("total_blocks", 0)
         val currentXp = prefs.getLong("user_xp", 150L)
         
@@ -906,16 +653,11 @@ class AntiScrollService : AccessibilityService() {
         }
         val currentDailyAppBlocks = prefs.getInt(dailyAppKey, 0)
 
-        // Canlı Kalkan Günlüğü İçin Kayıt
+        // Canlı Kalkan Günlüğü İçin Kayıt (Uygulamanın günlük müdahale sayısı ile)
         val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
         val currentTimeStr = timeFormat.format(java.util.Date())
-        val appName = when {
-            targetPackageName.contains("musically") -> "TikTok"
-            targetPackageName.contains("youtube") -> "YouTube Shorts"
-            else -> "Instagram Reels"
-        }
-        val dailyCount = currentDailyBlocks + 1
-        val newLog = "$currentTimeStr|$appName|$dailyCount"
+        val appDailyCount = currentDailyAppBlocks + 1
+        val newLog = "$currentTimeStr|$appName|$appDailyCount"
         val oldLogs = prefs.getString("recent_shield_logs", "") ?: ""
         val logList = if (oldLogs.isEmpty()) mutableListOf() else oldLogs.split(";").toMutableList()
         logList.add(0, newLog)
@@ -947,7 +689,7 @@ class AntiScrollService : AccessibilityService() {
     private fun isYoutubeShortsScreen(node: AccessibilityNodeInfo?): Boolean {
         if (node == null) return false
         val text = node.text?.toString() ?: ""
-        val desc = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
         val viewId = node.viewIdResourceName?.toString() ?: ""
 
         if ((text.equals("Shorts", ignoreCase = true) || desc.equals("Shorts", ignoreCase = true)) && node.isSelected) {
@@ -962,73 +704,6 @@ class AntiScrollService : AccessibilityService() {
             if (isYoutubeShortsScreen(node.getChild(i))) return true
         }
         return false
-    }
-
-    private fun handleSettingsApp(event: AccessibilityEvent) {
-        val rootNode = rootInActiveWindow ?: return
-        val currentTime = System.currentTimeMillis()
-
-        if (currentTime - lastSettingsClickTime < 150) return
-
-        val isDialogVisible = isCancelButtonInTree(rootNode)
-
-        if (isDialogVisible) {
-            val confirmNode = findDialogConfirmNodeInTree(rootNode)
-            if (confirmNode != null) {
-                Log.d(TAG, "Diyalog onay butonu bulundu, tıklanıyor...")
-                clickNodeWithGesture(confirmNode)
-                lastSettingsClickTime = currentTime
-                
-                try {
-                    val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-                    am.killBackgroundProcesses(currentTargetPackage)
-                } catch (e: Exception) {}
-
-                val now = System.currentTimeMillis()
-                isPunishing = false
-                lastPunishTime = now
-                lastHomeActionTime = now
-
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                }, 300)
-                return
-            }
-        }
-
-        val forceStopNode = findForceStopNodeInTree(rootNode)
-        if (forceStopNode != null) {
-            if (!isNodeOrAncestorEnabled(forceStopNode)) {
-                Log.d(TAG, "Durmaya zorla butonu devre dışı (Uygulama zaten durdurulmuş). Ana ekrana dönülüyor.")
-                val now = System.currentTimeMillis()
-                isPunishing = false
-                lastPunishTime = now
-                lastHomeActionTime = now
-                performGlobalAction(GLOBAL_ACTION_HOME)
-                return
-            }
-
-            Log.d(TAG, "Durmaya zorla butonu bulundu, tıklanıyor...")
-            val clicked = clickNodeWithGesture(forceStopNode)
-            if (clicked) {
-                lastSettingsClickTime = currentTime
-                forceStopClicked = true
-                return
-            }
-        }
-
-        if (!isDialogVisible && currentTime - punishStartTime > 3500) {
-            Log.d(TAG, "Settings zaman aşımına uğradı (3.5s). Ana ekrana atılıyor.")
-            try {
-                val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-                am.killBackgroundProcesses(currentTargetPackage)
-            } catch (e: Exception) {}
-            val now = System.currentTimeMillis()
-            isPunishing = false
-            lastPunishTime = now
-            lastHomeActionTime = now
-            performGlobalAction(GLOBAL_ACTION_HOME)
-        }
     }
 
     private fun extractReelsSignature(node: AccessibilityNodeInfo?): String {
@@ -1061,12 +736,6 @@ class AntiScrollService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (isPunishing) {
-            val keyCode = event.keyCode
-            if (keyCode == KeyEvent.KEYCODE_BACK) {
-                return true
-            }
-        }
         return super.onKeyEvent(event)
     }
 

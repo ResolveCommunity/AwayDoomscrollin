@@ -1,0 +1,7 @@
+﻿AwayDoomscrollin' v1.1.0
+- 50'den fazla özel vektörel ikon ile yenilenen modern arayüz.
+- Kurulum simülatörüne Instagram Reels ve DM güvenli bölge kontrolleri eklendi.
+- Kademe ve başarımlar için kayan bildirim kuyruğu ve kapatma desteği getirildi.
+- Süre göstergeleri ve metin hizalamaları optimize edildi.
+- Gizlilik ve kural güncelleme açıklamaları şeffaflaştırıldı.
+- Performans ve kararlılık artırıldı.

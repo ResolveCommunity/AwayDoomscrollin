@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,8 +55,20 @@ class AntiCheatGuiltActivity : ComponentActivity() {
                                 modifier = Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("🛑", fontSize = 48.sp)
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_slash_ban),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
 
                                 Text(
                                     text = if (isEn) "YOU ARE ABOUT TO LOWER THE SHIELD!" else "KALKANI İNDİRMEK ÜZERESİN!",
@@ -80,7 +94,7 @@ class AntiCheatGuiltActivity : ComponentActivity() {
                                     horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
                                     StatBox(title = if (isEn) "Blocked" else "Engellenen", value = "$totalBlocks")
-                                    StatBox(title = if (isEn) "Saved Time" else "Kurtarılan Süre", value = "$savedMinutes min")
+                                    StatBox(title = if (isEn) "Saved Time" else "Kurtarılan Süre", value = if (isEn) "$savedMinutes Minute" else "$savedMinutes Dakika")
                                     StatBox(title = if (isEn) "Earned" else "Kazanılan", value = "$userXp XP")
                                 }
 
@@ -113,13 +127,24 @@ class AntiCheatGuiltActivity : ComponentActivity() {
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                 ) {
-                                    Text(
-                                        text = if (isEn) "I Changed My Mind, Fight On! 🛡️" else "Vazgeçtim, Mücadeleye Devam! 🛡️",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = Color.White,
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.padding(vertical = 4.dp)
-                                    )
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_shield),
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (isEn) "I Changed My Mind, Fight On!" else "Vazgeçtim, Mücadeleye Devam!",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color.White
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))

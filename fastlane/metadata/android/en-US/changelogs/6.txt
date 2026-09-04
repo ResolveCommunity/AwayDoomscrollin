@@ -1,0 +1,7 @@
+﻿AwayDoomscrollin' v1.1.0
+- Modern UI overhaul featuring 50+ custom vector icons.
+- Added Reels and DM safe-zone controls to onboarding simulator.
+- Sliding celebration toast queue for unlocked achievements and tiers.
+- Layout, typography, and time counter alignment fixes.
+- Clarified local analysis and 6-hour rule update specifications.
+- Performance improvements and bug fixes.

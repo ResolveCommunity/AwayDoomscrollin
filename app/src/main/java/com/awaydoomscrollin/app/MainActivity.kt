@@ -1,4 +1,4 @@
-﻿package com.awaydoomscrollin.app
+package com.awaydoomscrollin.app
 
 import android.content.ComponentName
 import android.content.Context
@@ -28,6 +28,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -70,6 +74,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.roundToInt
+import kotlin.math.ceil
 import androidx.core.app.ActivityCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
@@ -117,7 +122,6 @@ class MainActivity : ComponentActivity() {
 // ==========================================
 @Composable
 fun ZenTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colorScheme = darkColorScheme(
@@ -318,7 +322,7 @@ fun OnboardingScreen(
                 ) {
                     Text(
                         text = if (step == 5) 
-                            (if (isEn) "Finish & Start 🛡️" else "Kurulumu Tamamla 🛡️") 
+                            (if (isEn) "Finish & Start" else "Kurulumu Tamamla") 
                         else if (step == 1) 
                             (if (isEn) "Start Setup →" else "Kuruluma Başla →") 
                         else 
@@ -336,15 +340,326 @@ fun OnboardingScreen(
 @Composable
 fun OnboardingStepOne(isEn: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // HİKAYE VE GELİŞTİRİCİ MEKTUBU KARTI
+        // ==========================================
+        // 1. HERO KARTI: NEDEN AWAYDOOMSCROLLIN'? (CERRAHİ KALKAN BATTLE CARD)
+        // ==========================================
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF0F1523),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00FF87)),
+            shadowElevation = 10.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                // Header with Glowing Badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF00FF87).copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00FF87)),
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_zap),
+                                contentDescription = null,
+                                tint = Color(0xFF00FF87),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (isEn) "WHY AWAYDOOMSCROLLIN'?" else "NEDEN AWAYDOOMSCROLLIN'?",
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF00FF87),
+                            letterSpacing = 0.8.sp
+                        )
+                        Text(
+                            text = if (isEn) "Smart Shield Against Dopamine Loops" else "Dopamin Tuzağına Karşı Akıllı Koruma",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Comparison 1: Klasik Uygulamalar (Kırmızı / 20 Dakika Tuzağı)
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFF0055).copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0055).copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_hourglass),
+                            contentDescription = null,
+                            tint = Color(0xFFFF0055),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isEn) "Other Apps: The '20-Minute Timer' Trap" else "Diğer Uygulamalar: 20 Dakika Süre Yanılgısı",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF0055)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isEn)
+                                    "Traditional apps set soft '20-minute daily limits'. You burn through every second, suffer sudden dopamine withdrawal when it ends, and repeatedly tap 'Snooze 5 more mins'. The addiction loop never breaks."
+                                else
+                                    "Klasik uygulamalar günde 20 dakika gibi süre sınırları koyar. Bu süreyi son saniyesine kadar harcar, süre bitince '5 dakika daha' diyerek sürekli ertelersiniz. Kaydırma döngüsü hiçbir zaman kırılmaz.",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Comparison 2: AwayDoomscrollin' (Yeşil / Akıllı Müdahale)
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF00FF87).copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00FF87).copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_shield),
+                            contentDescription = null,
+                            tint = Color(0xFF00FF87),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isEn) "AwayDoomscrollin': Focus Protection Without Isolation" else "AwayDoomscrollin': İletişimi Kesmeyen Akıllı Koruma",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00FF87)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isEn)
+                                    "No whole-app blocking! Your DMs, search, and communication stay 100% open. We automatically intercept ONLY infinite Reels, Shorts, and Feed scrolling the moment you enter the trap."
+                                else
+                                    "Uygulamayı tamamen kilitlemez; mesajlarınız (DM), arama ve profiller açık kalır. Sadece zamanınızı çalan sonsuz Reels, Shorts ve Keşfet videolarına girdiğiniz anda araya girip videoyu kapatır.",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.95f),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 4'LÜ GÜVEN VE ÖZGÜRLÜK SÜTUNU (2x2 Grid - Eşitlenmiş ve Simetrik)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1: DM & İletişim Serbest
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF070A12),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_chat),
+                                        contentDescription = null,
+                                        tint = Color(0xFF00F2FE),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isEn) "DMs Allowed" else "Sohbet Serbest",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00F2FE),
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = if (isEn) "Chat freely. Only endless video feeds are blocked." else "İletişiminiz kesilmez. Yalnızca video akışları engellenir.",
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+
+                        // 2: Gizlilik Öncelikli & Yerel
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF070A12),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_lock),
+                                        contentDescription = null,
+                                        tint = Color(0xFF00FF87),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isEn) "100% Local" else "%100 Yerel",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00FF87),
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = if (isEn) "All detection runs locally on your device CPU." else "Ekran analizleri sadece telefonunuzda işlenir.",
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 3: Açık Kaynak
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF070A12),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB703).copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_github),
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFB703),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isEn) "Open Source" else "Açık Kaynak",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFFB703),
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = if (isEn) "Fully transparent code, zero hidden backdoors." else "GitHub'da şeffaf kod, sıfır gizli arka kapı.",
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+
+                        // 4: Sıfır Reklam & Sıfır Takip
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF070A12),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_slash_ban),
+                                        contentDescription = null,
+                                        tint = Color(0xFF00F2FE),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isEn) "Zero Ads" else "Sıfır Reklam",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00F2FE),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = if (isEn) "Zero tracking, zero ads, zero subscriptions." else "Sıfır reklam, sıfır ticari takip ve tuzak.",
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ==========================================
+        // 2. GELİŞTİRİCİ MEKTUBU KARTI (HİKAYE)
+        // ==========================================
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-            shadowElevation = 8.dp,
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+            shadowElevation = 6.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 // Başlık Alanı
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -353,35 +668,40 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(42.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("🤝", fontSize = 24.sp)
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_handshake),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = if (isEn) "I Am One of You." else "Ben de Sizden Biriyim.",
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (isEn) "A Letter from Resolve Community" else "Resolve Community'den Bir Mektup",
-                            fontSize = 12.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Bölüm 1: Hikayenin Başlangıcı
                 Text(
                     text = if (isEn) "Hello, I am an independent developer behind Resolve Community and creator of AwayDoomscrollin'." else "Merhaba, ben Resolve Community adına AwayDoomscrollin' uygulamasını geliştiren bağımsız bir geliştiriciyim.",
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -391,12 +711,12 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         "Ever since the COVID-19 pandemic, almost my entire day was spent in front of computer and phone screens. Life outside was complicated; playing games or scrolling through feeds for hours felt more enjoyable and safe. The real reason was escaping reality."
                     else 
                         "COVID-19 pandemisinden beri günümün neredeyse tamamı bilgisayar ve telefon ekranı karşısında geçiyordu. Dışarıdaki hayat karmaşıktı; sosyalleşmek yerine ekran başında oyun oynamak veya saatlerce akış kaydırmak daha keyifli ve güvenli geliyordu. Sanırım asıl sebebim, gerçek hayattan kaçmaktı.",
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                    lineHeight = 20.sp
+                    lineHeight = 19.sp
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Bölüm 2: Farkındalık & Sağlık Etkileri
                 Surface(
@@ -405,12 +725,21 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = if (isEn) "⚠️ Painful Truth I Faced:" else "⚠️ Yüzleştiğim Acı Gerçek:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_warning_triangle),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isEn) "Painful Truth I Faced:" else "Yüzleştiğim Acı Gerçek:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isEn) 
@@ -425,12 +754,12 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Bölüm 3: Çözüm Arayışı
                 Text(
                     text = if (isEn) "Why Did I Build This App Under Resolve Community?" else "Bu Uygulamayı Neden Geliştirdim?",
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -440,12 +769,12 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         "Even when playing PC games, my eyes would wander to my phone screen, watching Reels and jumping around. I built AwayDoomscrollin' under Resolve Community to solve this addiction. I use it actively myself and can confidently say it's much more effective than other well-being apps."
                     else 
                         "Bilgisayarda oyun oynarken bile gözüm telefona kayıyor, bir yandan Reels izleyip oradan oraya hopluyordum. Bu bağımlılığı çözmek için Resolve Community çatısı altında AwayDoomscrollin'ı geliştirdim. Şu an kendim de aktif kullanıyorum ve diğer tüm well-being uygulamalarından çok daha etkili olduğunu rahatlıkla söyleyebilirim.",
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                    lineHeight = 20.sp
+                    lineHeight = 19.sp
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Bölüm 4: Algoritmanın Tuzağı (Madde Madde)
                 Surface(
@@ -455,12 +784,21 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = if (isEn) "🎯 How the Algorithm Trap Works" else "🎯 Algoritmanın Tuzağı Nasıl Çalışır?",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFF85149)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_target),
+                                contentDescription = null,
+                                tint = Color(0xFFF85149),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isEn) "How the Algorithm Trap Works" else "Algoritmanın Tuzağı Nasıl Çalışır?",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFF85149)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = if (isEn) 
@@ -473,14 +811,14 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                                 "• Hangi videoyu kaç saniye izlediğinizi analiz edip, beyninize en hızlı dopamini verecek benzer içerikleri sunarlar.\n" +
                                 "• Artık uzun videolardan canımızın sıkılmasının tek sebebi, bu kısa ve sahte dopamin patlamalarıdır.\n" +
                                 "• Eğer durmadan kaydırıp 'kilitlenme' sorunu yaşadıysanız, beni çok iyi anlıyorsunuz demektir.",
-                            fontSize = 12.sp,
+                            fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 18.sp
+                            lineHeight = 17.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Bölüm 5: Çağrı & Kapanış
                 Text(
@@ -488,10 +826,10 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         "My sole purpose is to study productively and make quality time for myself. Once you break free from scrolling addiction, you'll see how fruitful life becomes.\n\nNever stop trying even if you fail sometimes! (I failed many times too, but this is my 2nd attempt at not giving up, and this time we'll succeed together...)"
                     else 
                         "Tek amacım verimli ders çalışabilmek ve kendime kaliteli zaman ayırmak. Ekran ve kaydırma bağımlılığından bir kez kurtulduğunuzda, hayatınızın ne kadar verimli geçtiğini göreceksiniz.\n\nHer ne kadar bazen başarısız olsanız da çabalamaktan asla vazgeçmeyin! (Ben de defalarca başarısız oldum, ancak bu benim 2. pes etmeyişim ve bu sefer birlikte başaracağız...)",
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
-                    lineHeight = 19.sp
+                    lineHeight = 18.sp
                 )
             }
         }
@@ -531,18 +869,27 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = if (isEn) "⚙️ Current Beta Behavior:" else "⚙️ Mevcut Beta Davranışı:",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_settings),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEn) "Current Beta Behavior:" else "Mevcut Beta Davranışı:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isEn)
-                        "• The beta engine attempts to recognize supported short-video feeds from accessibility events.\n• When detection succeeds, the shield returns you to the Home screen and may open Android Settings to stop the target app.\n• Platform, Android, or manufacturer UI changes can cause missed detections or false positives."
+                        "• The beta engine attempts to recognize supported short-video feeds from accessibility events.\n• When detection succeeds, the shield instantly returns you to the Home screen, resets the feed task, and sends a scroll alert notification.\n• Platform, Android, or manufacturer UI changes can cause missed detections or false positives."
                     else
-                        "• Beta motoru desteklenen kısa video akışlarını erişilebilirlik olaylarından algılamaya çalışır.\n• Algılama başarılı olduğunda kalkan sizi Ana Ekrana döndürür ve hedef uygulamayı durdurmak için Android Ayarları'nı açabilir.\n• Platform, Android veya üretici arayüzü değişiklikleri kaçırılan ya da hatalı algılamalara yol açabilir.",
+                        "• Beta motoru desteklenen kısa video akışlarını erişilebilirlik olaylarından algılamaya çalışır.\n• Algılama başarılı olduğunda kalkan sizi anında Ana Ekrana döndürür, kaydırma görevini sıfırlar ve kaydırma uyarısı bildirimi gönderir.\n• Platform, Android veya üretici arayüzü değişiklikleri kaçırılan ya da hatalı algılamalara yol açabilir.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     lineHeight = 18.sp
@@ -616,10 +963,13 @@ fun AnimatedSwipeGesture() {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.offset(y = offsetY.dp)
         ) {
-            Text(
-                "👆",
-                fontSize = 32.sp,
-                modifier = Modifier.alpha(alphaVal)
+            Icon(
+                painter = painterResource(id = R.drawable.ic_swipe_gesture),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .size(32.dp)
+                    .alpha(alphaVal)
             )
         }
     }
@@ -640,7 +990,24 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("🎮 ${if (isEn) "Interactive Simulator" else "İnteraktif Simülatör"}", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_gamepad),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isEn) "Interactive Simulator" else "İnteraktif Simülatör",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+        }
         Spacer(modifier = Modifier.height(14.dp))
         
         Surface(
@@ -691,7 +1058,14 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text("Instagram", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text("❤️", fontSize = 18.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_heart),
+                                        contentDescription = null,
+                                        tint = Color(0xFFFF0055),
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clickable { simulatorState = SimulatorState.SAFE_ZONE }
+                                    )
                                 }
                                 
                                 // Story Row
@@ -726,11 +1100,20 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                     }
                                     // Post Image/Video
                                     Box(modifier = Modifier.fillMaxWidth().height(140.dp).background(Color(0xFF161B22)), contentAlignment = Alignment.Center) {
-                                        Text(if (isEn) "👇 Try scrolling down!" else "👇 Akışı kaydırmayı dene!", color = Color.Gray, fontSize = 12.sp)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_arrow_down),
+                                                contentDescription = null,
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(if (isEn) "Try scrolling down!" else "Akışı kaydırmayı dene!", color = Color.Gray, fontSize = 12.sp)
+                                        }
                                     }
                                 }
                                 
-                                // Bottom Bar
+                                // Bottom Bar (Ana Sayfa - Reels - DM - Arama - Profil)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -739,16 +1122,66 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("🏠", fontSize = 20.sp)
-                                    Text("🔍", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
+                                    // 1. Ana Sayfa
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_nav_home),
+                                        contentDescription = "Home",
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { simulatorState = SimulatorState.HOME }
+                                    )
                                     
-                                    // Guided Reels Button with Bouncing Hand
+                                    // 2. Reels (Reels tuzağı - Blok tetikleyici)
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text("▶️", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.BLOCKED_REELS })
-                                        Text("👆", fontSize = 24.sp, modifier = Modifier.offset(x = 12.dp, y = handOffsetY.dp).padding(top = 28.dp))
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_reels),
+                                            contentDescription = "Reels",
+                                            tint = Color.White,
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clickable { simulatorState = SimulatorState.BLOCKED_REELS }
+                                        )
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_swipe_gesture),
+                                            contentDescription = null,
+                                            tint = Color(0xFF00F2FE),
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .offset(x = 12.dp, y = handOffsetY.dp)
+                                                .padding(top = 28.dp)
+                                        )
                                     }
+
+                                    // 3. DM (Direkt Mesaj - Güvenli Bölge)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_dm),
+                                        contentDescription = "Direct Messages",
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { simulatorState = SimulatorState.SAFE_ZONE }
+                                    )
                                     
-                                    Text("👤", fontSize = 20.sp, modifier = Modifier.clickable { simulatorState = SimulatorState.SAFE_ZONE })
+                                    // 4. Arama (Güvenli Bölge)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_search),
+                                        contentDescription = "Search",
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { simulatorState = SimulatorState.SAFE_ZONE }
+                                    )
+
+                                    // 5. Profil (Güvenli Bölge)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_user),
+                                        contentDescription = "Profile",
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { simulatorState = SimulatorState.SAFE_ZONE }
+                                    )
                                 }
                             }
                         }
@@ -758,7 +1191,12 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier.fillMaxSize().padding(12.dp)
                             ) {
-                                Text("🚫", fontSize = 48.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_slash_ban),
+                                    contentDescription = null,
+                                    tint = Color(0xFFF85149),
+                                    modifier = Modifier.size(48.dp)
+                                )
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
                                     if (isEn) "Reels Blocked!" else "Reels Engellendi!",
@@ -786,7 +1224,12 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier.fillMaxSize().padding(12.dp)
                             ) {
-                                Text("🚫", fontSize = 48.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_slash_ban),
+                                    contentDescription = null,
+                                    tint = Color(0xFFF85149),
+                                    modifier = Modifier.size(48.dp)
+                                )
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
                                     if (isEn) "Feed Scroll Blocked!" else "Akış Kaydırması Engellendi!",
@@ -815,7 +1258,12 @@ fun ReelsToHomeSettingsPreview(isEn: Boolean = false) {
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier.fillMaxSize().padding(12.dp)
                             ) {
-                                Text("✅", fontSize = 48.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_check_circle),
+                                    contentDescription = null,
+                                    tint = Color(0xFF3FB950),
+                                    modifier = Modifier.size(48.dp)
+                                )
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
                                     if (isEn) "Safe Zone" else "Güvenli Bölge",
@@ -888,20 +1336,26 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("⚙️", fontSize = 18.sp)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_check),
+                        contentDescription = null,
+                        tint = Color(0xFF00FF87),
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         if (isEn) "ACTIVE SHIELD (WHAT IT CAN DO)" else "AKTİF KALKAN (YAPABİLDİKLERİ)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = Color(0xFF00FF87),
                         letterSpacing = 0.8.sp
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "Beta shield: Attempts to intervene when a supported short-video feed is recognized." else "Beta kalkan: Desteklenen kısa video akışı algılandığında müdahale etmeye çalışır.")
-                MatrixBullet(if (isEn) "Force stops the app from Settings ruthlessly." else "Uygulamayı Ayarlar'dan acımasızca zorla durdurur.")
-                MatrixBullet(if (isEn) "Throws you to Home Screen to pull you out of the scroll trance." else "Sizi Ana Ekrana fırlatarak transtan çıkarır.")
+                MatrixBullet(if (isEn) "100% Local Analysis: Screen events run entirely on device CPU. Only downloads rule updates (JSON) from GitHub every 6h (zero personal data sent)." else "%100 Yerel Analiz: Ekran olayları tamamen telefonunuzun yerel işlemcisinde çalışır. Dinamik kalkan için yalnızca 6 saatte bir GitHub'dan kural dosyasını (JSON) indirir (dışarıya hiçbir veri gönderilmez).")
+                MatrixBullet(if (isEn) "Beta shield: Intervenes instantly when a supported short-video feed is recognized." else "Beta kalkan: Desteklenen kısa video akışı algılandığında anında müdahale eder.")
+                MatrixBullet(if (isEn) "Instantly terminates the scroll feed task and returns you to the Home screen." else "Sonsuz akış görevini anında sonlandırarak sizi Ana Ekrana döndürür.")
+                MatrixBullet(if (isEn) "Sends an instant scroll alert notification to pull you out of the trance." else "Sizi transtan çıkarıp odaklanmanız için anında kaydırma uyarısı gönderir.")
             }
         }
 
@@ -913,23 +1367,24 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🛡️", fontSize = 18.sp)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = null,
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         if (isEn) "PRIVACY GUARANTEE (WHAT IT CANNOT DO)" else "GİZLİLİK GARANTİSİ (YAPAMADIKLARI)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        color = Color(0xFFFF5252),
                         letterSpacing = 0.8.sp
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(
-                    if (isEn) "On-device core: Screen analysis stays on your device. Telemetry is opt-in; GitHub rule requests run automatically even when telemetry is off."
-                    else "Cihaz içi çekirdek: Ekran analizi cihazınızda kalır. Telemetri isteğe bağlıdır; GitHub kural istekleri telemetri kapalıyken de otomatik çalışır.",
-                    isNegative = true
-                )
-                MatrixBullet(if (isEn) "Does NOT record your messages, passwords, or photos." else "Mesajlarınızı, şifrelerinizi ve fotoğraflarınızı kaydetmez.", isNegative = true)
+                MatrixBullet(if (isEn) "NEVER reads, captures, or records your messages, passwords, or photos." else "Mesajlarınızı, şifrelerinizi, fotoğraflarınızı veya ekranınızı ASLA okumaz ve kaydetmez.", isNegative = true)
+                MatrixBullet(if (isEn) "Does NOT send your personal data or browsing history to any server." else "Sunuculara kişisel veri veya gezinme geçmişi göndermez (Topluluk katkısı tamamen isteğe bağlıdır).", isNegative = true)
                 MatrixBullet(if (isEn) "Does NOT drain battery or memory in the background." else "Arka planda pilinizi ve belleğinizi tüketmez.", isNegative = true)
             }
         }
@@ -939,15 +1394,18 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
 @Composable
 fun MatrixBullet(text: String, isNegative: Boolean = false) {
     Row(
-        modifier = Modifier.padding(vertical = 3.dp),
+        modifier = Modifier.padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Text(
-            text = "•",
-            color = if (isNegative) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(end = 8.dp)
+        Icon(
+            painter = painterResource(id = if (isNegative) R.drawable.ic_close else R.drawable.ic_check),
+            contentDescription = null,
+            tint = if (isNegative) Color(0xFFFF5252) else Color(0xFF00FF87),
+            modifier = Modifier
+                .size(13.dp)
+                .padding(top = 2.dp)
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
             fontSize = 12.sp,
@@ -977,7 +1435,12 @@ fun OnboardingStepFourAppsAndPrefs(
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("📱", fontSize = 32.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_phone),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(34.dp)
+                )
             }
         }
 
@@ -1005,7 +1468,7 @@ fun OnboardingStepFourAppsAndPrefs(
         // 1. INSTAGRAM COMPACT CARD
         CompactOnboardingAppCard(
             appName = "Instagram",
-            subtitle = if (isEn) "Reels & Infinite Feed (BETA)" else "Reels & Sonsuz Akış (BETA)",
+            subtitle = if (isEn) "Reels & Infinite Feed" else "Reels & Sonsuz Akış",
             iconRes = R.drawable.ic_instagram,
             brandColor = Color(0xFFE1306C),
             isEnabled = isInstaEnabled,
@@ -1022,7 +1485,7 @@ fun OnboardingStepFourAppsAndPrefs(
         // 2. TIKTOK COMPACT CARD
         CompactOnboardingAppCard(
             appName = "TikTok",
-            subtitle = if (isEn) "Short Video Feed (BETA)" else "Kısa Video Akışı (BETA)",
+            subtitle = if (isEn) "Short Video Feed" else "Kısa Video Akışı",
             iconRes = R.drawable.ic_tiktok,
             brandColor = Color(0xFF00F2FE),
             isEnabled = isTiktokEnabled,
@@ -1039,7 +1502,7 @@ fun OnboardingStepFourAppsAndPrefs(
         // 3. YOUTUBE SHORTS COMPACT CARD
         CompactOnboardingAppCard(
             appName = "YouTube Shorts",
-            subtitle = if (isEn) "Shorts Screen Only (BETA)" else "Shorts Ekranı (BETA)",
+            subtitle = if (isEn) "Shorts Screen Only" else "Shorts Ekranı",
             iconRes = R.drawable.ic_youtube,
             brandColor = Color(0xFFFF0055),
             isEnabled = isYoutubeEnabled,
@@ -1067,7 +1530,12 @@ fun OnboardingStepFourAppsAndPrefs(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("ℹ️", fontSize = 15.sp)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_info),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isEn) "Protection Scope Info (Safe Areas)" else "Kalkan Kapsamı Bilgisi (Güvenli Alanlar)",
@@ -1076,7 +1544,12 @@ fun OnboardingStepFourAppsAndPrefs(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                Text("→", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_arrow_forward),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
 
@@ -1098,21 +1571,30 @@ fun OnboardingStepFourAppsAndPrefs(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isEn) "📊 Pseudonymous Telemetry (Opt-in)" else "📊 Takma Adlı Telemetri (İsteğe Bağlı)",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_handshake),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEn) "Community Shield Calibration (Opt-in)" else "Topluluk Algılama Katkısı (İsteğe Bağlı)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) {
-                            "Telemetry is off by default and no telemetry is sent unless you enable this switch. Explicit opt-in may trigger one immediate snapshot containing a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics. After that, automatic startup and blocking-event triggers share one persisted 24-hour attempt interval. Turning telemetry off stops future submissions; an in-flight request may finish, and the last server snapshot expires within 90 days. SEPARATE NETWORK PATH: GitHub rule/configuration requests run automatically at app/service startup even while this switch is OFF; successful results are cached for 6 hours and there is currently no separate opt-out."
+                            "Help us improve shield accuracy when Instagram, TikTok, or YouTube updates their UI. Enabling this shares anonymous block statistics for your device model so we can keep detection rules optimized.\n\nExplicit opt-in shares a pseudonymous installation ID, OS version, and aggregate block/streak stats. Personal messages, passwords, or screen captures are NEVER recorded. Results expire within 90 days. Rule updates run automatically from GitHub."
                         } else {
-                            "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece hiçbir telemetri gönderilmez. Açık onay; rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplu engelleme, seri ve XP istatistiklerini içeren ilk snapshot'ı hemen deneyebilir. Bundan sonra otomatik açılış ve engelleme olayı tetikleyicileri kalıcı tek bir 24 saatlik deneme aralığını paylaşır. Kapatmak gelecekteki gönderimleri durdurur; devam eden bir istek tamamlanabilir ve son sunucu kaydı en geç 90 gün içinde silinir. AYRI AĞ YOLU: GitHub kural/yapılandırma istekleri bu anahtar KAPALIYKEN bile uygulama/servis başlangıcında otomatik çalışır; başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
+                            "Instagram, TikTok veya YouTube arayüzünü güncellediğinde kalkan kurallarını anında kalibre edebilmemiz için cihazınızdaki anonim başarı istatistiğini paylaşarak algılama motorunu birlikte güçlendirin.\n\nAçık onay; rastgele kurulum kimliği, işletim sistemi ve toplu engelleme/seri verisini anonim paylaşır. Kişisel mesajlar, şifreler veya ekran görüntüleri ASLA toplanmaz. Kayıtlar en geç 90 günde silinir. Kural güncellemeleri GitHub'dan otomatik alınır."
                         },
                         fontSize = 10.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         lineHeight = 14.sp
                     )
                 }
@@ -1301,14 +1783,19 @@ fun OnboardingStepFivePermissions(
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("🛡️", fontSize = 34.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_shield),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isEn) "Activate Your Guardian" else "Gardiyanını Aktif Et",
+            text = if (isEn) "Activate Shield Protection" else "Korumayı Etkinleştirin",
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary
@@ -1317,7 +1804,7 @@ fun OnboardingStepFivePermissions(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (isEn) "Complete the 3 permissions below for shield protection:" else "Sistemin durdurma yapabilmesi için aşağıdaki 3 izni tamamlayın:",
+            text = if (isEn) "Complete the permissions below to enable automated protection:" else "Otomatik korumanın çalışabilmesi için lütfen aşağıdaki izinleri verin:",
             fontSize = 13.5.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
@@ -1333,11 +1820,20 @@ fun OnboardingStepFivePermissions(
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (isAccessibilityActive) "✓" else "1",
-                        fontWeight = FontWeight.Bold,
-                        color = if (isAccessibilityActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                    )
+                    if (isAccessibilityActive) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_shield_check),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "1",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(if (isEn) "Accessibility Permission" else "Erişilebilirlik İzni", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
@@ -1357,10 +1853,26 @@ fun OnboardingStepFivePermissions(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        if (isEn) (if (isAccessibilityActive) "Permission Granted ✓" else "1. Grant Accessibility Permission") else (if (isAccessibilityActive) "İzin Verildi ✓" else "1. Erişilebilirlik İznini Aç"),
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isAccessibilityActive) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_shield_check),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (isEn) "Permission Granted" else "İzin Verildi",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Text(
+                            if (isEn) "1. Grant Accessibility Permission" else "1. Erişilebilirlik İznini Aç",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -1375,11 +1887,20 @@ fun OnboardingStepFivePermissions(
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (isIgnoringBattery) "✓" else "2",
-                        fontWeight = FontWeight.Bold,
-                        color = if (isIgnoringBattery) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                    )
+                    if (isIgnoringBattery) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_shield_check),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "2",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(if (isEn) "Background Protection" else "Arka Plan Koruması", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
@@ -1404,10 +1925,26 @@ fun OnboardingStepFivePermissions(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        if (isEn) (if (isIgnoringBattery) "Restriction Removed ✓" else "2. Disable Battery Restrictions") else (if (isIgnoringBattery) "Kısıtlama Kaldırıldı ✓" else "2. Pil Optimizasyonunu Kaldır"),
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isIgnoringBattery) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_shield_check),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                if (isEn) "Restriction Removed" else "Kısıtlama Kaldırıldı",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Text(
+                            if (isEn) "2. Disable Battery Restrictions" else "2. Pil Optimizasyonunu Kaldır",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -1423,11 +1960,20 @@ fun OnboardingStepFivePermissions(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (hasNotificationPermission) "✓" else "3",
-                            fontWeight = FontWeight.Bold,
-                            color = if (hasNotificationPermission) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                        )
+                        if (hasNotificationPermission) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_shield_check),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "3",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(if (isEn) "Notification Permission" else "Bildirim İzni", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
@@ -1452,10 +1998,26 @@ fun OnboardingStepFivePermissions(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            if (isEn) (if (hasNotificationPermission) "Notifications Allowed ✓" else "3. Allow Notifications") else (if (hasNotificationPermission) "Bildirimlere İzin Verildi ✓" else "3. Bildirimlere İzin Ver"),
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (hasNotificationPermission) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_shield_check),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    if (isEn) "Notifications Allowed" else "Bildirimlere İzin Verildi",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Text(
+                                if (isEn) "3. Allow Notifications" else "3. Bildirimlere İzin Ver",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -1474,12 +2036,21 @@ fun OnboardingStepFivePermissions(
                 modifier = Modifier.padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = if (isEn) "🔒 Privacy & Legal Compliance" else "🔒 Gizlilik Beyanı ve Sözleşmeler",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF00F2FE)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_lock),
+                        contentDescription = null,
+                        tint = Color(0xFF00F2FE),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEn) "Privacy & Legal Compliance" else "Gizlilik Beyanı ve Sözleşmeler",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00F2FE)
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (isEn) 
@@ -1503,12 +2074,21 @@ fun OnboardingStepFivePermissions(
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Text(
-                            text = if (isEn) "Privacy Policy 🔗" else "Gizlilik Politikası 🔗",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF00F2FE)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isEn) "Privacy Policy" else "Gizlilik Politikası",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00F2FE)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_link_external),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                     Text("•", fontSize = 12.sp, color = Color.Gray)
                     TextButton(
@@ -1518,12 +2098,21 @@ fun OnboardingStepFivePermissions(
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Text(
-                            text = if (isEn) "Terms of Service 🔗" else "Kullanım Şartları 🔗",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF00F2FE)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isEn) "Terms of Service" else "Kullanım Şartları",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00F2FE)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_link_external),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1611,7 +2200,6 @@ fun FeedbackSubmissionDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE) }
     val isEn = getAppLanguage(prefs) == "en"
     val appVersionName = remember(context) {
@@ -1620,7 +2208,14 @@ fun FeedbackSubmissionDialog(
         }.getOrDefault("unknown")
     }
     
-    var feedbackCategory by remember { mutableStateOf(if (isEn) "🐛 Bug" else "🐛 Hata") }
+    val categories = remember(isEn) {
+        listOf(
+            Triple("bug", R.drawable.ic_bug_report, if (isEn) "Bug" else "Hata"),
+            Triple("idea", R.drawable.ic_lightbulb, if (isEn) "Idea" else "Öneri"),
+            Triple("general", R.drawable.ic_chat, if (isEn) "General" else "Genel")
+        )
+    }
+    var selectedCategoryIndex by remember { mutableIntStateOf(0) }
     var feedbackText by remember { mutableStateOf("") }
     val isFormValid = feedbackText.isNotBlank()
 
@@ -1630,7 +2225,12 @@ fun FeedbackSubmissionDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("💬", fontSize = 20.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_chat),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isEn) "Send Feedback" else "Geri Bildirim Gönder",
@@ -1649,11 +2249,10 @@ fun FeedbackSubmissionDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val categories = if (isEn) listOf("🐛 Bug", "💡 Idea", "💬 General") else listOf("🐛 Hata", "💡 Öneri", "💬 Genel")
-                    categories.forEach { cat ->
-                        val isSelected = feedbackCategory == cat
+                    categories.forEachIndexed { index, (_, iconRes, label) ->
+                        val isSelected = selectedCategoryIndex == index
                         Surface(
-                            onClick = { feedbackCategory = cat },
+                            onClick = { selectedCategoryIndex = index },
                             shape = RoundedCornerShape(10.dp),
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                             border = androidx.compose.foundation.BorderStroke(
@@ -1662,14 +2261,26 @@ fun FeedbackSubmissionDialog(
                             ),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                text = cat,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color(0xFF070A12) else MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = iconRes),
+                                    contentDescription = null,
+                                    tint = if (isSelected) Color(0xFF070A12) else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color(0xFF070A12) else MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -1694,11 +2305,20 @@ fun FeedbackSubmissionDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // 3. MİNİ CİHAZ BİLGİSİ DİPNOTU
-                Text(
-                    text = if (isEn) "🔒 Device info ($manufacturer $model, Android ${Build.VERSION.RELEASE}) will be attached automatically." else "🔒 Cihaz bilgisi ($manufacturer $model, Android ${Build.VERSION.RELEASE}) otomatik eklenecektir.",
-                    fontSize = 9.5.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_lock),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.size(11.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isEn) "Device info ($manufacturer $model, Android ${Build.VERSION.RELEASE}) will be attached automatically." else "Cihaz bilgisi ($manufacturer $model, Android ${Build.VERSION.RELEASE}) otomatik eklenecektir.",
+                        fontSize = 9.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1706,11 +2326,12 @@ fun FeedbackSubmissionDialog(
                 onClick = {
                     if (!isFormValid) return@Button
 
-                    val subject = "AwayDoomscrollin' [$feedbackCategory] - $manufacturer $model"
+                    val currentCat = categories[selectedCategoryIndex].third
+                    val subject = "AwayDoomscrollin' [$currentCat] - $manufacturer $model"
                     val body = if (isEn) {
-                        "Category: $feedbackCategory\n\nUser Message:\n$feedbackText\n\n------------------------------\nDevice Info: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nApp Version: v$appVersionName"
+                        "Category: $currentCat\n\nUser Message:\n$feedbackText\n\n------------------------------\nDevice Info: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nApp Version: v$appVersionName"
                     } else {
-                        "Kategori: $feedbackCategory\n\nKullanıcı Mesajı:\n$feedbackText\n\n------------------------------\nCihaz Bilgisi: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nUygulama Sürümü: v$appVersionName"
+                        "Kategori: $currentCat\n\nKullanıcı Mesajı:\n$feedbackText\n\n------------------------------\nCihaz Bilgisi: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nUygulama Sürümü: v$appVersionName"
                     }
 
                     try {
@@ -1728,7 +2349,7 @@ fun FeedbackSubmissionDialog(
                         
                         Toast.makeText(
                             context,
-                            if (isEn) "📧 Opening email client..." else "📧 E-posta uygulamanız açılıyor...",
+                            if (isEn) "Opening email client..." else "E-posta uygulamanız açılıyor...",
                             Toast.LENGTH_SHORT
                         ).show()
                         
@@ -1736,7 +2357,7 @@ fun FeedbackSubmissionDialog(
                     } catch (e: Exception) {
                         Toast.makeText(
                             context,
-                            if (isEn) "❌ Mail client not found. Please email support@awaydoomscrollin.com" else "❌ E-posta uygulaması bulunamadı. Lütfen support@awaydoomscrollin.com adresine yazın.",
+                            if (isEn) "Mail client not found. Please email support@awaydoomscrollin.com" else "E-posta uygulaması bulunamadı. Lütfen support@awaydoomscrollin.com adresine yazın.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -1747,14 +2368,23 @@ fun FeedbackSubmissionDialog(
                 enabled = isFormValid,
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text(
-                    text = if (isEn) "Send Email 📧" else "E-Posta Gönder 📧",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color(0xFF070A12),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_mail),
+                        contentDescription = null,
+                        tint = Color(0xFF070A12),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEn) "Send Email" else "E-Posta Gönder",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFF070A12),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         },
         dismissButton = {
@@ -1765,17 +2395,29 @@ fun FeedbackSubmissionDialog(
     )
 }
 
+
 // ------------------------------------------
 // 5. SEKME: HAKKINDA (ABOUT)
 // ------------------------------------------
 
 @Composable
-fun AboutScreen(prefs: android.content.SharedPreferences) {
+fun AboutScreen(
+    prefs: android.content.SharedPreferences
+) {
     val context = LocalContext.current
     var showFeedbackDialog by remember { mutableStateOf<Boolean>(false) }
 
     var currentLang by remember { mutableStateOf<String>(getAppLanguage(prefs)) }
     val isEn = currentLang == "en"
+
+    val appVersion = remember {
+        try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.1.0"
+        } catch (_: Exception) {
+            "1.1.0"
+        }
+    }
 
     if (showFeedbackDialog) {
         FeedbackSubmissionDialog(
@@ -1815,16 +2457,16 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
             ) {
                 Box(
                     modifier = Modifier
-                        .width(3.dp)
+                        .width(3.5.dp)
                         .height(38.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(Color(0xFF00F2FE))
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         text = if (isEn) "About & Contact" else "Hakkında & İletişim",
-                        fontSize = 24.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF00F2FE)
                     )
@@ -1839,54 +2481,122 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. UYGULAMA KÜNYESİ KARTI
+            // 1. KATEGORİ: UYGULAMA KÜNYESİ
+            Text(
+                text = if (isEn) "APP IDENTITY & SPECS" else "UYGULAMA KÜNYESİ",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 1. UYGULAMA KÜNYESİ KARTI (ENTEGRE GÜVEN ROZETLERİYLE)
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF0F1523),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF00F2FE).copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
-                        modifier = Modifier.size(52.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(
-                                painter = painterResource(id = R.mipmap.ic_launcher),
-                                contentDescription = "App Logo",
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF00F2FE).copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Image(
+                                    painter = painterResource(id = R.mipmap.ic_launcher),
+                                    contentDescription = "App Logo",
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(9.dp))
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Text(
+                                text = "AwayDoomscrollin'",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isEn) "Version $appVersion • Open Source" else "Sürüm $appVersion • Açık Kaynak",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF00F2FE),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Column {
-                        Text(
-                            text = "AwayDoomscrollin'",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = if (isEn) "Version 1.0.0 • Open Source" else "Sürüm 1.0.0 • Açık Kaynak",
-                            fontSize = 11.5.sp,
-                            color = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
+                    // Minimal Trust Badges Strip (3 İnce Rozet)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Triple(R.drawable.ic_lock, if (isEn) "100% Local" else "%100 Yerel", Color(0xFF00F2FE)),
+                            Triple(R.drawable.ic_slash_ban, if (isEn) "Zero Ads" else "Sıfır Reklam", Color(0xFF00FF87)),
+                            Triple(R.drawable.ic_battery, if (isEn) "Battery Safe" else "Pil Dostu", Color(0xFFFFB703))
+                        ).forEach { (iconRes, label, color) ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF070A12),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.3f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = iconRes),
+                                        contentDescription = null,
+                                        tint = color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 2. KATEGORİ: DİL SEÇİMİ
+            Text(
+                text = if (isEn) "LANGUAGE PREFERENCE" else "DİL TERCİHİ",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // DİL SEÇİMİ (TR / EN)
             Row(
@@ -1910,7 +2620,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
                         Text(
-                            text = "🇹🇷 Türkçe",
+                            text = "Türkçe",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (!isEn) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f)
@@ -1934,7 +2644,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
                         Text(
-                            text = "🇬🇧 English",
+                            text = "English",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isEn) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f)
@@ -1943,26 +2653,25 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // RESMİ WEB PORTALLARI KARTI (awaydoomscrollin.com & resolvecommunity.com)
-            val infiniteTransition = rememberInfiniteTransition(label = "WhiteGlow")
-            val whiteGlowAlpha by infiniteTransition.animateFloat(
-                initialValue = 0.4f,
-                targetValue = 1.0f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "WhiteGlowAlpha"
+            // 3. KATEGORİ: RESMİ WEB PORTALLARI
+            Text(
+                text = if (isEn) "OFFICIAL WEB PORTALS" else "RESMİ WEB PORTALLARI",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // RESMİ WEB PORTALLARI KARTI (awaydoomscrollin.com & resolvecommunity.com)
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = whiteGlowAlpha)),
-                tonalElevation = 8.dp,
-                shadowElevation = 6.dp,
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF1E2A40)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -1983,7 +2692,12 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                             modifier = Modifier.size(38.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("🌐", fontSize = 18.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_globe),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
@@ -2000,7 +2714,12 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                                 color = Color.White.copy(alpha = 0.6f)
                             )
                         }
-                        Text("↗", fontSize = 15.sp, color = Color(0xFF00F2FE), fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_link_external),
+                            contentDescription = null,
+                            tint = Color(0xFF00F2FE),
+                            modifier = Modifier.size(15.dp)
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -2029,7 +2748,12 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                             modifier = Modifier.size(38.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("👥", fontSize = 18.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_users),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00FF87),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
@@ -2061,12 +2785,29 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                                 color = Color.White.copy(alpha = 0.6f)
                             )
                         }
-                        Text("↗", fontSize = 15.sp, color = Color(0xFF00FF87), fontWeight = FontWeight.Bold)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_link_external),
+                            contentDescription = null,
+                            tint = Color(0xFF00FF87),
+                            modifier = Modifier.size(15.dp)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 4. KATEGORİ: DESTEK & ŞEFFAFLIK
+            Text(
+                text = if (isEn) "SUPPORT & TRANSPARENCY" else "DESTEK & GERİ BİLDİRİM",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // 2. ANA EYLEM KARTI (Şık ve Tek Parça)
             Surface(
@@ -2076,7 +2817,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    // ÖNCELİKLİ BUTON: GERİ BİLDİRİM & HATA BİLDİR
+                    // ÖNCELİKLİ BUTON: GERİ BİLDİRİM VEYA HATA BİLDİR
                     Button(
                         onClick = { showFeedbackDialog = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -2084,10 +2825,15 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF87), contentColor = Color(0xFF070A12))
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("💡", fontSize = 15.sp)
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_lightbulb),
+                                contentDescription = null,
+                                tint = Color(0xFF070A12),
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (isEn) "Send Feedback & Bug Report" else "Geri Bildirim & Hata Bildir",
+                                if (isEn) "Send Feedback or Report Bug" else "Geri Bildirim veya Hata Bildir",
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -2112,7 +2858,12 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🔒", fontSize = 13.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_lock),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(13.dp)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     if (isEn) "Privacy Policy" else "Gizlilik Politikası",
@@ -2136,7 +2887,12 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("📜", fontSize = 13.sp)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_document),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(13.dp)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     if (isEn) "Terms of Use" else "Kullanım Şartları",
@@ -2152,7 +2908,7 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // ÜÇÜNCÜL BUTON: GITHUB
+                    // ÜÇÜNCÜL BUTON: GITHUB (GPLv3)
                     OutlinedButton(
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ResolveCommunity/AwayDoomscrollin"))
@@ -2163,10 +2919,15 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40))
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🐙", fontSize = 15.sp)
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_github),
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier.size(15.dp)
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (isEn) "GitHub Source Code" else "GitHub Açık Kaynak",
+                                if (isEn) "GitHub Source Code (GPLv3)" else "GitHub Açık Kaynak (GPLv3)",
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White.copy(alpha = 0.8f)
@@ -2176,9 +2937,21 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. TELEMETRİ / ANONİM GELİŞTİRİCİ ANALİTİĞİ KARTI
+            // 5. KATEGORİ: TOPLULUK KATKISI
+            Text(
+                text = if (isEn) "COMMUNITY CALIBRATION" else "TOPLULUK KATKISI (İSTEĞE BAĞLI)",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 3. TOPLULUK ALGILAMA KATKISI KARTI
             var isTelemetryOnInAbout by remember { mutableStateOf(TelemetryManager.isTelemetryEnabled(context)) }
 
             Surface(
@@ -2192,22 +2965,31 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isEn) "📊 Pseudonymous Telemetry (Opt-in)" else "📊 Takma Adlı Telemetri (İsteğe Bağlı)",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_handshake),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isEn) "Community Shield Calibration (Opt-in)" else "Topluluk Algılama Katkısı (İsteğe Bağlı)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                         Text(
                             text = if (isEn) {
-                                "Telemetry is off by default and nothing is sent to awaydoomscrollin.com unless you enable this switch. Explicit opt-in may trigger one immediate snapshot containing a random per-installation ID (not a hardware/account ID), device model/OS, and aggregate block, streak, and XP statistics. After that, automatic startup and blocking-event triggers share one persisted 24-hour attempt interval. Turning telemetry off stops future submissions; an in-flight request may finish, and the last server snapshot expires within 90 days. Separate network path: GitHub rule/configuration requests run automatically even while this switch is off, successful results are cached for 6 hours, and there is currently no separate opt-out."
+                                "Help us keep detection rules optimized when Instagram, TikTok, or YouTube updates their UI. Enabling this shares anonymous block statistics for your device model.\n\nExplicit opt-in shares a pseudonymous installation ID, OS version, and aggregate block/streak stats. Personal messages, passwords, or screen captures are NEVER recorded. Results expire within 90 days. Rule updates run automatically from GitHub."
                             } else {
-                                "Telemetri varsayılan olarak kapalıdır ve bu anahtarı açmadığınız sürece awaydoomscrollin.com adresine veri gönderilmez. Açık onay; rastgele kurulum kimliği (donanım/hesap kimliği değildir), cihaz modeli/işletim sistemi ile toplu engelleme, seri ve XP istatistiklerini içeren ilk snapshot'ı hemen deneyebilir. Bundan sonra otomatik açılış ve engelleme olayı tetikleyicileri kalıcı tek bir 24 saatlik deneme aralığını paylaşır. Kapatmak gelecekteki gönderimleri durdurur; devam eden bir istek tamamlanabilir ve son sunucu kaydı en geç 90 gün içinde silinir. Ayrı ağ yolu: GitHub kural/yapılandırma istekleri bu anahtar kapalıyken de otomatik çalışır, başarılı sonuçlar 6 saat önbelleğe alınır ve şu anda ayrı bir kapatma seçeneği yoktur."
+                                "Instagram, TikTok veya YouTube arayüzünü güncellediğinde kalkan kurallarını anında kalibre edebilmemiz için cihazınızdaki anonim başarı istatistiğini paylaşarak algılama motorunu birlikte güçlendirin.\n\nAçık onay; rastgele kurulum kimliği, işletim sistemi ve toplu engelleme/seri verisini anonim paylaşır. Kişisel mesajlar, şifreler veya ekran görüntüleri ASLA toplanmaz. Kayıtlar en geç 90 günde silinir. Kural güncellemeleri GitHub'dan otomatik alınır."
                             },
-                            fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.6f),
-                            lineHeight = 15.sp,
-                            modifier = Modifier.padding(top = 2.dp)
+                            fontSize = 10.5.sp,
+                            color = Color.White.copy(alpha = 0.65f),
+                            lineHeight = 14.5.sp,
+                            modifier = Modifier.padding(top = 3.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -2227,13 +3009,14 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
+
             // FOOTER
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "© 2026 Resolve Community • AwayDoomscrollin'",
+                    text = "© 2026 Resolve Community • GNU GPLv3",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White.copy(alpha = 0.6f)
@@ -2242,8 +3025,8 @@ fun AboutScreen(prefs: android.content.SharedPreferences) {
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = if (isEn) "Developed by Resolve Community" else "Resolve Community Tarafından Geliştirildi",
-                    fontSize = 10.5.sp,
+                    text = if (isEn) "Licensed under GNU General Public License v3.0" else "GNU Genel Açık Lisansı (GPLv3) ile Lisanslanmıştır",
+                    fontSize = 10.sp,
                     color = Color(0xFF00F2FE).copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )
@@ -2273,10 +3056,66 @@ fun MainNavigationDashboard(
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentLang by remember { mutableStateOf(getAppLanguage(prefs)) }
     
+    val notificationQueue = remember { mutableStateListOf<UnlockedNotificationItem>() }
+    var activeNotification by remember { mutableStateOf<UnlockedNotificationItem?>(null) }
+    var showJourneyDialogFromNotification by remember { mutableStateOf(false) }
+    var notificationTargetTab by remember { mutableIntStateOf(0) }
+
+    val isEn = currentLang == "en"
+
+    fun checkAndQueueUnlocks() {
+        val streakDays = prefs.getInt("streak_days", 0)
+        val currentTier = getCurrentFocusTier(streakDays)
+        val lastSeenTier = prefs.getInt("last_seen_tier_level", 1)
+        val seenAchievements = prefs.getStringSet("seen_unlocked_achievements", emptySet())?.toMutableSet() ?: mutableSetOf()
+
+        val allAchievements = getAllAchievements(prefs)
+        val newlyUnlockedAchievements = allAchievements.filter { it.isUnlocked && !seenAchievements.contains(it.id) }
+
+        if (currentTier.level > lastSeenTier) {
+            prefs.edit().putInt("last_seen_tier_level", currentTier.level).apply()
+            val title = if (isEn) "Tier Level Up: ${currentTier.nameEn}!" else "Yeni Kademe: ${currentTier.nameTr}!"
+            val desc = if (isEn) "You reached Tier ${currentTier.level} (${currentTier.minDays}+ days streak)!" else "${currentTier.level}. Kademeye ulaştın (${currentTier.minDays}+ gün seri)!"
+            val tierItem = UnlockedNotificationItem(
+                title = title,
+                description = desc,
+                iconRes = currentTier.iconRes,
+                brandColor = currentTier.color,
+                isTierLevelUp = true,
+                targetTab = 0
+            )
+            if (!notificationQueue.any { it.title == tierItem.title } && activeNotification?.title != tierItem.title) {
+                notificationQueue.add(tierItem)
+            }
+        }
+
+        if (newlyUnlockedAchievements.isNotEmpty()) {
+            newlyUnlockedAchievements.forEach { newAch ->
+                seenAchievements.add(newAch.id)
+                val title = if (isEn) "Achievement Unlocked: ${newAch.titleEn}!" else "Başarım Açıldı: ${newAch.titleTr}!"
+                val desc = if (isEn) newAch.descEn else newAch.descTr
+                val achItem = UnlockedNotificationItem(
+                    title = title,
+                    description = desc,
+                    iconRes = newAch.iconRes,
+                    brandColor = newAch.brandColor,
+                    isTierLevelUp = false,
+                    targetTab = 1
+                )
+                if (!notificationQueue.any { it.title == achItem.title } && activeNotification?.title != achItem.title) {
+                    notificationQueue.add(achItem)
+                }
+            }
+            prefs.edit().putStringSet("seen_unlocked_achievements", seenAchievements).apply()
+        }
+    }
+
     androidx.compose.runtime.DisposableEffect(prefs) {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "app_language") {
                 currentLang = getAppLanguage(sharedPreferences)
+            } else if (key in listOf("streak_days", "total_blocks", "blocks_instagram", "blocks_tiktok", "blocks_youtube", "last_seen_tier_level", "trigger_notification_check", "seen_unlocked_achievements")) {
+                checkAndQueueUnlocks()
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -2284,8 +3123,40 @@ fun MainNavigationDashboard(
             prefs.unregisterOnSharedPreferenceChangeListener(listener)
         }
     }
-    
-    val isEn = currentLang == "en"
+
+    // Check for newly reached tiers or unlocked achievements when entering dashboard
+    LaunchedEffect(Unit) {
+        checkAndQueueUnlocks()
+    }
+
+    // Queue Consumer: pops next pending notification whenever active is null
+    LaunchedEffect(activeNotification, notificationQueue.size) {
+        if (activeNotification == null && notificationQueue.isNotEmpty()) {
+            delay(280L)
+            if (activeNotification == null && notificationQueue.isNotEmpty()) {
+                val nextItem = notificationQueue.removeAt(0)
+                notificationTargetTab = nextItem.targetTab
+                activeNotification = nextItem
+            }
+        }
+    }
+
+    // Auto-dismiss active notification after 5.5s
+    LaunchedEffect(activeNotification) {
+        if (activeNotification != null) {
+            delay(5500L)
+            activeNotification = null
+        }
+    }
+
+    if (showJourneyDialogFromNotification) {
+        FocusJourneyDialog(
+            prefs = prefs,
+            isEn = isEn,
+            initialTab = notificationTargetTab,
+            onDismiss = { showJourneyDialogFromNotification = false }
+        )
+    }
 
     Scaffold(
         bottomBar = {
@@ -2308,28 +3179,28 @@ fun MainNavigationDashboard(
                 ) {
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
-                        icon = "🏠",
+                        iconRes = R.drawable.ic_nav_home,
                         label = if (isEn) "Home" else "Ana Sayfa",
                         isSelected = selectedTab == 0,
                         onClick = { selectedTab = 0 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
-                        icon = "⚙️",
+                        iconRes = R.drawable.ic_nav_apps,
                         label = if (isEn) "Apps" else "Uygulamalar",
                         isSelected = selectedTab == 1,
                         onClick = { selectedTab = 1 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
-                        icon = "📈",
-                        label = if (isEn) "Progress" else "İlerleme",
+                        iconRes = R.drawable.ic_nav_analytics,
+                        label = if (isEn) "Analytics" else "Analiz",
                         isSelected = selectedTab == 2,
                         onClick = { selectedTab = 2 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
-                        icon = "ℹ️",
+                        iconRes = R.drawable.ic_nav_about,
                         label = if (isEn) "About" else "Hakkında",
                         isSelected = selectedTab == 3,
                         onClick = { selectedTab = 3 }
@@ -2372,6 +3243,36 @@ fun MainNavigationDashboard(
                     3 -> AboutScreen(prefs = prefs)
                 }
             }
+
+            // In-app sliding celebration toast banner
+            AnimatedVisibility(
+                visible = activeNotification != null,
+                enter = slideInVertically(
+                    initialOffsetY = { -it },
+                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                ) + fadeIn(animationSpec = tween(300)),
+                exit = slideOutVertically(
+                    targetOffsetY = { -it },
+                    animationSpec = tween(durationMillis = 350, easing = FastOutLinearInEasing)
+                ) + fadeOut(animationSpec = tween(250)),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .zIndex(100f)
+            ) {
+                activeNotification?.let { item ->
+                    InAppSlidingToastBanner(
+                        item = item,
+                        onOpenJourney = {
+                            showJourneyDialogFromNotification = true
+                            activeNotification = null
+                        },
+                        onDismiss = {
+                            activeNotification = null
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -2379,7 +3280,7 @@ fun MainNavigationDashboard(
 @Composable
 fun CyberNavItem(
     modifier: Modifier = Modifier,
-    icon: String,
+    iconRes: Int,
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -2406,11 +3307,13 @@ fun CyberNavItem(
                 .fillMaxWidth()
                 .padding(vertical = 6.dp)
         ) {
-            Text(
-                text = icon,
-                fontSize = if (isSelected) 18.sp else 16.5.sp
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = if (isSelected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(19.dp)
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = label,
                 fontSize = 10.sp,
@@ -2425,147 +3328,152 @@ fun CyberNavItem(
 }
 
 @Composable
-fun CyberRectangularShieldPanel(
-    isEn: Boolean = false,
+fun BorderlessHeroStatusSection(
+    isEn: Boolean,
     isAccessibilityActive: Boolean,
     totalBlocks: Int,
     savedTimeStr: String,
     onActivateClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "LedPulse")
-    val ledAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
+    val dotAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
+            animation = tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "ledAlpha"
+        label = "dotAlpha"
     )
 
-    val mainColor = if (isAccessibilityActive) Color(0xFF00FF87) else Color(0xFFFF0055)
+    val activeColor = Color(0xFF00FF87)
+    val inactiveColor = Color(0xFFFF0055)
+    val statusColor = if (isAccessibilityActive) activeColor else inactiveColor
 
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(2.dp, mainColor),
-        tonalElevation = 10.dp,
-        shadowElevation = 8.dp,
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Minimalist Status Indicator Row (Pulsing Dot + Text)
+        Row(
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header Row: Pulsing LED + Status Badge
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .alpha(if (isAccessibilityActive) dotAlpha else 1f)
+                    .background(color = statusColor, shape = CircleShape)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isAccessibilityActive) {
+                    if (isEn) "SYSTEM SHIELD ACTIVE" else "SİSTEM KORUMASI AKTİF"
+                } else {
+                    if (isEn) "SHIELD DEACTIVATED" else "KORUMA DEVRE DIŞI"
+                },
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = statusColor,
+                letterSpacing = 1.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        if (isAccessibilityActive) {
+            val timeFontSize = when {
+                savedTimeStr.length > 14 -> 30.sp
+                savedTimeStr.length > 8 -> 36.sp
+                else -> 46.sp
+            }
+            val timeLineHeight = when {
+                savedTimeStr.length > 14 -> 38.sp
+                savedTimeStr.length > 8 -> 44.sp
+                else -> 52.sp
+            }
+
+            // Hero Typography Metric with adaptive sizing and proper line height
+            Text(
+                text = savedTimeStr,
+                fontSize = timeFontSize,
+                lineHeight = timeLineHeight,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                letterSpacing = (-0.5).sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (isEn) "total focus time reclaimed from feeds" else "sonsuz akışlardan kurtarılan serbest zaman",
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.55f),
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Sleek Borderless Interventions Sub-Metric (No Box/Border)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
-                        .alpha(if (isAccessibilityActive) ledAlpha else 1f)
-                        .background(color = mainColor, shape = CircleShape)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF00F2FE))
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isEn) 
-                        (if (isAccessibilityActive) "🛡️ SYSTEM SHIELD ACTIVE" else "⚠️ SYSTEM SHIELD INACTIVE") 
-                    else 
-                        (if (isAccessibilityActive) "🛡️ SİSTEM KORUMASI AKTİF" else "⚠️ SİSTEM KORUMASI İNAKTİF"),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = mainColor,
-                    letterSpacing = 0.8.sp
+                    text = if (isEn) "Broke the loop $totalBlocks times today" else "Bugün $totalBlocks kez döngüyü kırdın",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00F2FE)
                 )
             }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Divider line with subtle glow
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(mainColor.copy(alpha = 0.3f))
+        } else {
+            Text(
+                text = if (isEn) "Shield is Sleeping" else "Kalkan Uyku Modunda",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White
             )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            if (isAccessibilityActive) {
-                // Integrated Stats Inside Panel
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = if (isEn)
+                    "Enable accessibility to automatically guard against Reels and Shorts scrolling."
+                else
+                    "Reels ve Shorts tuzaklarını engellemek için lütfen erişilebilirlik iznini etkinleştirin.",
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                lineHeight = 18.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onActivateClick,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFF0055),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = if (isEn) "Time Saved" else "Kurtarılan Zaman",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = savedTimeStr,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF00FF87)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .height(36.dp)
-                            .width(1.dp)
-                            .background(Color.White.copy(alpha = 0.15f))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_shield),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White
                     )
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = if (isEn) "Total Blocks" else "Toplam Engelleme",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = if (isEn) "$totalBlocks Times" else "$totalBlocks Defa",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF00F2FE)
-                        )
-                    }
-                }
-            } else {
-                Text(
-                    text = if (isEn) 
-                        "Enable accessibility permission to automatically block Reels/Shorts traps." 
-                    else 
-                        "Otomatik engelleme ve Reels/Shorts tuzaklarını durdurmak için erişilebilirlik iznini aktifleştirin.",
-                    fontSize = 13.sp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onActivateClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF0055),
-                        contentColor = Color.White
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isEn) "ACTIVATE SHIELD" else "KORUMAYI ETKİNLEŞTİR",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp
                     )
-                ) {
-                    Text(if (isEn) "ACTIVATE SHIELD" else "KALKANI AKTİFLEŞTİR", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
                 }
             }
         }
@@ -2573,7 +3481,550 @@ fun CyberRectangularShieldPanel(
 }
 
 @Composable
-fun FieryGlowingStreakBadge(streakDays: Int, isEn: Boolean) {
+fun BorderlessPeakHourRow(
+    peakHour: Pair<Int, Int>,
+    isEn: Boolean
+) {
+    if (peakHour.first >= 0 && peakHour.second >= 1) {
+        val h = peakHour.first
+        val cnt = peakHour.second
+        val timeRange = "${h.toString().padStart(2, '0')}:00 - ${(h + 1).toString().padStart(2, '0')}:00"
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFFFF0055))
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = if (isEn) "CRITICAL TIME: $timeRange" else "KRİTİK ZAMAN: $timeRange",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFFFF0055),
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (isEn) "$cnt traps blocked during this hour. Stay focused!" else "Bu saatte $cnt tuzak engellendi. Odağınızı koruyun!",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+// ==========================================
+// 12 FOCUS TIERS & GAMIFICATION SYSTEM (LOCAL VECTOR DRAWABLES)
+// ==========================================
+data class FocusTier(
+    val level: Int,
+    val minDays: Int,
+    val maxDays: Int,
+    val nameTr: String,
+    val nameEn: String,
+    val iconRes: Int,
+    val color: Color,
+    val descTr: String,
+    val descEn: String,
+    val neuroBenefitTr: String,
+    val neuroBenefitEn: String
+)
+
+val ALL_FOCUS_TIERS = listOf(
+    FocusTier(
+        level = 1, minDays = 0, maxDays = 0,
+        nameTr = "Tohum", nameEn = "Seed",
+        iconRes = R.drawable.ic_tier_seed,
+        color = Color(0xFF00F2FE),
+        descTr = "Yeni bir başlangıç. Dijital farkındalığın ilk adımı atıldı.",
+        descEn = "A fresh start. The first step toward digital awareness.",
+        neuroBenefitTr = "Dopamin tuzaklarını fark etmeye başlama",
+        neuroBenefitEn = "Beginning to notice dopamine traps"
+    ),
+    FocusTier(
+        level = 2, minDays = 1, maxDays = 2,
+        nameTr = "İlk Kıvılcım", nameEn = "First Spark",
+        iconRes = R.drawable.ic_tier_spark,
+        color = Color(0xFF00FF87),
+        descTr = "Döngüyü kırmaya başladınız. Otomatik kaydırma refleksi zayıflıyor.",
+        descEn = "You started breaking the loop. Autopilot scrolling weakens.",
+        neuroBenefitTr = "Otomatik el alışkanlığı kontrol altına alınıyor",
+        neuroBenefitEn = "Subconscious swiping reflex is being brought under control"
+    ),
+    FocusTier(
+        level = 3, minDays = 3, maxDays = 5,
+        nameTr = "Dopamin Sıfırlama", nameEn = "Dopamine Reset",
+        iconRes = R.drawable.ic_tier_fire,
+        color = Color(0xFFFF5500),
+        descTr = "Beyin sürekli uyarıcı arayışını yavaşlatıyor. Odak süresi uzuyor.",
+        descEn = "Brain slows down the craving for constant stimuli. Focus span grows.",
+        neuroBenefitTr = "Dopamin reseptörleri duyarlılık kazanıyor",
+        neuroBenefitEn = "Dopamine receptors regain sensitivity"
+    ),
+    FocusTier(
+        level = 4, minDays = 6, maxDays = 9,
+        nameTr = "Çelik İrade", nameEn = "Steel Will",
+        iconRes = R.drawable.ic_tier_bolt,
+        color = Color(0xFFFFB700),
+        descTr = "1 haftalık kritik eşik aşıldı! Ekran dürtülerine karşı direnç zirvede.",
+        descEn = "1-week critical milestone achieved! Strong resistance against screen urges.",
+        neuroBenefitTr = "Prefrontal korteks karar alma gücünü geri kazanıyor",
+        neuroBenefitEn = "Prefrontal cortex regains decision-making dominance"
+    ),
+    FocusTier(
+        level = 5, minDays = 10, maxDays = 13,
+        nameTr = "Akışa Hakimiyet", nameEn = "Flow Master",
+        iconRes = R.drawable.ic_tier_water,
+        color = Color(0xFF00E5FF),
+        descTr = "Artık ekran sizi değil, siz zamanınızı yönetiyorsunuz.",
+        descEn = "You control your time now instead of screens controlling you.",
+        neuroBenefitTr = "Derin odaklanma ve akış (flow) durumuna giriş hızlanıyor",
+        neuroBenefitEn = "Entering deep focus and flow state becomes effortless"
+    ),
+    FocusTier(
+        level = 6, minDays = 14, maxDays = 20,
+        nameTr = "Zihinsel Berraklık", nameEn = "Mental Clarity",
+        iconRes = R.drawable.ic_tier_crystal,
+        color = Color(0xFFBD00FF),
+        descTr = "2 haftalık dijital detoks etkisi. Zihin gürültüsü ve sis dağıldı.",
+        descEn = "2 weeks of digital detox. Brain fog and cognitive noise disperse.",
+        neuroBenefitTr = "Bilişsel yorgunluk ve beyin sisi minimuma iniyor",
+        neuroBenefitEn = "Cognitive fatigue and brain fog drop to minimum"
+    ),
+    FocusTier(
+        level = 7, minDays = 21, maxDays = 29,
+        nameTr = "Nöroplastisite Eşiği", nameEn = "Neuroplastic Shift",
+        iconRes = R.drawable.ic_tier_brain,
+        color = Color(0xFFFF2A85),
+        descTr = "21 gün kuralı: Beyinde yeni ve sağlıklı dikkat nöron yolları kalıcılaştı.",
+        descEn = "21-day rule: New and healthy neural pathways are firmly established.",
+        neuroBenefitTr = "Kalıcı yeni odaklanma alışkanlıkları oturdu",
+        neuroBenefitEn = "Permanent healthy attention habits are solidified"
+    ),
+    FocusTier(
+        level = 8, minDays = 30, maxDays = 44,
+        nameTr = "Odak Şampiyonu", nameEn = "Focus Champion",
+        iconRes = R.drawable.ic_tier_crown,
+        color = Color(0xFFFFD700),
+        descTr = "Tam 1 ay! Artık doomscrolling bağımlılığından tamamen özgürsünüz.",
+        descEn = "A full month! You are completely free from doomscrolling addiction.",
+        neuroBenefitTr = "Dikkat süresi ve hafıza kapasitesi belirgin şekilde arttı",
+        neuroBenefitEn = "Attention span and memory capacity significantly increased"
+    ),
+    FocusTier(
+        level = 9, minDays = 45, maxDays = 59,
+        nameTr = "Elmas Disiplin", nameEn = "Diamond Discipline",
+        iconRes = R.drawable.ic_tier_gem,
+        color = Color(0xFF00F5D4),
+        descTr = "Sarsılmaz odak. Günlük üretim ve öğrenme veriminiz katlandı.",
+        descEn = "Unshakable discipline. Daily productivity and learning multiplied.",
+        neuroBenefitTr = "Dürtüsel davranış kontrolü otomatikleşti",
+        neuroBenefitEn = "Impulsive behavior control is now fully automatic"
+    ),
+    FocusTier(
+        level = 10, minDays = 60, maxDays = 89,
+        nameTr = "Zaman Mimarı", nameEn = "Time Architect",
+        iconRes = R.drawable.ic_tier_monument,
+        color = Color(0xFF9D4EDD),
+        descTr = "2 ay! Hayatınızın her anını bilinçli ve amaç doğrultusunda inşa ediyorsunuz.",
+        descEn = "2 months! You actively construct your life with deliberate purpose.",
+        neuroBenefitTr = "Uzun vadeli planlama ve hedef odaklılık güçlendi",
+        neuroBenefitEn = "Long-term planning and goal-oriented focus strengthened"
+    ),
+    FocusTier(
+        level = 11, minDays = 90, maxDays = 99,
+        nameTr = "Döngü Efendisi", nameEn = "Loop Master",
+        iconRes = R.drawable.ic_tier_galaxy,
+        color = Color(0xFFFF0055),
+        descTr = "Çeyrek yıl (90 gün)! Dijital dünyanın en güçlü kancaları bile size işlemiyor.",
+        descEn = "Quarter of a year! Even the strongest digital hooks have no hold on you.",
+        neuroBenefitTr = "Dopamin sistemi tamamen doğal ritmine kavuştu",
+        neuroBenefitEn = "Dopamine system is fully recalibrated to its natural rhythm"
+    ),
+    FocusTier(
+        level = 12, minDays = 100, maxDays = Int.MAX_VALUE,
+        nameTr = "Zen Ustası", nameEn = "Zen Master",
+        iconRes = R.drawable.ic_tier_zen,
+        color = Color(0xFFFFE600),
+        descTr = "100+ Gün! Mutlak zihinsel berraklık ve dijital bilgelik zirvesi.",
+        descEn = "100+ Days! Pinnacle of absolute mental clarity and digital serenity.",
+        neuroBenefitTr = "Kalıcı iç huzur, derin odaklanma ve yüksek farkındalık",
+        neuroBenefitEn = "Sustained inner calm, deep immersion, and heightened presence"
+    )
+)
+
+fun getCurrentFocusTier(streakDays: Int): FocusTier {
+    return ALL_FOCUS_TIERS.find { streakDays >= it.minDays && streakDays <= it.maxDays }
+        ?: ALL_FOCUS_TIERS.last()
+}
+
+fun getNextFocusTier(streakDays: Int): FocusTier? {
+    val current = getCurrentFocusTier(streakDays)
+    val nextIndex = ALL_FOCUS_TIERS.indexOf(current) + 1
+    return if (nextIndex < ALL_FOCUS_TIERS.size) ALL_FOCUS_TIERS[nextIndex] else null
+}
+
+fun getTierProgress(streakDays: Int): Float {
+    val current = getCurrentFocusTier(streakDays)
+    val next = getNextFocusTier(streakDays) ?: return 1.0f
+    val span = next.minDays - current.minDays
+    if (span <= 0) return 1.0f
+    val elapsed = streakDays - current.minDays
+    return (elapsed.toFloat() / span.toFloat()).coerceIn(0f, 1f)
+}
+
+// ------------------------------------------
+// APP-SPECIFIC FOCUS ACHIEVEMENTS (LOCAL VECTOR DRAWABLES)
+// ------------------------------------------
+enum class AchievementCategory {
+    ALL, INSTAGRAM, TIKTOK, YOUTUBE, GENERAL
+}
+
+data class FocusAchievement(
+    val id: String,
+    val category: AchievementCategory,
+    val titleTr: String,
+    val titleEn: String,
+    val descTr: String,
+    val descEn: String,
+    val iconRes: Int,
+    val brandColor: Color,
+    val currentVal: Int,
+    val targetVal: Int
+) {
+    val isUnlocked: Boolean get() = currentVal >= targetVal
+    val progress: Float get() = if (targetVal <= 0) 1f else (currentVal.toFloat() / targetVal.toFloat()).coerceIn(0f, 1f)
+}
+
+fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
+    val totalBlocks = prefs.getInt("total_blocks", 0)
+    val streakDays = prefs.getInt("streak_days", 0)
+    val blocksInsta = prefs.getInt("blocks_instagram", 0)
+    val blocksTiktok = prefs.getInt("blocks_tiktok", 0)
+    val blocksYt = prefs.getInt("blocks_youtube", 0)
+
+    return listOf(
+        // --- INSTAGRAM REELS & AKIŞ ---
+        FocusAchievement(
+            id = "ig_1",
+            category = AchievementCategory.INSTAGRAM,
+            titleTr = "İlk Reels Freni",
+            titleEn = "First Reels Brake",
+            descTr = "Instagram Reels tuzağını 1 kez engelle",
+            descEn = "Block Instagram Reels trap 1 time",
+            iconRes = R.drawable.ic_instagram,
+            brandColor = Color(0xFFE1306C),
+            currentVal = blocksInsta,
+            targetVal = 1
+        ),
+        FocusAchievement(
+            id = "ig_10",
+            category = AchievementCategory.INSTAGRAM,
+            titleTr = "Reels Direnci",
+            titleEn = "Reels Resistance",
+            descTr = "Instagram'da 10 kez kaydırma döngüsünü kır",
+            descEn = "Break the scroll loop 10 times on Instagram",
+            iconRes = R.drawable.ic_shield,
+            brandColor = Color(0xFFE1306C),
+            currentVal = blocksInsta,
+            targetVal = 10
+        ),
+        FocusAchievement(
+            id = "ig_50",
+            category = AchievementCategory.INSTAGRAM,
+            titleTr = "Algoritma Fatihi",
+            titleEn = "Algorithm Conqueror",
+            descTr = "Instagram akışını 50 kez alt et",
+            descEn = "Overpower the Instagram feed 50 times",
+            iconRes = R.drawable.ic_tier_bolt,
+            brandColor = Color(0xFFE1306C),
+            currentVal = blocksInsta,
+            targetVal = 50
+        ),
+        FocusAchievement(
+            id = "ig_100",
+            category = AchievementCategory.INSTAGRAM,
+            titleTr = "Reels Muhafızı",
+            titleEn = "Reels Sentinel",
+            descTr = "Instagram'da 100 engellemeye ulaş",
+            descEn = "Reach 100 blocks on Instagram",
+            iconRes = R.drawable.ic_tier_crown,
+            brandColor = Color(0xFFE1306C),
+            currentVal = blocksInsta,
+            targetVal = 100
+        ),
+
+        // --- TIKTOK FEED ---
+        FocusAchievement(
+            id = "tt_1",
+            category = AchievementCategory.TIKTOK,
+            titleTr = "İlk TikTok Kalkanı",
+            titleEn = "First TikTok Shield",
+            descTr = "TikTok 'Sizin İçin' akışını 1 kez durdur",
+            descEn = "Stop the TikTok 'For You' feed 1 time",
+            iconRes = R.drawable.ic_tiktok,
+            brandColor = Color(0xFF00F2FE),
+            currentVal = blocksTiktok,
+            targetVal = 1
+        ),
+        FocusAchievement(
+            id = "tt_10",
+            category = AchievementCategory.TIKTOK,
+            titleTr = "Dopamin Kalkanı",
+            titleEn = "Dopamine Shield",
+            descTr = "TikTok akışını 10 kez engelleyerek odağını koru",
+            descEn = "Protect focus by blocking TikTok 10 times",
+            iconRes = R.drawable.ic_shield,
+            brandColor = Color(0xFF00F2FE),
+            currentVal = blocksTiktok,
+            targetVal = 10
+        ),
+        FocusAchievement(
+            id = "tt_50",
+            category = AchievementCategory.TIKTOK,
+            titleTr = "Sonsuz Akış Kırıcı",
+            titleEn = "Endless Stream Breaker",
+            descTr = "TikTok hipnozunu 50 kez kır",
+            descEn = "Break TikTok hypnosis 50 times",
+            iconRes = R.drawable.ic_tier_crystal,
+            brandColor = Color(0xFF00F2FE),
+            currentVal = blocksTiktok,
+            targetVal = 50
+        ),
+        FocusAchievement(
+            id = "tt_100",
+            category = AchievementCategory.TIKTOK,
+            titleTr = "TikTok Efendisi",
+            titleEn = "TikTok Sovereign",
+            descTr = "TikTok'ta 100 tuzağı başarıyla püskürt",
+            descEn = "Successfully repel 100 traps on TikTok",
+            iconRes = R.drawable.ic_tier_gem,
+            brandColor = Color(0xFF00F2FE),
+            currentVal = blocksTiktok,
+            targetVal = 100
+        ),
+
+        // --- YOUTUBE SHORTS ---
+        FocusAchievement(
+            id = "yt_1",
+            category = AchievementCategory.YOUTUBE,
+            titleTr = "Shorts Kilidi",
+            titleEn = "Shorts Lock",
+            descTr = "YouTube Shorts tuzağını 1 kez engelle",
+            descEn = "Block YouTube Shorts trap 1 time",
+            iconRes = R.drawable.ic_youtube,
+            brandColor = Color(0xFFFF0000),
+            currentVal = blocksYt,
+            targetVal = 1
+        ),
+        FocusAchievement(
+            id = "yt_10",
+            category = AchievementCategory.YOUTUBE,
+            titleTr = "Kısa Video Panzehri",
+            titleEn = "Short Form Antidote",
+            descTr = "Shorts döngüsünü 10 kez durdur",
+            descEn = "Halt the Shorts loop 10 times",
+            iconRes = R.drawable.ic_shield,
+            brandColor = Color(0xFFFF0000),
+            currentVal = blocksYt,
+            targetVal = 10
+        ),
+        FocusAchievement(
+            id = "yt_50",
+            category = AchievementCategory.YOUTUBE,
+            titleTr = "Kırmızı Hat Savunması",
+            titleEn = "Red Line Defense",
+            descTr = "YouTube Shorts'u 50 kez bertaraf et",
+            descEn = "Repel YouTube Shorts 50 times",
+            iconRes = R.drawable.ic_target,
+            brandColor = Color(0xFFFF0000),
+            currentVal = blocksYt,
+            targetVal = 50
+        ),
+        FocusAchievement(
+            id = "yt_100",
+            category = AchievementCategory.YOUTUBE,
+            titleTr = "Zaman Kurtarıcısı",
+            titleEn = "Time Savior",
+            descTr = "YouTube Shorts'ta 100 engellemeye ulaş",
+            descEn = "Reach 100 blocks on YouTube Shorts",
+            iconRes = R.drawable.ic_trophy,
+            brandColor = Color(0xFFFF0000),
+            currentVal = blocksYt,
+            targetVal = 100
+        ),
+
+        // --- GENEL DİSİPLİN & SERİ ---
+        FocusAchievement(
+            id = "gen_1",
+            category = AchievementCategory.GENERAL,
+            titleTr = "Uyanış",
+            titleEn = "Awakening",
+            descTr = "Toplamda ilk tuzağı kır",
+            descEn = "Break your very first trap overall",
+            iconRes = R.drawable.ic_tier_seed,
+            brandColor = Color(0xFF00FF87),
+            currentVal = totalBlocks,
+            targetVal = 1
+        ),
+        FocusAchievement(
+            id = "gen_streak_3",
+            category = AchievementCategory.GENERAL,
+            titleTr = "3 Günlük Kıvılcım",
+            titleEn = "3-Day Spark",
+            descTr = "3 günlük aktif kalkan serisine ulaş",
+            descEn = "Reach a 3-day active shield streak",
+            iconRes = R.drawable.ic_tier_fire,
+            brandColor = Color(0xFFFF5500),
+            currentVal = streakDays,
+            targetVal = 3
+        ),
+        FocusAchievement(
+            id = "gen_streak_7",
+            category = AchievementCategory.GENERAL,
+            titleTr = "1 Haftalık İrade",
+            titleEn = "1-Week Fortitude",
+            descTr = "7 günlük kesintisiz kalkan serisini tamamla",
+            descEn = "Complete a 7-day unbroken shield streak",
+            iconRes = R.drawable.ic_tier_bolt,
+            brandColor = Color(0xFFFFB700),
+            currentVal = streakDays,
+            targetVal = 7
+        ),
+        FocusAchievement(
+            id = "gen_streak_21",
+            category = AchievementCategory.GENERAL,
+            titleTr = "21 Gün Alışkanlık Devrimi",
+            titleEn = "21-Day Habit Revolution",
+            descTr = "21 gün kuralını tamamla ve kalıcı alışkanlık kazan",
+            descEn = "Achieve the 21-day rule for lasting cognitive habits",
+            iconRes = R.drawable.ic_tier_brain,
+            brandColor = Color(0xFFFF2A85),
+            currentVal = streakDays,
+            targetVal = 21
+        ),
+        FocusAchievement(
+            id = "gen_100_blocks",
+            category = AchievementCategory.GENERAL,
+            titleTr = "Yüzbaşı Kalkan",
+            titleEn = "Centurion Shield",
+            descTr = "Toplam 100 kez tuzakları durdur",
+            descEn = "Stop digital traps 100 times overall",
+            iconRes = R.drawable.ic_trophy,
+            brandColor = Color(0xFFFFD700),
+            currentVal = totalBlocks,
+            targetVal = 100
+        )
+    )
+}
+
+// ------------------------------------------
+// IN-APP SLIDING TOAST NOTIFICATION MODEL
+// ------------------------------------------
+data class UnlockedNotificationItem(
+    val title: String,
+    val description: String,
+    val iconRes: Int,
+    val brandColor: Color,
+    val isTierLevelUp: Boolean = false,
+    val targetTab: Int = 0
+)
+
+@Composable
+fun InAppSlidingToastBanner(
+    item: UnlockedNotificationItem,
+    onOpenJourney: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        onClick = onOpenJourney,
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF0F1523),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, item.brandColor.copy(alpha = 0.85f)),
+        shadowElevation = 14.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(item.brandColor.copy(alpha = 0.2f), CircleShape)
+                    .border(1.2.dp, item.brandColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = item.iconRes),
+                    contentDescription = null,
+                    tint = item.brandColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = item.brandColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = item.description,
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 15.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Surface(
+                onClick = onDismiss,
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.08f),
+                modifier = Modifier.size(26.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(11.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FieryGlowingStreakBadge(
+    streakDays: Int, 
+    isEn: Boolean,
+    onClick: (() -> Unit)? = null
+) {
+    val tier = getCurrentFocusTier(streakDays)
     val infiniteTransition = rememberInfiniteTransition(label = "streakGlow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -2585,34 +4036,953 @@ fun FieryGlowingStreakBadge(streakDays: Int, isEn: Boolean) {
         label = "glowAlpha"
     )
 
-    val (badgeColor, emojiIcon) = when {
-        streakDays == 0 -> Pair(Color(0xFF00F2FE), "🛡️")       // Fresh Shield Cyan
-        streakDays in 1..3 -> Pair(Color(0xFFFF5500), "🔥")    // Fiery Orange
-        streakDays in 4..6 -> Pair(Color(0xFFFFB700), "⚡")    // Electric Gold Yellow
-        streakDays in 7..13 -> Pair(Color(0xFF00FF87), "🟢")   // Cyber Emerald
-        streakDays in 14..20 -> Pair(Color(0xFFBD00FF), "🔮")  // Overdrive Purple
-        streakDays in 21..29 -> Pair(Color(0xFFFFD700), "👑")  // Legendary Solar Gold
-        else -> Pair(Color(0xFFFF0055), "🌌")                 // Mythic Crimson Master (30+ Days)
-    }
-
     Surface(
+        onClick = { onClick?.invoke() },
+        enabled = onClick != null,
         shape = RoundedCornerShape(10.dp),
-        color = badgeColor.copy(alpha = 0.15f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = glowAlpha))
+        color = tier.color.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, tier.color.copy(alpha = glowAlpha))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(emojiIcon, fontSize = 11.sp)
-            Spacer(modifier = Modifier.width(3.dp))
+            Icon(
+                painter = painterResource(id = tier.iconRes),
+                contentDescription = null,
+                tint = tier.color,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = if (isEn) "$streakDays DAY" else "$streakDays GÜN",
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Black,
-                color = badgeColor
+                color = tier.color
             )
         }
+    }
+}
+
+@Composable
+fun FocusJourneyOverviewCard(
+    streakDays: Int,
+    totalBlocks: Int,
+    isEn: Boolean,
+    onOpenJourney: () -> Unit,
+    prefs: SharedPreferences
+) {
+    val currentTier = getCurrentFocusTier(streakDays)
+    val nextTier = getNextFocusTier(streakDays)
+    val tierProgress = getTierProgress(streakDays)
+    val allAchievements = remember(totalBlocks, streakDays) { getAllAchievements(prefs) }
+    val unlockedCount = allAchievements.count { it.isUnlocked }
+    val totalCount = allAchievements.size
+
+    Surface(
+        onClick = onOpenJourney,
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF0F1523),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, currentTier.color.copy(alpha = 0.55f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row: Icon + Level & Name + Action Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(currentTier.color.copy(alpha = 0.15f), CircleShape)
+                            .border(1.dp, currentTier.color.copy(alpha = 0.6f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = currentTier.iconRes),
+                            contentDescription = null,
+                            tint = currentTier.color,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = if (isEn) "LEVEL ${currentTier.level} OF 12" else "KADEME ${currentTier.level} / 12",
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = currentTier.color,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            text = if (isEn) currentTier.nameEn else currentTier.nameTr,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = currentTier.color.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, currentTier.color.copy(alpha = 0.7f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isEn) "Details" else "Detaylar",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = currentTier.color
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_arrow_forward),
+                            contentDescription = null,
+                            tint = currentTier.color,
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Progress Bar to Next Tier
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Text(
+                        text = if (isEn) "Next:" else "Sıradaki:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.65f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (nextTier != null) {
+                            if (isEn) nextTier.nameEn else nextTier.nameTr
+                        } else {
+                            if (isEn) "Peak Master" else "Zirve Seviye"
+                        },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (nextTier != null) {
+                        val remaining = nextTier.minDays - streakDays
+                        if (isEn) "$remaining days left" else "$remaining gün kaldı"
+                    } else {
+                        "100%"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = currentTier.color,
+                    maxLines = 1
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            LinearProgressIndicator(
+                progress = tierProgress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = currentTier.color,
+                trackColor = Color(0xFF1E2A40)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Bottom Ribbon: Special Achievements progress + View all action
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF131A2A), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_trophy),
+                        contentDescription = null,
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEn) "$unlockedCount / $totalCount Special Achievements" else "$unlockedCount / $totalCount Özel Başarım Açıldı",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (isEn) "View All" else "Tümünü Gör",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00F2FE)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arrow_forward),
+                        contentDescription = null,
+                        tint = Color(0xFF00F2FE),
+                        modifier = Modifier.size(11.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FocusJourneyDialog(
+    prefs: SharedPreferences,
+    isEn: Boolean,
+    initialTab: Int = 0,
+    onDismiss: () -> Unit
+) {
+    val totalBlocks = prefs.getInt("total_blocks", 0)
+    val streakDays = prefs.getInt("streak_days", 0)
+    val currentTier = getCurrentFocusTier(streakDays)
+    val nextTier = getNextFocusTier(streakDays)
+    val tierProgress = getTierProgress(streakDays)
+    val allAchievements = remember(totalBlocks, streakDays) { getAllAchievements(prefs) }
+
+    var selectedTab by remember { mutableIntStateOf(initialTab) }
+    var selectedCategory by remember { mutableStateOf(AchievementCategory.ALL) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .padding(horizontal = 14.dp, vertical = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.92f),
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF0D121F),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE).copy(alpha = 0.45f))
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // 1. Top Header Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color(0xFF00F2FE).copy(alpha = 0.15f), CircleShape)
+                                    .border(1.dp, Color(0xFF00F2FE).copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_trophy),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isEn) "Achievements" else "Başarımlar",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = if (isEn) "Focus Tiers & Special Achievements" else "Odak Kademeleri & Özel Başarımlar",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF00F2FE),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Close Button
+                        Surface(
+                            onClick = onDismiss,
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.08f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_close),
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. Tab Navigation Switch (Kademeler vs Özel Başarımlar)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                            .background(Color(0xFF070B12), RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val tabs = listOf(
+                            Triple(0, if (isEn) "Tiers" else "Kademeler", R.drawable.ic_tier_galaxy),
+                            Triple(1, if (isEn) "Special Achievements" else "Özel Başarımlar", R.drawable.ic_trophy)
+                        )
+
+                        tabs.forEach { (idx, label, iconRes) ->
+                            val isSelected = selectedTab == idx
+                            Surface(
+                                onClick = { selectedTab = idx },
+                                shape = RoundedCornerShape(9.dp),
+                                color = if (isSelected) Color(0xFF00F2FE).copy(alpha = 0.2f) else Color.Transparent,
+                                border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.7f)) else null,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = iconRes),
+                                        contentDescription = null,
+                                        tint = if (isSelected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.55f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (isSelected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.55f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 3. Tab Body
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                    ) {
+                        if (selectedTab == 0) {
+                            // TAB 0: TIERS ROADMAP
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                // A. Current Tier Hero Box
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = currentTier.color.copy(alpha = 0.12f),
+                                    border = androidx.compose.foundation.BorderStroke(1.2.dp, currentTier.color.copy(alpha = 0.6f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(46.dp)
+                                                    .background(currentTier.color.copy(alpha = 0.2f), CircleShape)
+                                                    .border(1.5.dp, currentTier.color, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = currentTier.iconRes),
+                                                    contentDescription = null,
+                                                    tint = currentTier.color,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text(
+                                                        text = if (isEn) "CURRENT LEVEL ${currentTier.level}" else "MEVCUT KADEME ${currentTier.level}",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = currentTier.color,
+                                                        letterSpacing = 0.8.sp
+                                                    )
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = currentTier.color.copy(alpha = 0.2f)
+                                                    ) {
+                                                        Text(
+                                                            text = if (isEn) "Day $streakDays" else "$streakDays. Gün",
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = currentTier.color,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = if (isEn) currentTier.nameEn else currentTier.nameTr,
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        Text(
+                                            text = if (isEn) currentTier.descEn else currentTier.descTr,
+                                            fontSize = 12.sp,
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            lineHeight = 17.sp
+                                        )
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Neuro benefit highlight
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFF070B12),
+                                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF00FF87).copy(alpha = 0.4f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_tier_brain),
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF00FF87),
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = if (isEn) "Neuro Benefit: ${currentTier.neuroBenefitEn}" else "Nörolojik Kazanım: ${currentTier.neuroBenefitTr}",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color(0xFF00FF87)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        // Next tier bar
+                                        if (nextTier != null) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                ) {
+                                                    Text(
+                                                        text = if (isEn) "Next:" else "Sıradaki:",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color.White.copy(alpha = 0.65f)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = if (isEn) "Level ${nextTier.level} · ${nextTier.nameEn}" else "${nextTier.level}. Kademe · ${nextTier.nameTr}",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                val remaining = nextTier.minDays - streakDays
+                                                Text(
+                                                    text = if (isEn) "$remaining days left" else "$remaining gün kaldı",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = currentTier.color,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            LinearProgressIndicator(
+                                                progress = tierProgress,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(6.dp)
+                                                    .clip(RoundedCornerShape(3.dp)),
+                                                color = currentTier.color,
+                                                trackColor = Color(0xFF1E2A40)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(18.dp))
+
+                                // B. Full Timeline Header
+                                Text(
+                                    text = if (isEn) "TIERS ROADMAP" else "KADEMELER YOLCULUK HARİTASI",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    letterSpacing = 1.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // C. List of all 12 tiers
+                                ALL_FOCUS_TIERS.forEachIndexed { idx, tierItem ->
+                                    val isCurrent = tierItem.level == currentTier.level
+                                    val isUnlocked = streakDays >= tierItem.minDays
+                                    val isCompleted = streakDays > tierItem.maxDays
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        // Left Indicator Pillar
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.width(36.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .background(
+                                                        if (isCurrent) tierItem.color.copy(alpha = 0.25f)
+                                                        else if (isUnlocked) Color(0xFF00FF87).copy(alpha = 0.15f)
+                                                        else Color(0xFF161E2E),
+                                                        CircleShape
+                                                    )
+                                                    .border(
+                                                        1.dp,
+                                                        if (isCurrent) tierItem.color
+                                                        else if (isUnlocked) Color(0xFF00FF87).copy(alpha = 0.7f)
+                                                        else Color(0xFF1E2A40),
+                                                        CircleShape
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isCompleted) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.ic_shield_check),
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF00FF87),
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                } else if (isCurrent) {
+                                                    Icon(
+                                                        painter = painterResource(id = tierItem.iconRes),
+                                                        contentDescription = null,
+                                                        tint = tierItem.color,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        "${tierItem.level}",
+                                                        color = if (isUnlocked) Color.White else Color.White.copy(alpha = 0.35f),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+
+                                            if (idx < ALL_FOCUS_TIERS.size - 1) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(2.dp)
+                                                        .height(48.dp)
+                                                        .background(
+                                                            if (isUnlocked) Color(0xFF00FF87).copy(alpha = 0.3f)
+                                                            else Color(0xFF1E2A40)
+                                                        )
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        // Right Tier Info Card
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isCurrent) tierItem.color.copy(alpha = 0.12f)
+                                            else if (isUnlocked) Color(0xFF131A2A)
+                                            else Color(0xFF0D121D),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (isCurrent) tierItem.color.copy(alpha = 0.8f)
+                                                else if (isUnlocked) Color(0xFF1E2A40)
+                                                else Color(0xFF161E2E)
+                                            ),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .alpha(if (isUnlocked) 1f else 0.55f)
+                                        ) {
+                                            Column(modifier = Modifier.padding(10.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            painter = painterResource(id = tierItem.iconRes),
+                                                            contentDescription = null,
+                                                            tint = if (isCurrent) tierItem.color else Color.White.copy(alpha = 0.85f),
+                                                            modifier = Modifier.size(15.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(
+                                                            text = "${tierItem.level}. ${if (isEn) tierItem.nameEn else tierItem.nameTr}",
+                                                            fontSize = 13.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isCurrent) tierItem.color else Color.White
+                                                        )
+                                                    }
+
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = if (isCurrent) tierItem.color.copy(alpha = 0.2f)
+                                                        else if (isCompleted) Color(0xFF00FF87).copy(alpha = 0.15f)
+                                                        else Color.White.copy(alpha = 0.05f)
+                                                    ) {
+                                                        Text(
+                                                            text = if (tierItem.maxDays == Int.MAX_VALUE) "${tierItem.minDays}+ ${if (isEn) "Days" else "Gün"}"
+                                                                   else if (tierItem.minDays == tierItem.maxDays) "${tierItem.minDays} ${if (isEn) "Day" else "Gün"}"
+                                                                   else "${tierItem.minDays}-${tierItem.maxDays} ${if (isEn) "Days" else "Gün"}",
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isCurrent) tierItem.color
+                                                            else if (isCompleted) Color(0xFF00FF87)
+                                                            else Color.White.copy(alpha = 0.5f),
+                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(4.dp))
+
+                                                Text(
+                                                    text = if (isEn) tierItem.descEn else tierItem.descTr,
+                                                    fontSize = 11.sp,
+                                                    color = Color.White.copy(alpha = 0.75f),
+                                                    lineHeight = 15.sp
+                                                )
+
+                                                Spacer(modifier = Modifier.height(4.dp))
+
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.ic_tier_brain),
+                                                        contentDescription = null,
+                                                        tint = if (isCurrent) Color(0xFF00FF87) else Color.White.copy(alpha = 0.5f),
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = if (isEn) tierItem.neuroBenefitEn else tierItem.neuroBenefitTr,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = if (isCurrent) Color(0xFF00FF87) else Color.White.copy(alpha = 0.5f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+                        } else {
+                            // TAB 1: ACHIEVEMENTS & TROPHIES
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // A. Category Filter Chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val categories = listOf(
+                                        Triple(AchievementCategory.ALL, if (isEn) "All" else "Hepsi", null),
+                                        Triple(AchievementCategory.INSTAGRAM, "Instagram", R.drawable.ic_instagram),
+                                        Triple(AchievementCategory.TIKTOK, "TikTok", R.drawable.ic_tiktok),
+                                        Triple(AchievementCategory.YOUTUBE, "YouTube", R.drawable.ic_youtube),
+                                        Triple(AchievementCategory.GENERAL, if (isEn) "Discipline" else "Disiplin", R.drawable.ic_shield)
+                                    )
+
+                                    categories.forEach { (cat, label, iconRes) ->
+                                        val isCatSelected = selectedCategory == cat
+                                        Surface(
+                                            onClick = { selectedCategory = cat },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isCatSelected) Color(0xFF00F2FE).copy(alpha = 0.2f) else Color(0xFF131A2A),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (isCatSelected) Color(0xFF00F2FE) else Color(0xFF1E2A40)
+                                            )
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                if (iconRes != null) {
+                                                    Icon(
+                                                        painter = painterResource(id = iconRes),
+                                                        contentDescription = null,
+                                                        tint = if (isCatSelected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f),
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(5.dp))
+                                                }
+                                                Text(
+                                                    text = label,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isCatSelected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // B. Achievements List
+                                val filteredAchievements = if (selectedCategory == AchievementCategory.ALL) {
+                                    allAchievements
+                                } else {
+                                    allAchievements.filter { it.category == selectedCategory }
+                                }
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    filteredAchievements.forEach { ach ->
+                                        Surface(
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = if (ach.isUnlocked) ach.brandColor.copy(alpha = 0.12f) else Color(0xFF0D121D),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (ach.isUnlocked) ach.brandColor.copy(alpha = 0.65f) else Color(0xFF1E2A40)
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .alpha(if (ach.isUnlocked) 1f else 0.6f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                // Icon Box
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(42.dp)
+                                                        .background(
+                                                            if (ach.isUnlocked) ach.brandColor.copy(alpha = 0.2f) else Color(0xFF161E2E),
+                                                            CircleShape
+                                                        )
+                                                        .border(
+                                                            1.2.dp,
+                                                            if (ach.isUnlocked) ach.brandColor else Color(0xFF1E2A40),
+                                                            CircleShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(id = ach.iconRes),
+                                                        contentDescription = null,
+                                                        tint = if (ach.isUnlocked) ach.brandColor else Color.Gray,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(12.dp))
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Text(
+                                                            text = if (isEn) ach.titleEn else ach.titleTr,
+                                                            fontSize = 13.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (ach.isUnlocked) Color.White else Color.White.copy(alpha = 0.8f)
+                                                        )
+
+                                                        if (ach.isUnlocked) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(4.dp),
+                                                                color = Color(0xFF00FF87).copy(alpha = 0.2f),
+                                                                border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF00FF87))
+                                                            ) {
+                                                                Row(
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                                ) {
+                                                                    Icon(
+                                                                        painter = painterResource(id = R.drawable.ic_shield_check),
+                                                                        contentDescription = null,
+                                                                        tint = Color(0xFF00FF87),
+                                                                        modifier = Modifier.size(10.dp)
+                                                                    )
+                                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                                    Text(
+                                                                        text = if (isEn) "UNLOCKED" else "AÇILDI",
+                                                                        fontSize = 9.sp,
+                                                                        fontWeight = FontWeight.Black,
+                                                                        color = Color(0xFF00FF87)
+                                                                    )
+                                                                }
+                                                            }
+                                                        } else {
+                                                            Text(
+                                                                text = "${ach.currentVal} / ${ach.targetVal}",
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White.copy(alpha = 0.5f)
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Spacer(modifier = Modifier.height(3.dp))
+
+                                                    Text(
+                                                        text = if (isEn) ach.descEn else ach.descTr,
+                                                        fontSize = 11.sp,
+                                                        color = Color.White.copy(alpha = 0.65f),
+                                                        lineHeight = 15.sp
+                                                    )
+
+                                                    if (!ach.isUnlocked) {
+                                                        Spacer(modifier = Modifier.height(6.dp))
+                                                        LinearProgressIndicator(
+                                                            progress = ach.progress,
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(4.dp)
+                                                                .clip(RoundedCornerShape(2.dp)),
+                                                            color = ach.brandColor,
+                                                            trackColor = Color(0xFF1E2A40)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. Bottom Dismiss Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                        ) {
+                            Text(
+                                text = if (isEn) "Close" else "Kapat",
+                                color = Color(0xFF0A0E1A),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun formatSavedFocusTime(totalBlocks: Int, isEn: Boolean): String {
+    if (totalBlocks <= 0) return if (isEn) "0 Minute" else "0 Dakika"
+    val totalSeconds = totalBlocks * 30
+    if (totalSeconds < 60) {
+        return if (isEn) "${totalSeconds}s" else "${totalSeconds} Sn"
+    }
+    val minutes = totalSeconds / 60
+    val hours = minutes / 60
+    val remMins = minutes % 60
+    return if (hours > 0) {
+        if (remMins > 0) {
+            if (isEn) "$hours Hour $remMins Minute" else "$hours Saat $remMins Dakika"
+        } else {
+            if (isEn) "$hours Hour" else "$hours Saat"
+        }
+    } else {
+        if (isEn) "$minutes Minute" else "$minutes Dakika"
     }
 }
 
@@ -2620,11 +4990,23 @@ fun FieryGlowingStreakBadge(streakDays: Int, isEn: Boolean) {
 // 1. SEKME: ANA SAYFA (HOME SCREEN)
 // ------------------------------------------
 @Composable
-fun HomeScreen(onReopenOnboarding: () -> Unit, prefs: android.content.SharedPreferences) {
+fun HomeScreen(
+    onReopenOnboarding: () -> Unit,
+    prefs: android.content.SharedPreferences
+) {
     val context = LocalContext.current
-    val (isAccessibilityActive, isIgnoringBattery) = rememberPermissionStatus()
+    val (isAccessibilityActive, _) = rememberPermissionStatus()
     val isEn = getAppLanguage(prefs) == "en"
     var totalBlocks by remember { mutableIntStateOf(prefs.getInt("total_blocks", 0)) }
+    var showJourneyDialog by remember { mutableStateOf(false) }
+
+    if (showJourneyDialog) {
+        FocusJourneyDialog(
+            prefs = prefs,
+            isEn = isEn,
+            onDismiss = { showJourneyDialog = false }
+        )
+    }
     
     LaunchedEffect(Unit) {
         while(true) {
@@ -2633,254 +5015,252 @@ fun HomeScreen(onReopenOnboarding: () -> Unit, prefs: android.content.SharedPref
         }
     }
 
-    val savedMins = totalBlocks * 2
-    val savedTimeStr = if (isEn) 
-        (if (savedMins >= 60) "${savedMins / 60}h ${savedMins % 60}m" else "$savedMins Min") 
-    else 
-        (if (savedMins >= 60) "${savedMins / 60}s ${savedMins % 60}dk" else "$savedMins Dk")
-    val currentLevel = (totalBlocks / 10) + 1
+    val savedTimeStr = formatSavedFocusTime(totalBlocks, isEn)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+    // DİNAMİK AMBIENT ARKA PLAN IŞILTISI (Aktifken Canlı Yeşil / Pasifken Uyarıcı Kırmızı)
+    val glowColor by animateColorAsState(
+        targetValue = if (isAccessibilityActive) Color(0xFF00FF87) else Color(0xFFFF0055),
+        animationSpec = tween(durationMillis = 800),
+        label = "HomeScreenAmbientColor"
+    )
+
+    val infiniteGlow = rememberInfiniteTransition(label = "AmbientGlowTransition")
+    val ambientPulse by infiniteGlow.animateFloat(
+        initialValue = if (isAccessibilityActive) 0.14f else 0.22f,
+        targetValue = if (isAccessibilityActive) 0.32f else 0.45f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ambientPulse"
+    )
+
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Ultra-Sade Tek Satır Header: [Logo 32dp] + Away (Beyaz) + Doomscrollin' (Cyan) + Fiery Streak Badge (Top Right)
-        val streakDays = prefs.getInt("streak_days", 0)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(id = R.mipmap.ic_launcher),
-                    contentDescription = "App Logo",
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                )
-
-                // Soft White Vertical Divider Line
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .width(1.dp)
-                        .height(20.dp)
-                        .background(Color.White.copy(alpha = 0.4f))
-                )
-
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Away",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Doomscrollin'",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF00F2FE)
-                        )
-                    }
-                    Text(
-                        text = "by Resolve Community",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.85f),
-                        letterSpacing = 0.5.sp
+        // 1. ANA ARKA PLAN AMBIENT GLOW (Sol Üst / Merkez Odaklı Radyal Halka)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(440.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = ambientPulse),
+                            glowColor.copy(alpha = ambientPulse * 0.4f),
+                            glowColor.copy(alpha = ambientPulse * 0.1f),
+                            Color.Transparent
+                        ),
+                        center = Offset(240f, 180f),
+                        radius = 900f
                     )
-                }
-            }
-
-            // Compact Dynamic Fiery & Glowing Streak Badge (Top Right)
-            FieryGlowingStreakBadge(streakDays = streakDays, isEn = isEn)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Integrated Cyber Rectangular Shield Panel
-        CyberRectangularShieldPanel(
-            isEn = isEn,
-            isAccessibilityActive = isAccessibilityActive,
-            totalBlocks = totalBlocks,
-            savedTimeStr = savedTimeStr,
-            onActivateClick = {
-                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
+                )
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // 2. İKİNCİL SAĞ ÜST YAYILMA (Siberpunk derinlik ve atmosfer)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = ambientPulse * 0.45f),
+                            Color.Transparent
+                        ),
+                        center = Offset(950f, 90f),
+                        radius = 700f
+                    )
+                )
+        )
 
-        // In-App Update Banner (GitHub Releases / F-Droid Update Check)
-        val remoteConfig = remember { RemoteRuleManager.getConfig(context) }
-        val currentVersionCode = 1
+        // ANA İÇERİK AKIŞI
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 22.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Spacer(modifier = Modifier.height(4.dp))
 
-        if (remoteConfig.latestVersionCode > currentVersionCode) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+            // Clean Header: [Logo 30dp] + Away (Beyaz) + Doomscrollin' (Cyan) + Fiery Streak Badge (Top Right)
+            val streakDays = prefs.getInt("streak_days", 0)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(id = R.mipmap.ic_launcher),
+                        contentDescription = "App Logo",
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+
+                    // Soft Vertical Divider Line
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp)
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(Color.White.copy(alpha = 0.3f))
+                    )
+
+                    Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🚀", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isEn) "New Version ${remoteConfig.latestVersionName} Available!" else "Yeni Sürüm ${remoteConfig.latestVersionName} Mevcut!",
+                                text = "Away",
+                                fontSize = 19.sp,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Doomscrollin'",
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = Color(0xFF00F2FE)
                             )
                         }
-                        if (remoteConfig.updateChangelog.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "by Resolve Community",
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.7f),
+                            letterSpacing = 0.4.sp
+                        )
+                    }
+                }
+
+                FieryGlowingStreakBadge(
+                    streakDays = streakDays, 
+                    isEn = isEn,
+                    onClick = { showJourneyDialog = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // OPTION B: BORDERLESS HERO STATUS & METRIC SECTION
+            BorderlessHeroStatusSection(
+                isEn = isEn,
+                isAccessibilityActive = isAccessibilityActive,
+                totalBlocks = totalBlocks,
+                savedTimeStr = savedTimeStr,
+                onActivateClick = {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+            )
+
+            // In-App Update Banner (GitHub Releases / F-Droid Update Check)
+            val remoteConfig = remember { RemoteRuleManager.getConfig(context) }
+            val currentVersionCode = 1
+
+            if (remoteConfig.latestVersionCode > currentVersionCode) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF0F1523),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.8f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_rocket),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isEn) "New Version ${remoteConfig.latestVersionName} Available!" else "Yeni Sürüm ${remoteConfig.latestVersionName} Mevcut!",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF00F2FE)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(remoteConfig.updateUrl))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE))
+                        ) {
                             Text(
-                                text = remoteConfig.updateChangelog,
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.7f),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                text = if (isEn) "Update" else "Güncelle",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF070A12),
+                                fontSize = 11.sp
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Button(
-                        onClick = {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(remoteConfig.updateUrl))
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F2FE))
-                    ) {
-                        Text(
-                            text = if (isEn) "Update" else "Güncelle",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF070A12),
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        // ⚡ Günün Kritik Saati Kartı
-        val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
-        val peakHour = remember(totalBlocks) {
-            var maxBlocks = 0
-            var peakH = -1
-            for (h in 0..23) {
-                val key = "blocks_${todayStr}_hour_${h.toString().padStart(2, '0')}"
-                val count = prefs.getInt(key, 0)
-                if (count > maxBlocks) { maxBlocks = count; peakH = h }
-            }
-            Pair(peakH, maxBlocks)
-        }
-
-        if (peakHour.first >= 0 && peakHour.second >= 1) {
-            Spacer(modifier = Modifier.height(16.dp))
-            val h = peakHour.first
-            val cnt = peakHour.second
-            val savedMinsH = cnt * 2
-            val timeRange = "${h.toString().padStart(2, '0')}:00 - ${(h + 1).toString().padStart(2, '0')}:00"
-            val peakMsg = if (isEn)
-                "⚡ Peak hour today: $timeRange — $cnt blocks, ~${savedMinsH} min saved!"
-            else
-                "⚡ Bugünün zirve saati: $timeRange — $cnt engelleme, ~${savedMinsH} dk kurtarıldı!"
-            val warningMsg = if (isEn) {
-                when {
-                    h in 22..23 || h == 0 -> "Late-night scroll risk. Protect your sleep! 🌙"
-                    h in 6..9 -> "Morning scroll trap spotted. Start fresh! ☀️"
-                    h in 12..14 -> "Lunch break vulnerability. Stay sharp! 💪"
-                    else -> "Watch out for this hour tomorrow. 🎯"
-                }
-            } else {
-                when {
-                    h in 22..23 || h == 0 -> "Gece geç saatte scroll riski. Uykunuzu koruyun! 🌙"
-                    h in 6..9 -> "Sabah scroll tuzağı saptandı. Güne temiz başlayın! ☀️"
-                    h in 12..14 -> "Öğle arası savunmasızlığı. Odaklanın! 💪"
-                    else -> "Yarın bu saate dikkat edin. 🎯"
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFF0055).copy(alpha = 0.7f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("⚡", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isEn) "PEAK VULNERABILITY HOUR" else "GÜNÜN KRİTİK SAATİ",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFFFF0055),
-                            letterSpacing = 1.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = peakMsg,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = warningMsg,
-                        fontSize = 11.5.sp,
-                        color = Color(0xFFFFB703),
-                        fontWeight = FontWeight.SemiBold
-                    )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // BORDERLESS PEAK HOUR ROW
+            val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
+            val peakHour = remember(totalBlocks) {
+                var maxBlocks = 0
+                var peakH = -1
+                for (h in 0..23) {
+                    val key = "blocks_${todayStr}_hour_${h.toString().padStart(2, '0')}"
+                    val count = prefs.getInt(key, 0)
+                    if (count > maxBlocks) { maxBlocks = count; peakH = h }
                 }
+                Pair(peakH, maxBlocks)
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Canlı Kalkan Günlüğü Kartı
-        CyberShieldActivityLogCard(prefs = prefs)
-
-
-        Spacer(modifier = Modifier.height(30.dp))
-
-        TextButton(onClick = onReopenOnboarding) {
-            Text(
-                text = if (isEn) "Setup & Preview Guide" else "Kurulum ve Önizleme Rehberi",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
+            BorderlessPeakHourRow(
+                peakHour = peakHour,
+                isEn = isEn
             )
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // ⏱️ BORDERLESS SHIELD ACTIVITY LOG
+            BorderlessShieldActivityLog(prefs = prefs)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            TextButton(
+                onClick = onReopenOnboarding,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(
+                    text = if (isEn) "Setup & Preview Guide" else "Kurulum ve Önizleme Rehberi",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
 @Composable
-fun CyberShieldActivityLogCard(prefs: android.content.SharedPreferences) {
+fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
     val isEn = getAppLanguage(prefs) == "en"
     var rawLogs by remember { mutableStateOf(prefs.getString("recent_shield_logs", "") ?: "") }
 
@@ -2891,149 +5271,143 @@ fun CyberShieldActivityLogCard(prefs: android.content.SharedPreferences) {
         }
     }
 
-    val totalBlocks = remember(rawLogs) { prefs.getInt("total_blocks", 0) }
+    val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
 
-    val logList = remember(rawLogs, totalBlocks) {
+    val logList = remember(rawLogs) {
         if (rawLogs.isBlank()) emptyList()
         else {
             val entries = rawLogs.split(";").filter { it.isNotBlank() }
             entries.mapIndexed { index, entry ->
                 val parts = entry.split("|")
                 val time = parts.getOrNull(0) ?: "--:--"
-                val app = parts.getOrNull(1) ?: "Instagram Reels"
-                val eventNum = Math.max(1, totalBlocks - index)
-                Triple(time, app, eventNum)
+                val rawApp = parts.getOrNull(1) ?: (if (isEn) "Instagram Reels & Feed" else "Instagram Reels & Akış")
+                val app = if (rawApp.contains("Gönderiler", ignoreCase = true)) {
+                    if (isEn) "Instagram Reels & Feed" else "Instagram Reels & Akış"
+                } else {
+                    rawApp
+                }
+                val appKey = when {
+                    app.contains("TikTok", ignoreCase = true) -> "tiktok"
+                    app.contains("YouTube", ignoreCase = true) -> "youtube"
+                    else -> "instagram"
+                }
+                val parsedCount = parts.getOrNull(2)?.toIntOrNull()
+                val appCount = if (parsedCount != null && parsedCount > 0) {
+                    parsedCount
+                } else {
+                    val currentDailyApp = when (appKey) {
+                        "tiktok" -> prefs.getInt("blocks_${todayStr}_tiktok", 0)
+                        "youtube" -> prefs.getInt("blocks_${todayStr}_youtube", 0)
+                        else -> prefs.getInt("blocks_${todayStr}_instagram", 0)
+                    }
+                    val occurrencesAfter = entries.take(index).count { e ->
+                        val a = e.split("|").getOrNull(1) ?: ""
+                        when (appKey) {
+                            "tiktok" -> a.contains("TikTok", ignoreCase = true)
+                            "youtube" -> a.contains("YouTube", ignoreCase = true)
+                            else -> !a.contains("TikTok", ignoreCase = true) && !a.contains("YouTube", ignoreCase = true)
+                        }
+                    }
+                    (currentDailyApp - occurrencesAfter).coerceAtLeast(1)
+                }
+                Triple(time, app, appCount)
             }
         }
     }
 
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40)),
-        tonalElevation = 8.dp,
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("🚨", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isEn) "LIVE SHIELD LOG" else "CANLI KALKAN GÜNLÜĞÜ",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF00F2FE),
-                    letterSpacing = 0.5.sp
-                )
-            }
+        Text(
+            text = if (isEn) "RECENT INTERVENTIONS" else "SON ENGELLEMELER",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-            Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-            if (logList.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF070A12),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("🛡️", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isEn) 
-                                "No traps blocked yet. Your focus is safe!" 
-                            else 
-                                "Henüz engellenen bir tuzak yok. Zihniniz ve odağınız güvende!",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
+        if (logList.isEmpty()) {
+            Text(
+                text = if (isEn) "No recent interventions yet. Focus is safe." else "Henüz bir tuzak engellenmedi. Zihniniz ve odağınız güvende.",
+                fontSize = 12.5.sp,
+                color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val displayList = logList.take(4)
+                displayList.forEachIndexed { index, (time, app, appCount) ->
+                    val drawableRes = when {
+                        app.contains("TikTok", ignoreCase = true) -> R.drawable.ic_tiktok
+                        app.contains("YouTube", ignoreCase = true) -> R.drawable.ic_youtube
+                        else -> R.drawable.ic_instagram
                     }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    logList.take(4).forEach { (time, app, eventNum) ->
-                        val drawableRes = when {
-                            app.contains("TikTok", ignoreCase = true) -> R.drawable.ic_tiktok
-                            app.contains("YouTube", ignoreCase = true) -> R.drawable.ic_youtube
-                            else -> R.drawable.ic_instagram
-                        }
-                        val accentColor = when {
-                            app.contains("TikTok", ignoreCase = true) -> Color(0xFF00F2FE)
-                            app.contains("YouTube", ignoreCase = true) -> Color(0xFFFF0055)
-                            else -> Color(0xFFE1306C)
-                        }
+                    val accentColor = when {
+                        app.contains("TikTok", ignoreCase = true) -> Color(0xFF00F2FE)
+                        app.contains("YouTube", ignoreCase = true) -> Color(0xFFFF0055)
+                        else -> Color(0xFFE1306C)
+                    }
 
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF070A12),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.2f)),
-                            modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Row(
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                .size(28.dp)
+                                .background(accentColor.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = drawableRes),
-                                        contentDescription = app,
-                                        tint = accentColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            text = app,
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(modifier = Modifier.height(1.dp))
-                                        Text(
-                                            text = if (isEn) "Time $time" else "Saat $time",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.6f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = accentColor.copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
-                                ) {
-                                    Text(
-                                        text = if (isEn) "BLOCK #$eventNum" else "ENGEL #$eventNum",
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = accentColor,
-                                        letterSpacing = 0.3.sp,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                    )
-                                }
+                                Icon(
+                                    painter = painterResource(id = drawableRes),
+                                    contentDescription = app,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = app,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = if (isEn) "Time $time" else "Saat $time",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.45f)
+                                )
                             }
                         }
+
+                        Text(
+                            text = if (isEn) "Blocked ${appCount}x today" else "Bugün $appCount. kez",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = accentColor.copy(alpha = 0.9f),
+                            letterSpacing = 0.3.sp
+                        )
+                    }
+
+                    if (index < displayList.size - 1) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.8.dp)
+                                .background(Color.White.copy(alpha = 0.07f))
+                        )
                     }
                 }
             }
@@ -3113,11 +5487,13 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
     if (showPhilosophyDialog) {
         ScrollableTextDialog(
             isEn = isEn,
-            title = if (isEn) "🛡️ Why So Unforgiving?" else "🛡️ Neden Bu Kadar Acımasız?",
+            title = if (isEn) "Why So Unforgiving?" else "Neden Bu Kadar Acımasız?",
             content = if (isEn) 
                 "Other digital-wellbeing apps may use time limits or scroll allowances. AwayDoomscrollin' instead attempts to intervene when its beta detection engine recognizes a supported doomscrolling feed. It does not promise perfect recognition: platform, Android, and manufacturer changes can cause missed detections or false positives."
             else 
                 "Diğer dijital refah uygulamaları zaman sınırı veya kaydırma hakkı kullanabilir. AwayDoomscrollin' bunun yerine beta algılama motoru desteklenen bir sonsuz kaydırma akışını tanıdığında müdahale etmeye çalışır. Kusursuz algılama sözü vermez: platform, Android ve üretici değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir.",
+            iconRes = R.drawable.ic_shield,
+            iconTint = Color(0xFFFFB703),
             onDismiss = { showPhilosophyDialog = false }
         )
     }
@@ -3126,14 +5502,29 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
         AlertDialog(
             onDismissRequest = { pendingDisableApp = null },
             title = { 
-                Text(if (isEn) "🛑 SHIELD ALARM: STREAK WILL BE BROKEN!" else "🛑 SIS-ALARM: SERİ BOZULACAK!", fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF0055), letterSpacing = 1.sp) 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_warning_triangle),
+                        contentDescription = null,
+                        tint = Color(0xFFFF0055),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isEn) "SHIELD ALARM: STREAK WILL BE BROKEN!" else "SIS-ALARM: SERİ BOZULACAK!",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFFFF0055),
+                        letterSpacing = 1.sp,
+                        fontSize = 15.sp
+                    )
+                }
             },
             text = { 
                 Text(
                     if (isEn) 
-                        "⚠️ WARNING: Disabling any app protection shield will INSTANTLY RESET YOUR DAILY STREAK to 0!\n\nThe instant the shield is lowered, your streak drops to 0 days and all your hard work is reset. Do you still want to surrender?" 
+                        "Disabling any app protection shield will INSTANTLY RESET YOUR DAILY STREAK to 0!\n\nThe instant the shield is lowered, your streak drops to 0 days and all your hard work is reset. Do you still want to surrender?" 
                     else 
-                        "⚠️ DİKKAT: Herhangi bir uygulamanın koruma kalkanını kapatırsanız GÜNLÜK SERİNİZ (STREAK) ANINDA SIFIRLANIR!\n\nKalkan indirildiği an seriniz 0 güne düşecek ve tüm emeğiniz sıfırlanacaktır. Yine de pes etmek istiyor musunuz?", 
+                        "Herhangi bir uygulamanın koruma kalkanını kapatırsanız GÜNLÜK SERİNİZ (STREAK) ANINDA SIFIRLANIR!\n\nKalkan indirildiği an seriniz 0 güne düşecek ve tüm emeğiniz sıfırlanacaktır. Yine de pes etmek istiyor musunuz?", 
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     color = Color.White.copy(alpha = 0.9f)
@@ -3143,7 +5534,7 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                 TextButton(
                     onClick = { 
                         val appName = when (pendingDisableApp) {
-                            "instagram" -> "Instagram Reels"
+                            "instagram" -> if (isEn) "Instagram Reels & Feed" else "Instagram Reels & Akış"
                             "tiktok" -> "TikTok"
                             "youtube" -> "YouTube Shorts"
                             else -> "Hedef Uygulama"
@@ -3179,7 +5570,7 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                         if (disabled) {
                             AntiScrollService().showShieldStatusNotification(
                                 context,
-                                if (isEn) "🛑 $appName Shield Lowered!" else "🛑 $appName Kalkanı İndirildi!",
+                                if (isEn) "$appName Shield Lowered!" else "$appName Kalkanı İndirildi!",
                                 if (isEn) "$appName protection shield disabled. Your daily streak has been reset to 0." else "$appName koruma kalkanı kapatıldı. Günlük seriniz 0'a düştü.",
                                 1004
                             )
@@ -3198,7 +5589,16 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
                     onClick = { pendingDisableApp = null },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF87), contentColor = Color(0xFF070A12))
                 ) {
-                    Text(if (isEn) "Keep Shield & Streak 🛡️" else "Seriyi Koru, Açık Kalsın 🛡️", fontWeight = FontWeight.ExtraBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_shield_check),
+                            contentDescription = null,
+                            tint = Color(0xFF070A12),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isEn) "Keep Shield & Streak" else "Seriyi Koru, Açık Kalsın", fontWeight = FontWeight.ExtraBold)
+                    }
                 }
             },
             containerColor = Color(0xFF2A0813),
@@ -3223,23 +5623,23 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
         ) {
             Box(
                 modifier = Modifier
-                    .width(3.dp)
+                    .width(3.5.dp)
                     .height(38.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(Color(0xFF00F2FE))
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
                     text = if (isEn) "Shield Controls" else "Koruma Kalkanları",
-                    fontSize = 24.sp,
+                    fontSize = 23.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF00F2FE)
                 )
                 Text(
                     text = if (isEn) "Choose platforms to guard against doomscrolling" else "Engellenmesini istediğin sonsuz akışları seç",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -3247,61 +5647,75 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Cyber Protocol Card (Gold Neon)
+        // 1. KATEGORİ: GÜVENLİK & FELSEFE
+        Text(
+            text = if (isEn) "SECURITY & PHILOSOPHY" else "GÜVENLİK & PROTOKOL",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Refined Cyber Protocol Bar (Gold Accent)
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF1E1700),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFB703)),
-            tonalElevation = 8.dp,
-            shadowElevation = 6.dp,
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF161204),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB703).copy(alpha = 0.4f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { showPhilosophyDialog = true }
         ) {
             Row(
-                modifier = Modifier.padding(18.dp),
+                modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🛡️", fontSize = 28.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_shield),
+                    contentDescription = null,
+                    tint = Color(0xFFFFB703),
+                    modifier = Modifier.size(24.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isEn) "SHIELD PROTOCOL" else "SİS KORUMA PROTOKOLÜ",
-                            fontSize = 11.5.sp,
+                            text = if (isEn) "ZERO-COMPROMISE PROTOCOL" else "TAVİZSİZ KORUMA PROTOKOLÜ",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFFFFB703),
-                            letterSpacing = 0.3.sp,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f)
+                            letterSpacing = 0.4.sp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFFFFB703).copy(alpha = 0.2f)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isEn) "Read →" else "Oku →",
-                                fontSize = 10.sp,
+                                text = if (isEn) "Read" else "Oku",
+                                fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFFB703),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                color = Color(0xFFFFB703)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_arrow_forward),
+                                contentDescription = null,
+                                tint = Color(0xFFFFB703),
+                                modifier = Modifier.size(11.dp)
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isEn) 
-                            "The system does not bargain with addiction. Click to read our zero-compromise philosophy." 
+                            "The system does not bargain with screen addiction." 
                         else 
-                            "Sistem bağımlılıkla pazarlık yapmaz. Felsefemizi ve tavizsiz çalışma mantığımızı okumak için tıklayın.",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f),
-                        lineHeight = 16.sp
+                            "Sistem bağımlılıkla pazarlık yapmaz. Çalışma mantığını görün.",
+                        fontSize = 11.5.sp,
+                        color = Color.White.copy(alpha = 0.75f)
                     )
                 }
             }
@@ -3309,146 +5723,249 @@ fun ModesAndAppsScreen(prefs: android.content.SharedPreferences) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // 2. KATEGORİ: HEDEF UYGULAMA KALKANLARI
         Text(
-            text = if (isEn) "🚫 ACTIVE TARGET SHIELDS" else "🚫 AKTİF HEDEF KALKANLARI",
-            fontSize = 14.sp,
+            text = if (isEn) "TARGET APP SHIELDS" else "HEDEF UYGULAMA KALKANLARI",
+            fontSize = 11.5.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = 0.5f),
             letterSpacing = 1.sp,
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Instagram Card (Magenta/Purple Glow)
-        CyberTargetAppCard(
+        // Open Borderless Target Apps List
+        BorderlessTargetAppsList(
             isEn = isEn,
-            name = "Instagram Reels",
-            iconRes = R.drawable.ic_instagram,
-            isChecked = isInstagramEnabled,
-            brandColor = Color(0xFFE1306C),
-            blockCount = blocksInstagram,
-            isBeta = true,
-            onInfoClick = { activeAppInfoDialog = "instagram" }
-        ) { checked ->
-            if (!checked) {
-                pendingDisableApp = "instagram"
-            } else {
-                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.INSTAGRAM, true)) {
-                    isInstagramEnabled = true
+            isInstagramEnabled = isInstagramEnabled,
+            isTiktokEnabled = isTiktokEnabled,
+            isYoutubeEnabled = isYoutubeEnabled,
+            onInfoClick = { app -> activeAppInfoDialog = app },
+            onToggleApp = { app, checked ->
+                if (!checked) {
+                    pendingDisableApp = app
+                } else {
+                    when (app) {
+                        "instagram" -> {
+                            if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.INSTAGRAM, true)) {
+                                isInstagramEnabled = true
+                            }
+                        }
+                        "tiktok" -> {
+                            if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.TIKTOK, true)) {
+                                isTiktokEnabled = true
+                            }
+                        }
+                        "youtube" -> {
+                            if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.YOUTUBE, true)) {
+                                isYoutubeEnabled = true
+                            }
+                        }
+                    }
                 }
             }
-        }
-        
-        Spacer(modifier = Modifier.height(14.dp))
-        
-        // TikTok Card (Neon Cyan Glow)
-        CyberTargetAppCard(
-            isEn = isEn,
-            name = if (isEn) "TikTok Feed" else "TikTok Akışı",
-            iconRes = R.drawable.ic_tiktok,
-            isChecked = isTiktokEnabled,
-            brandColor = Color(0xFF00F2FE),
-            blockCount = blocksTiktok,
-            isBeta = true,
-            onInfoClick = { activeAppInfoDialog = "tiktok" }
-        ) { checked ->
-            if (!checked) {
-                pendingDisableApp = "tiktok"
-            } else {
-                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.TIKTOK, true)) {
-                    isTiktokEnabled = true
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(14.dp))
-        
-        // YouTube Shorts Card (Neon Red Glow)
-        CyberTargetAppCard(
-            isEn = isEn,
-            name = "YouTube Shorts",
-            iconRes = R.drawable.ic_youtube,
-            isChecked = isYoutubeEnabled,
-            brandColor = Color(0xFFFF0000),
-            blockCount = blocksYoutube,
-            isBeta = true,
-            onInfoClick = { activeAppInfoDialog = "youtube" }
-        ) { checked ->
-            if (!checked) {
-                pendingDisableApp = "youtube"
-            } else {
-                if (ProtectionPreferences.setEnabled(prefs, ProtectedApp.YOUTUBE, true)) {
-                    isYoutubeEnabled = true
-                }
-            }
-        }
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun ModeSelectionCard(
-    title: String,
-    desc: String,
-    isSelected: Boolean,
-    isComingSoon: Boolean = false,
-    onClick: () -> Unit
+fun BorderlessTargetAppsList(
+    isEn: Boolean,
+    isInstagramEnabled: Boolean,
+    isTiktokEnabled: Boolean,
+    isYoutubeEnabled: Boolean,
+    onInfoClick: (String) -> Unit,
+    onToggleApp: (String, Boolean) -> Unit
 ) {
-    Surface(
-        onClick = if (isComingSoon) { {} } else onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            if (isSelected) 2.dp else 1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-        ),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Item 1: Instagram
+        BorderlessTargetAppRow(
+            isEn = isEn,
+            name = if (isEn) "Instagram Reels & Feed" else "Instagram Reels & Akış",
+            iconRes = R.drawable.ic_instagram,
+            isChecked = isInstagramEnabled,
+            brandColor = Color(0xFFE1306C),
+            isBeta = true,
+            onInfoClick = { onInfoClick("instagram") },
+            onCheckedChange = { onToggleApp("instagram", it) }
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.8.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
+
+        // Item 2: TikTok
+        BorderlessTargetAppRow(
+            isEn = isEn,
+            name = if (isEn) "TikTok Feed" else "TikTok Akışı",
+            iconRes = R.drawable.ic_tiktok,
+            isChecked = isTiktokEnabled,
+            brandColor = Color(0xFF00F2FE),
+            isBeta = true,
+            onInfoClick = { onInfoClick("tiktok") },
+            onCheckedChange = { onToggleApp("tiktok", it) }
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.8.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
+
+        // Item 3: YouTube Shorts
+        BorderlessTargetAppRow(
+            isEn = isEn,
+            name = "YouTube Shorts",
+            iconRes = R.drawable.ic_youtube,
+            isChecked = isYoutubeEnabled,
+            brandColor = Color(0xFFFF0000),
+            isBeta = true,
+            onInfoClick = { onInfoClick("youtube") },
+            onCheckedChange = { onToggleApp("youtube", it) }
+        )
+    }
+}
+
+@Composable
+fun BorderlessTargetAppRow(
+    isEn: Boolean,
+    name: String,
+    iconRes: Int,
+    isChecked: Boolean,
+    brandColor: Color,
+    isBeta: Boolean = false,
+    onInfoClick: () -> Unit,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (isComingSoon) 0.5f else 1.0f)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
         ) {
-            if (isComingSoon) {
-                Text("❌", fontSize = 18.sp, modifier = Modifier.padding(end = 8.dp))
-            } else {
-                RadioButton(
-                    selected = isSelected,
-                    onClick = onClick,
-                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        if (isChecked) brandColor.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = name,
+                    tint = if (isChecked) brandColor else Color.Gray,
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
             }
-            
+
+            Spacer(modifier = Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    if (isComingSoon) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                // Başlık + BETA Rozeti (Asla alt satıra bölünmez)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = name,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (isBeta) {
+                        Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            color = Color(0xFFFFB703).copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFFFFB703).copy(alpha = 0.5f))
                         ) {
                             Text(
-                                "YAKINDA",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                text = "BETA",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFFFB703),
+                                softWrap = false,
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), lineHeight = 15.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                // Durum + Göz Alıcı Belirgin Kapsam Butonu
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isChecked) (if (isEn) "Shield Active" else "Kalkan Devrede") else (if (isEn) "Disabled" else "Kapalı"),
+                        fontSize = 11.sp,
+                        color = if (isChecked) brandColor else Color.White.copy(alpha = 0.4f),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Surface(
+                        onClick = onInfoClick,
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF00F2FE).copy(alpha = 0.20f),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE).copy(alpha = 0.85f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_info),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isEn) "Scope" else "Kapsam",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00F2FE),
+                                letterSpacing = 0.3.sp
+                            )
+                        }
+                    }
+                }
             }
         }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = brandColor,
+                uncheckedThumbColor = Color.Gray,
+                uncheckedTrackColor = Color(0xFF1E2A40)
+            )
+        )
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun CyberTargetAppCard(
     isEn: Boolean = false,
@@ -3456,139 +5973,21 @@ fun CyberTargetAppCard(
     iconRes: Int,
     isChecked: Boolean,
     brandColor: Color,
-    blockCount: Int,
+    blockCount: Int = 0,
     isBeta: Boolean = false,
     onInfoClick: (() -> Unit)? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(
-            if (isChecked) 1.5.dp else 1.dp,
-            if (isChecked) brandColor else Color(0xFF1E2A40)
-        ),
-        tonalElevation = 6.dp,
-        shadowElevation = if (isChecked) 4.dp else 1.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-            // Üst Satır: İkon + Uygulama Adı/Beta + Şalter
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = if (isChecked) brandColor.copy(alpha = 0.15f) else Color(0xFF1E2A40).copy(alpha = 0.5f),
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = iconRes),
-                                contentDescription = null,
-                                tint = if (isChecked) brandColor else Color.Gray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = name,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (isBeta) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFFFFB703).copy(alpha = 0.2f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB703))
-                            ) {
-                                Text(
-                                    text = "BETA",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFFFB703),
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Switch(
-                    checked = isChecked,
-                    onCheckedChange = onCheckedChange,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = brandColor,
-                        uncheckedThumbColor = Color.Gray,
-                        uncheckedTrackColor = Color(0xFF1E2A40)
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Alt Satır: Durum Yazısı + Bilgi Butonu
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isChecked) 
-                        (if (isEn) "⚡ Shield Guarding ($blockCount Blocks)" else "⚡ Kalkan Nöbette ($blockCount Engelleme)") 
-                    else 
-                        (if (isEn) "⚪ Protection Disabled" else "⚪ Koruma Kapalı"),
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isChecked) brandColor else Color.Gray,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                if (onInfoClick != null) {
-                    Surface(
-                        onClick = onInfoClick,
-                        shape = RoundedCornerShape(8.dp),
-                        color = brandColor.copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, brandColor.copy(alpha = 0.35f))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = iconRes),
-                                contentDescription = null,
-                                tint = brandColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = if (isEn) "Info & Scope" else "Bilgi & Kapsam",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = brandColor
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
+    BorderlessTargetAppRow(
+        isEn = isEn,
+        name = name,
+        iconRes = iconRes,
+        isChecked = isChecked,
+        brandColor = brandColor,
+        isBeta = isBeta,
+        onInfoClick = { onInfoClick?.invoke() },
+        onCheckedChange = onCheckedChange
+    )
 }
 
 @Composable
@@ -3628,7 +6027,12 @@ fun TargetAppRow(
 
         if (isComingSoon) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("❌", fontSize = 14.sp)
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_close),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(14.dp)
+                )
                 Spacer(modifier = Modifier.width(6.dp))
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -3656,9 +6060,316 @@ fun TargetAppRow(
     }
 }
 
+enum class FocusImpactCategory(
+    val iconRes: Int,
+    val titleTr: String,
+    val titleEn: String,
+    val brandColor: Color
+) {
+    BOOK(R.drawable.ic_impact_book, "Kitap", "Books", Color(0xFF00FF87)),
+    LANGUAGE(R.drawable.ic_globe, "Dil", "Languages", Color(0xFF00F2FE)),
+    WALK(R.drawable.ic_impact_walk, "Yürüyüş", "Walking", Color(0xFFFFB703)),
+    MOVIE(R.drawable.ic_impact_movie, "Sinema", "Cinema", Color(0xFFFF0055)),
+    SKILL(R.drawable.ic_impact_code, "Beceri", "Skills", Color(0xFFBD00FF))
+}
 
+data class FocusImpactInsight(
+    val iconRes: Int,
+    val title: String,
+    val headline: String,
+    val description: String,
+    val footnote: String,
+    val brandColor: Color,
+    val progress: Float,
+    val milestoneLabel: String
+)
 
+fun getFocusCategoryImpact(
+    category: FocusImpactCategory,
+    totalBlocks: Int,
+    isEn: Boolean
+): FocusImpactInsight {
+    val totalSeconds = totalBlocks * 30
+    val totalMinutes = totalSeconds / 60
+    val formattedTime = formatSavedFocusTime(totalBlocks, isEn)
 
+    if (totalMinutes < 2) {
+        val prog = ((totalSeconds / 120.0).toFloat()).coerceIn(0.05f, 1f)
+        return FocusImpactInsight(
+            iconRes = R.drawable.ic_tier_seed,
+            title = if (isEn) "Reclaimed Free Time" else "Kazanılan Serbest Zaman",
+            headline = if (isEn) "Shield Active" else "Kalkan Devrede",
+            description = if (isEn)
+                "Your shield is active! Every 30s video interrupted steadily returns valuable free time back to your real life."
+            else
+                "Artık kalkanınız aktif! Engellenen her 30 saniyelik video akışı, gerçek hayatınıza adım adım serbest zaman olarak geri dönüyor.",
+            footnote = if (isEn)
+                "* Calculation based on ~30s per block."
+            else
+                "* Hesaplama her engelleme için ~30 sn tabanlıdır.",
+            brandColor = category.brandColor,
+            progress = prog,
+            milestoneLabel = if (isEn) "First Milestone (2 Minutes)" else "İlk Hedef: 2 Dakika Serbest Zaman"
+        )
+    }
+
+    return when (category) {
+        FocusImpactCategory.BOOK -> {
+            val pages = (totalMinutes / 1.2).roundToInt().coerceAtLeast(1)
+            val books = totalMinutes / 300.0 // 1 book = 5 hours = 300 mins (website standard)
+            val headline = when {
+                books >= 1.0 -> {
+                    val booksStr = if (books < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", books)
+                    if (isEn) "~$booksStr Full Books" else "~$booksStr Tam Kitap"
+                }
+                else -> {
+                    if (isEn) "~$pages Book Pages" else "~$pages Sayfa Kitap"
+                }
+            }
+            val desc = when {
+                books >= 1.0 -> {
+                    val booksStr = if (books < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", books)
+                    if (isEn) "With your saved $formattedTime, you have unlocked enough focus to finish ~$booksStr full books!"
+                    else "Kurtardığınız $formattedTime ile tam ~$booksStr kitap bitirecek değerli bir odak süresi kazandınız!"
+                }
+                else -> {
+                    if (isEn) "With your saved $formattedTime, you have gained quiet time to read ~$pages book pages."
+                    else "Kurtardığınız $formattedTime sayesinde ~$pages sayfa kitap okuyacak dingin bir vakit kazandınız."
+                }
+            }
+            val progress = if (books >= 1.0) {
+                ((totalMinutes % 300) / 300.0).toFloat().coerceIn(0.05f, 1f)
+            } else {
+                (totalMinutes / 300.0).toFloat().coerceIn(0.05f, 1f)
+            }
+            val milestoneLabel = if (books >= 1.0) {
+                val nextTarget = (ceil(books + 0.01)).toInt().coerceAtLeast(2)
+                if (isEn) "Target: $nextTarget Books" else "Hedef: $nextTarget Kitap"
+            } else {
+                if (isEn) "Target: 1 Full Book (300 Minutes)" else "Hedef: 1 Tam Kitap (300 Dakika)"
+            }
+            FocusImpactInsight(
+                iconRes = R.drawable.ic_impact_book,
+                title = if (isEn) "Book Reading" else "Kitap Okuma",
+                headline = headline,
+                description = desc,
+                footnote = if (isEn)
+                    "* Website standard: 1 book = 5 hours (300 Minutes), 1 page = ~1.2 Minutes."
+                else
+                    "* Web sitesi standardı: 1 kitap = 5 saat (300 Dakika), 1 sayfa = ~1.2 Dakika.",
+                brandColor = category.brandColor,
+                progress = progress,
+                milestoneLabel = milestoneLabel
+            )
+        }
+
+        FocusImpactCategory.LANGUAGE -> {
+            val words = (totalMinutes / 1.2).roundToInt().coerceAtLeast(1)
+            val lessons = totalMinutes / 15
+            val hours = totalMinutes / 60.0
+            val headline = when {
+                hours >= 10.0 -> if (isEn) "A1 Language Track" else "A1 Temel Seviye Pratiği"
+                lessons >= 1 -> if (isEn) "~$lessons Daily Lessons" else "~$lessons Günlük Dil Dersi"
+                else -> if (isEn) "~$words New Words" else "~$words Yeni Kelime"
+            }
+            val desc = when {
+                hours >= 10.0 -> {
+                    if (isEn) "With your saved $formattedTime, you have unlocked time for foundational A1 language fluency!"
+                    else "Kurtardığınız $formattedTime ile yeni bir dilde temel A1 pratiğini tamamlayacak serbest zaman açtınız!"
+                }
+                lessons >= 1 -> {
+                    if (isEn) "With your saved $formattedTime, you have reclaimed time for ~$lessons daily language lessons."
+                    else "Kurtardığınız $formattedTime ile ~$lessons tam günlük dil dersi yapacak odak cebinizde."
+                }
+                else -> {
+                    if (isEn) "With your saved $formattedTime, you have earned time to learn ~$words new vocabulary words."
+                    else "Kurtardığınız $formattedTime ile ~$words yeni yabancı kelime öğrenecek zaman kazandınız."
+                }
+            }
+            val progress = when {
+                hours >= 10.0 -> 1f
+                lessons >= 1 -> (totalMinutes / 600.0).toFloat().coerceIn(0.05f, 1f)
+                else -> (totalMinutes / 15.0).toFloat().coerceIn(0.05f, 1f)
+            }
+            val milestoneLabel = when {
+                hours >= 10.0 -> if (isEn) "A1 Fluency Track Unlocked!" else "A1 Temel Seviye Aşıldı!"
+                lessons >= 1 -> if (isEn) "Target: A1 Fluency Track (10 Hours)" else "Hedef: A1 Seviye Pratiği (10 saat)"
+                else -> if (isEn) "Target: 1st Daily Lesson (15 Minutes)" else "Hedef: 1. Günlük Dil Dersi (15 Dakika)"
+            }
+            FocusImpactInsight(
+                iconRes = R.drawable.ic_globe,
+                title = if (isEn) "Language Learning" else "Dil Öğrenme",
+                headline = headline,
+                description = desc,
+                footnote = if (isEn)
+                    "* Standard: 1 word = ~1.2 Minutes, 1 daily lesson = 15 Minutes, A1 = 10 Hours."
+                else
+                    "* Standart: 1 kelime = ~1.2 Dakika, 1 günlük ders = 15 Dakika, A1 = 10 saat.",
+                brandColor = category.brandColor,
+                progress = progress,
+                milestoneLabel = milestoneLabel
+            )
+        }
+
+        FocusImpactCategory.WALK -> {
+            val steps = totalMinutes * 110 // 110 steps/min
+            val km = totalMinutes / 15.0
+            val headline = when {
+                km >= 1.0 -> {
+                    val kmStr = if (km < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", km)
+                    if (isEn) "~$kmStr km Walk (~$steps Steps)" else "~$kmStr km Yürüyüş (~$steps Adım)"
+                }
+                else -> {
+                    val meters = totalMinutes * 65
+                    if (isEn) "~$meters Meters (~$steps Steps)" else "~$meters Metre (~$steps Adım)"
+                }
+            }
+            val desc = when {
+                km >= 1.0 -> {
+                    val kmStr = if (km < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", km)
+                    if (isEn) "With your saved $formattedTime, you have earned healthy time for a ~$kmStr km brisk walk outdoors."
+                    else "Kurtardığınız $formattedTime sayesinde açık havada ~$kmStr km tempolu yürüyüş yapacak sağlıklı bir vakit kazandınız."
+                }
+                else -> {
+                    val meters = totalMinutes * 65
+                    if (isEn) "With your saved $formattedTime, you have created a chance to walk ~$meters meters and refresh your mind."
+                    else "Kurtardığınız $formattedTime ile ~$meters metre yürüyüş yapıp zihninizi tazeleyecek bir fırsat yarattınız."
+                }
+            }
+            val progress = when {
+                km >= 10.0 -> 1f
+                km >= 1.0 -> (km / 10.0).toFloat().coerceIn(0.05f, 1f)
+                else -> (totalMinutes / 15.0).toFloat().coerceIn(0.05f, 1f)
+            }
+            val milestoneLabel = when {
+                km >= 10.0 -> if (isEn) "10 km City Walk Milestone Achieved!" else "10 km Şehir Yürüyüşü Tamamlandı!"
+                km >= 1.0 -> if (isEn) "Target: 10 km City Walk" else "Hedef: 10 km Şehir Yürüyüşü"
+                else -> if (isEn) "Target: 1 km Brisk Walk (15 Minutes)" else "Hedef: 1 km Tempolu Yürüyüş (15 Dakika)"
+            }
+            FocusImpactInsight(
+                iconRes = R.drawable.ic_impact_walk,
+                title = if (isEn) "Walking & Health" else "Yürüyüş & Sağlık",
+                headline = headline,
+                description = desc,
+                footnote = if (isEn)
+                    "* Standard: ~110 steps/Minute, 1 km = ~15 Minutes."
+                else
+                    "* Standart: ~110 adım/Dakika, 1 km = ~15 Dakika.",
+                brandColor = category.brandColor,
+                progress = progress,
+                milestoneLabel = milestoneLabel
+            )
+        }
+
+        FocusImpactCategory.MOVIE -> {
+            val movies = totalMinutes / 105.0 // ~1.75 hours (105 min) per movie
+            val headline = when {
+                movies >= 1.0 -> {
+                    val moviesStr = if (movies < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", movies)
+                    if (isEn) "~$moviesStr Feature Films" else "~$moviesStr Uzun Metraj Film"
+                }
+                totalMinutes >= 45 -> if (isEn) "1 Documentary Episode" else "1 Bölüm Belgesel"
+                totalMinutes >= 15 -> if (isEn) "1 Award-Winning Short Film" else "1 Ödüllü Kısa Film"
+                else -> if (isEn) "Inspiring Culture Talk" else "İlham Verici Sanat & Kültür Konuşması"
+            }
+            val desc = when {
+                movies >= 1.0 -> {
+                    val moviesStr = if (movies < 1.15) "1" else String.format(java.util.Locale.US, "%.1f", movies)
+                    if (isEn) "With your saved $formattedTime, you have unlocked relaxing time for ~$moviesStr masterpiece feature films!"
+                    else "Kurtardığınız $formattedTime ile tam ~$moviesStr uzun metraj sinema filmi veya başyapıt izleyecek harika bir kültür vakti kazandınız!"
+                }
+                totalMinutes >= 45 -> {
+                    if (isEn) "With your saved $formattedTime, you have earned quality focus time to enjoy 1 comprehensive documentary episode."
+                    else "Kurtardığınız $formattedTime ile 1 tam bölüm ufuk açıcı belgesel izleyecek kaliteli bir kültür vakti kazandınız."
+                }
+                totalMinutes >= 15 -> {
+                    if (isEn) "With your saved $formattedTime, you have gained time to watch an award-winning festival short film."
+                    else "Kurtardığınız $formattedTime ile festival ödüllü kaliteli bir kısa film izleyecek sanatsal bir vakit kazandınız."
+                }
+                else -> {
+                    if (isEn) "With your saved $formattedTime, you have gained focus time to watch an inspiring TED talk or culture mini-masterclass."
+                    else "Kurtardığınız $formattedTime ile ufuk açıcı bir kültür/sanat videosu veya ilham verici bir TED konuşması izleyecek odak kazandınız."
+                }
+            }
+            val progress = when {
+                movies >= 1.0 -> ((totalMinutes % 105) / 105.0).toFloat().coerceIn(0.05f, 1f)
+                totalMinutes >= 45 -> (totalMinutes / 105.0).toFloat().coerceIn(0.05f, 1f)
+                totalMinutes >= 15 -> (totalMinutes / 45.0).toFloat().coerceIn(0.05f, 1f)
+                else -> (totalMinutes / 15.0).toFloat().coerceIn(0.05f, 1f)
+            }
+            val milestoneLabel = when {
+                movies >= 1.0 -> {
+                    val nextMovie = (ceil(movies + 0.01)).toInt().coerceAtLeast(2)
+                    if (isEn) "Target: $nextMovie Feature Films" else "Hedef: $nextMovie. Sinema Filmi"
+                }
+                totalMinutes >= 45 -> if (isEn) "Target: 1 Feature Film (105 Minutes)" else "Hedef: 1 Uzun Metraj Film (105 Dakika)"
+                totalMinutes >= 15 -> if (isEn) "Target: 1 Documentary (45 Minutes)" else "Hedef: 1 Bölüm Belgesel (45 Dakika)"
+                else -> if (isEn) "Target: 1 Short Film (15 Minutes)" else "Hedef: 1 Ödüllü Kısa Film (15 Dakika)"
+            }
+            FocusImpactInsight(
+                iconRes = R.drawable.ic_impact_movie,
+                title = if (isEn) "Cinema & Culture" else "Sinema & Kültür",
+                headline = headline,
+                description = desc,
+                footnote = if (isEn)
+                    "* Standard: 1 short film = ~15 Minutes, 1 documentary = ~45 Minutes, 1 movie = ~105 Minutes."
+                else
+                    "* Standart: 1 kısa film = ~15 Dakika, 1 belgesel = ~45 Dakika, 1 sinema filmi = ~105 Dakika.",
+                brandColor = category.brandColor,
+                progress = progress,
+                milestoneLabel = milestoneLabel
+            )
+        }
+
+        FocusImpactCategory.SKILL -> {
+            val lessons = totalMinutes / 45
+            val exercises = (totalMinutes / 10).coerceAtLeast(1)
+            val hours = totalMinutes / 60.0
+            val headline = when {
+                hours >= 8.0 -> if (isEn) "Full Course Module" else "Tam Eğitim / Kurs Modülü"
+                lessons >= 1 -> if (isEn) "~$lessons Skill Lessons" else "~$lessons Kapsamlı Beceri Dersi"
+                else -> if (isEn) "~$exercises Practice Exercises" else "~$exercises Pratik Alıştırma"
+            }
+            val desc = when {
+                hours >= 8.0 -> {
+                    if (isEn) "With your saved $formattedTime, you have unlocked the dedicated focus to complete a full online course module!"
+                    else "Kurtardığınız $formattedTime ile tam kapsamlı bir online beceri veya yazılım modülünü bitirecek muazzam bir odak elde ettiniz!"
+                }
+                lessons >= 1 -> {
+                    if (isEn) "With your saved $formattedTime, you have built free time to complete ~$lessons comprehensive skill lessons."
+                    else "Kurtardığınız $formattedTime ile ~$lessons tam beceri veya kodlama dersi tamamlayacak serbest zaman oluşturdunuz."
+                }
+                else -> {
+                    if (isEn) "With your saved $formattedTime, you have gained focus time to solve ~$exercises practical exercises."
+                    else "Kurtardığınız $formattedTime ile ~$exercises pratik alıştırma çözecek odak kazandınız."
+                }
+            }
+            val progress = when {
+                hours >= 8.0 -> 1f
+                lessons >= 1 -> (totalMinutes / 480.0).toFloat().coerceIn(0.05f, 1f)
+                else -> (totalMinutes / 45.0).toFloat().coerceIn(0.05f, 1f)
+            }
+            val milestoneLabel = when {
+                hours >= 8.0 -> if (isEn) "Course Module Completed!" else "Tam Eğitim Modülü Tamamlandı!"
+                lessons >= 1 -> if (isEn) "Target: Full Module 8 Hours" else "Hedef: Tam Eğitim Modülü (8 saat)"
+                else -> if (isEn) "Target: 1 Full Lesson (45 Minutes)" else "Hedef: 1 Kapsamlı Ders (45 Dakika)"
+            }
+            FocusImpactInsight(
+                iconRes = R.drawable.ic_impact_code,
+                title = if (isEn) "Coding & Skills" else "Kodlama & Beceri",
+                headline = headline,
+                description = desc,
+                footnote = if (isEn)
+                    "* Standard: 1 exercise = ~10 Minutes, 1 lesson = ~45 Minutes, module = 8 Hours."
+                else
+                    "* Standart: 1 alıştırma = ~10 Dakika, 1 ders = ~45 Dakika, modül = 8 saat.",
+                brandColor = category.brandColor,
+                progress = progress,
+                milestoneLabel = milestoneLabel
+            )
+        }
+    }
+}
 
 data class DayBlockDetail(
     val dayName: String,
@@ -3697,7 +6408,7 @@ data class DayBlockDetail(
 }
 
 // ------------------------------------------
-// 4. SEKME: 📈 İLERLEME DURUMU & GERÇEK ZAMANLI İSTATİSTİKLER (ESKİ ROZETLER)
+// 4. SEKME: İLERLEME DURUMU & GERÇEK ZAMANLI İSTATİSTİKLER (ESKİ ROZETLER)
 // ------------------------------------------
 @Composable
 fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
@@ -3708,6 +6419,15 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
     var blocksTiktok by remember { mutableIntStateOf(prefs.getInt("blocks_tiktok", 0)) }
     var blocksYoutube by remember { mutableIntStateOf(prefs.getInt("blocks_youtube", 0)) }
     var weeklyDetails by remember { mutableStateOf(List(7) { DayBlockDetail("", "", 0, 0, 0, 0) }) }
+    var showJourneyDialog by remember { mutableStateOf(false) }
+
+    if (showJourneyDialog) {
+        FocusJourneyDialog(
+            prefs = prefs,
+            isEn = isEn,
+            onDismiss = { showJourneyDialog = false }
+        )
+    }
 
     LaunchedEffect(Unit) {
         while(true) {
@@ -3764,31 +6484,14 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
         }
     }
 
-    val savedMinutes = totalBlocks * 2
-    val savedTimeStr = if (isEn) {
-        if (savedMinutes >= 60) {
-            val hours = savedMinutes / 60
-            val mins = savedMinutes % 60
-            if (mins > 0) "${hours}h ${mins}m" else "${hours} Hours"
-        } else {
-            "$savedMinutes Min"
-        }
-    } else {
-        if (savedMinutes >= 60) {
-            val hours = savedMinutes / 60
-            val mins = savedMinutes % 60
-            if (mins > 0) "${hours}s ${mins}dk" else "${hours} Saat"
-        } else {
-            "$savedMinutes Dk"
-        }
-    }
+    val savedTimeStr = formatSavedFocusTime(totalBlocks, isEn)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp)
             .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Start
     ) {
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -3799,772 +6502,529 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
         ) {
             Box(
                 modifier = Modifier
-                    .width(3.dp)
+                    .width(3.5.dp)
                     .height(38.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(Color(0xFF00F2FE))
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = if (isEn) "Progress & Report" else "İlerleme & Rapor",
-                    fontSize = 24.sp,
+                    text = if (isEn) "Analytics & Reports" else "Analiz & Raporlar",
+                    fontSize = 23.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF00F2FE)
                 )
                 Text(
-                    text = if (isEn) "Your saved time and block summary" else "Kurtarılan zamanınız ve engelleme özetiniz",
+                    text = if (isEn) "Your saved focus time and block summary" else "Kurtarılan odak süreniz ve engelleme özetiniz",
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
-        
-        // Compact Cyber Note Pill
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 1. KATEGORİ: ODAK & ENGELLEME GENEL BAKIŞI
+        Text(
+            text = if (isEn) "FOCUS RECOVERY OVERVIEW" else "ODAK & ENGELLEME GENEL BAKIŞI",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 2. Modern Hero Overview Card (Seamless 3-metric dashboard)
         Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF00FF87).copy(alpha = 0.12f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.35f)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("💡", fontSize = 12.sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (isEn) "Each block saves an average of ~2 mins of focus." else "Her engelleme ortalama ~2 dk zaman kazandırır.",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF00FF87)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 3 Ana Önemli Gösterge Kartı (100% Eşit Yükseklik & Tam Simetrik)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // 1. Kurtarılan Zaman Kartı
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00FF87).copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(96.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("⏳", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isEn) "Saved Time" else "Kurtarılan", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                    Text(
-                        text = savedTimeStr,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF00FF87),
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Text(if (isEn) "Total Focus" else "Toplam Odak", fontSize = 9.5.sp, color = Color.White.copy(alpha = 0.4f), maxLines = 1)
-                }
-            }
-
-            // 2. Engelleme Sayısı Kartı
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE).copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(96.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🛡️", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isEn) "Blocks" else "Engelleme", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                    Text(
-                        text = if (isEn) "$totalBlocks Times" else "$totalBlocks Defa",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF00F2FE),
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Text(if (isEn) "Traps Broken" else "Tuzak Kırıldı", fontSize = 9.5.sp, color = Color.White.copy(alpha = 0.4f), maxLines = 1)
-                }
-            }
-
-            // 3. Günlük Seri Kartı
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFFB703).copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(96.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🔥", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isEn) "Streak" else "Seri", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                    Text(
-                        text = if (isEn) "$streakDays Days" else "$streakDays Gün",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFFFB703),
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Text(if (isEn) "Active Shield" else "Aktif Kalkan", fontSize = 9.5.sp, color = Color.White.copy(alpha = 0.4f), maxLines = 1)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Haftalık Nöbet Kuleleri Grafiği
-        CyberWeeklyPillarsChart(isEn = isEn, weeklyDetails = weeklyDetails)
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 24-Saatlik Doomscroll Frekans Dalgası Grafiği
-        DoomscrollFrequencyWaveform(isEn = isEn, prefs = prefs)
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Uygulama Bazlı Temiz Özet Kartı
-        Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             color = Color(0xFF0F1523),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40).copy(alpha = 0.8f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Text(
-                    text = if (isEn) "📱 App Breakdown" else "📱 Uygulama Bazlı Özet",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // App Row 1: Instagram
-                SimpleAppStatCard(
-                    isEn = isEn,
-                    appName = "Instagram",
-                    iconRes = R.drawable.ic_instagram,
-                    count = blocksInstagram,
-                    color = Color(0xFF833AB4)
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // App Row 2: TikTok
-                SimpleAppStatCard(
-                    isEn = isEn,
-                    appName = "TikTok",
-                    iconRes = R.drawable.ic_tiktok,
-                    count = blocksTiktok,
-                    color = Color(0xFF00F2FE)
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // App Row 3: YouTube Shorts
-                SimpleAppStatCard(
-                    isEn = isEn,
-                    appName = "YouTube Shorts",
-                    iconRes = R.drawable.ic_youtube,
-                    count = blocksYoutube,
-                    color = Color(0xFFFF0000)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-
-
-@Composable
-fun DoomscrollFrequencyWaveform(
-    isEn: Boolean = false,
-    prefs: android.content.SharedPreferences
-) {
-    val todayStr = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()) }
-
-    // Bugünün saatlik blok verilerini oku
-    val hourlyData = remember {
-        (0..23).map { h ->
-            val key = "blocks_${todayStr}_hour_${h.toString().padStart(2, '0')}"
-            prefs.getInt(key, 0)
-        }
-    }
-
-    // Gerçek veri yoksa şık bir Boş Durum (Empty State) kartı göster
-    val hasRealData = hourlyData.any { it > 0 }
-
-    if (!hasRealData) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF0F1523),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.35f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
+            Column(modifier = Modifier.padding(vertical = 16.dp, horizontal = 14.dp)) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
+                    // Metric 1: Saved Time
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🛡️", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column {
-                            Text(
-                                text = if (isEn) "DOOMSCROLL FREQUENCY" else "DOOMSCROLL FREKANSI",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF00F2FE),
-                                letterSpacing = 0.8.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = if (isEn) "No Activity Yet" else "Henüz Aktivite Yok",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF00FF87),
-                                maxLines = 1
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color(0xFF00FF87).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_target),
+                                contentDescription = null,
+                                tint = Color(0xFF00FF87),
+                                modifier = Modifier.size(17.dp)
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF00FF87).copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.4f))
-                    ) {
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = if (isEn) "⚡ SCORE: 100%" else "⚡ SKOR: %100",
-                            fontSize = 10.sp,
+                            text = savedTimeStr,
+                            fontSize = if (savedTimeStr.length > 12) 12.5.sp else 14.5.sp,
+                            lineHeight = 15.sp,
                             fontWeight = FontWeight.Black,
                             color = Color(0xFF00FF87),
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isEn) "Saved Time" else "Kurtarılan Süre",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.55f),
+                            maxLines = 1
                         )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF070A12),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.2f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .width(1.dp)
+                            .height(34.dp)
+                            .background(Color(0xFF1E2A40).copy(alpha = 0.7f))
+                    )
+
+                    // Metric 2: Total Blocks
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("✨", fontSize = 24.sp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = if (isEn) "Focus Shield Active" else "Odaklanma Kalkanı Devrede",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = if (isEn)
-                                    "No doomscroll attempts recorded today. Your focus is completely safe!"
-                                else
-                                    "Bugün henüz hiç doomscroll tuzağı kaydedilmedi. Telefonunuz temiz ve odağınız güvende!",
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp,
-                                color = Color.White.copy(alpha = 0.7f)
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color(0xFF00F2FE).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_shield),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(17.dp)
                             )
                         }
-                    }
-                }
-            }
-        }
-        return
-    }
-
-    val displayData = hourlyData
-    val totalBlocksToday = displayData.sum()
-    val maxVal = displayData.maxOrNull()?.takeIf { it > 0 } ?: 1
-    val peakHourIdx = displayData.indexOf(displayData.maxOrNull() ?: 0)
-    val peakVal = displayData[peakHourIdx]
-
-    val securityScore = (100 - (totalBlocksToday * 2)).coerceIn(10, 100)
-
-    var touchXPosition by remember { mutableFloatStateOf(-1f) }
-    var canvasWidthPx by remember { mutableFloatStateOf(1f) }
-
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.35f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Başlık + Güvenlik Skoru Rozeti (Asla alt satıra kaymaz)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
-                ) {
-                    Text("🌊", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Column {
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = if (isEn) "DOOMSCROLL FREQUENCY" else "DOOMSCROLL FREKANSI",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            text = if (isEn) "$totalBlocks Times" else "$totalBlocks Defa",
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Black,
                             color = Color(0xFF00F2FE),
-                            letterSpacing = 0.8.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines = 1
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (!hasRealData) 
-                                (if (isEn) "Demo Preview" else "Demo Önizleme") 
-                            else 
-                                (if (isEn) "24h Live Telemetry" else "24s Canlı Telemetri"),
-                            fontSize = 9.sp,
+                            text = if (isEn) "Traps Broken" else "Tuzak Kırıldı",
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
-                            color = if (!hasRealData) Color(0xFFFFB703).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.5f),
+                            color = Color.White.copy(alpha = 0.55f),
+                            maxLines = 1
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(34.dp)
+                            .background(Color(0xFF1E2A40).copy(alpha = 0.7f))
+                    )
+
+                    // Metric 3: Streak
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color(0xFFFFB703).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_tier_fire),
+                                contentDescription = null,
+                                tint = Color(0xFFFFB703),
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (isEn) "$streakDays Days" else "$streakDays Gün",
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFFB703),
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isEn) "Active Streak" else "Aktif Seri",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.55f),
                             maxLines = 1
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Güvenlik Skoru Rozeti (Sıkıştırılamaz, Tıkışma Yapmaz)
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF00FF87).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = if (isEn) "⚡ SCORE: $securityScore%" else "⚡ SKOR: %$securityScore",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF00FF87),
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Peak Hour Bilgisi (Varsa şık tek satır)
-            if (peakVal > 0) {
-                val peakRange = "${peakHourIdx.toString().padStart(2, '0')}:00"
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(
-                        text = if (isEn) "🔥 Peak: $peakRange ($peakVal Blocks)" else "🔥 Zirve: $peakRange ($peakVal Engelleme)",
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF0055),
-                        maxLines = 1
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // İnteraktif Dalga Grafiği Canvas
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(130.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = { offset ->
-                                touchXPosition = offset.x
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                touchXPosition = offset.x
-                            },
-                            onDrag = { change, _ ->
-                                touchXPosition = change.position.x
-                            }
-                        )
-                    }
-            ) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .onGloballyPositioned { coordinates ->
-                            canvasWidthPx = coordinates.size.width.toFloat().coerceAtLeast(1f)
-                        }
-                ) {
-                    val width = size.width
-                    val height = size.height
-                    val paddingBottom = 16.dp.toPx()
-                    val availableHeight = height - paddingBottom
-                    val stepX = if (displayData.size > 1) width / (displayData.size - 1) else width
-
-                    // 1. Arka plan ızgara çizgileri
-                    val gridColor = Color.White.copy(alpha = 0.05f)
-                    listOf(0.25f, 0.5f, 0.75f).forEach { ratio ->
-                        val y = availableHeight * (1f - ratio)
-                        drawLine(
-                            color = gridColor,
-                            start = Offset(0f, y),
-                            end = Offset(width, y),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-
-                    // 2. Dalga Noktaları Hesabı
-                    val points = displayData.mapIndexed { index, valCount ->
-                        val normY = (valCount.toFloat() / maxVal.toFloat()).coerceIn(0f, 1f)
-                        val x = index * stepX
-                        val y = availableHeight - (normY * (availableHeight - 10.dp.toPx()))
-                        Offset(x, y)
-                    }
-
-                    val path = Path()
-                    val fillPath = Path()
-
-                    if (points.isNotEmpty()) {
-                        path.moveTo(points[0].x, points[0].y)
-                        fillPath.moveTo(points[0].x, availableHeight)
-                        fillPath.lineTo(points[0].x, points[0].y)
-
-                        for (i in 0 until points.size - 1) {
-                            val p1 = points[i]
-                            val p2 = points[i + 1]
-                            val controlPoint1 = Offset(p1.x + (p2.x - p1.x) / 2f, p1.y)
-                            val controlPoint2 = Offset(p1.x + (p2.x - p1.x) / 2f, p2.y)
-
-                            path.cubicTo(
-                                controlPoint1.x, controlPoint1.y,
-                                controlPoint2.x, controlPoint2.y,
-                                p2.x, p2.y
-                            )
-                            fillPath.cubicTo(
-                                controlPoint1.x, controlPoint1.y,
-                                controlPoint2.x, controlPoint2.y,
-                                p2.x, p2.y
-                            )
-                        }
-
-                        fillPath.lineTo(points.last().x, availableHeight)
-                        fillPath.close()
-                    }
-
-                    // Cyberpunk Gradient
-                    val waveGradient = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF00F2FE), // Neon Cyan
-                            Color(0xFF00FF87), // Emerald Green
-                            Color(0xFFFFB700), // Electric Gold
-                            Color(0xFFFF0055)  // Hot Crimson
-                        )
-                    )
-
-                    val fillGradient = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF00F2FE).copy(alpha = 0.30f),
-                            Color(0xFFFF0055).copy(alpha = 0.04f),
-                            Color.Transparent
-                        )
-                    )
-
-                    // Dolgu & Dalga Çizimi
-                    drawPath(path = fillPath, brush = fillGradient)
-                    drawPath(
-                        path = path,
-                        brush = waveGradient,
-                        style = Stroke(
-                            width = 3.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
-                    )
-
-                    // 3. Dokunmatik Lazer Çizgisi ve Düğüm Noktası (Piksel Hassasiyetinde)
-                    if (touchXPosition >= 0f && points.isNotEmpty()) {
-                        val clampedX = touchXPosition.coerceIn(0f, width)
-                        val activeIndex = ((clampedX / width) * 23f).roundToInt().coerceIn(0, 23)
-                        val activePoint = points[activeIndex]
-
-                        // Dikey Neon Lazer Çizgisi
-                        drawLine(
-                            color = Color(0xFF00F2FE),
-                            start = Offset(activePoint.x, 0f),
-                            end = Offset(activePoint.x, availableHeight),
-                            strokeWidth = 1.5.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
-                        )
-
-                        // Işıltılı Hedef Düğümü
-                        drawCircle(
-                            color = Color(0xFF00F2FE).copy(alpha = 0.35f),
-                            radius = 8.dp.toPx(),
-                            center = activePoint
-                        )
-                        drawCircle(
-                            color = Color(0xFF070A12),
-                            radius = 4.5.dp.toPx(),
-                            center = activePoint
-                        )
-                        drawCircle(
-                            color = if (displayData[activeIndex] > 3) Color(0xFFFF0055) else Color(0xFF00FF87),
-                            radius = 3.dp.toPx(),
-                            center = activePoint
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // X-Ekseni Saat Etiketleri (00:00, 06:00, 12:00, 18:00, 23:00)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf(0, 6, 12, 18, 23).forEach { hour ->
-                    Text(
-                        text = "${hour.toString().padStart(2, '0')}:00",
-                        fontSize = 8.5.sp,
-                        color = Color.White.copy(alpha = 0.45f),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Seçili/Kaydırılan Saat Detay Kartı (Piksel Hassas Hesaplama)
-            val selectedHour = if (touchXPosition >= 0f) {
-                val ratio = (touchXPosition / canvasWidthPx).coerceIn(0f, 1f)
-                (ratio * 23f).roundToInt().coerceIn(0, 23)
-            } else -1
-
-            val displayHour = if (selectedHour >= 0) selectedHour else peakHourIdx
-            val hourBlocks = displayData[displayHour]
-            val savedMins = hourBlocks * 2
-            val hourRange = "${displayHour.toString().padStart(2, '0')}:00 - ${(displayHour + 1).toString().padStart(2, '0')}:00"
-
-            val (badgeText, badgeColor) = when {
-                hourBlocks == 0 -> Pair(if (isEn) "🛡️ Safe Focus" else "🛡️ Güvenli Odak", Color(0xFF00FF87))
-                hourBlocks <= 3 -> Pair(if (isEn) "⚠️ Light Activity" else "⚠️ Hafif Hareketlilik", Color(0xFFFFB700))
-                else -> Pair(if (isEn) "🔥 Peak Zone" else "🔥 Zirve Bölgesi", Color(0xFFFF0055))
-            }
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF070A12),
-                border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                // Subtle micro footnote inside card
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .background(Color(0xFF141C2E).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "🕒 $hourRange",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (isEn) "$hourBlocks Blocks | ~$savedMins Min Saved" else "$hourBlocks Engelleme | ~$savedMins Dk Kurtarıldı",
-                            fontSize = 9.5.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = badgeColor.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = badgeText,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = badgeColor,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SimpleAppStatCard(
-    isEn: Boolean = false,
-    appName: String,
-    iconRes: Int,
-    count: Int,
-    color: Color
-) {
-    val savedMins = count * 3
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = appName,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = if (isEn) "$count Blocks" else "$count Engelleme",
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = color
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = if (isEn) "($savedMins Min)" else "($savedMins Dk)",
-                fontSize = 11.sp,
-                color = Color.White.copy(alpha = 0.5f)
-            )
-        }
-    }
-}
-
-@Composable
-fun CyberBadgeCard(
-    isEn: Boolean = false,
-    icon: String,
-    title: String,
-    desc: String,
-    isUnlocked: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val borderColor = if (isUnlocked) Color(0xFFFFB703) else Color(0xFF1E2A40)
-    val bgColor = if (isUnlocked) Color(0xFF0F1523) else Color(0xFF0A0E18)
-    val iconAlpha = if (isUnlocked) 1f else 0.4f
-
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = bgColor,
-        border = androidx.compose.foundation.BorderStroke(if (isUnlocked) 1.5.dp else 1.dp, borderColor),
-        tonalElevation = if (isUnlocked) 6.dp else 0.dp,
-        shadowElevation = if (isUnlocked) 4.dp else 0.dp,
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(icon, fontSize = 26.sp, modifier = Modifier.alpha(iconAlpha))
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isUnlocked) Color(0xFFFFB703).copy(alpha = 0.2f) else Color(0xFF1E2A40)
-                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_tier_spark),
+                        contentDescription = null,
+                        tint = Color(0xFF00FF87),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isUnlocked) (if (isEn) "UNLOCKED" else "KAZANILDI") else (if (isEn) "LOCKED" else "KİLİTLİ"),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isUnlocked) Color(0xFFFFB703) else Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        text = if (isEn) "Each block saves ~30-45s of video time and restores dopamine focus."
+                               else "Her engelleme ortalama ~30-45 sn video süresini ve kaydırma döngüsünü durdurur.",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        lineHeight = 14.5.sp
                     )
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // 2. KATEGORİ: HAFTALIK ENGELLEME AKTİVİTESİ
+        Text(
+            text = if (isEn) "WEEKLY BLOCK ACTIVITY" else "HAFTALIK ENGELLEME AKTİVİTESİ",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        CyberWeeklyPillarsChart(isEn = isEn, weeklyDetails = weeklyDetails)
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // 3. KATEGORİ: BAŞARIMLAR & KADEMELER
+        Text(
+            text = if (isEn) "ACHIEVEMENTS & TIERS" else "BAŞARIMLAR & KADEMELER",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        FocusJourneyOverviewCard(
+            streakDays = streakDays,
+            totalBlocks = totalBlocks,
+            isEn = isEn,
+            onOpenJourney = { showJourneyDialog = true },
+            prefs = prefs
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // 4. KATEGORİ: KAZANILAN ODAK DEĞERİ
+        Text(
+            text = if (isEn) "RECLAIMED FOCUS VALUE" else "KAZANILAN ODAK DEĞERİ",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.5f),
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        InteractiveFocusImpactCard(totalBlocks = totalBlocks, isEn = isEn)
+
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun InteractiveFocusImpactCard(totalBlocks: Int, isEn: Boolean) {
+    var selectedCategory by remember { mutableStateOf(FocusImpactCategory.BOOK) }
+    val impact = remember(selectedCategory, totalBlocks, isEn) {
+        getFocusCategoryImpact(selectedCategory, totalBlocks, isEn)
+    }
+    val savedTimeStr = formatSavedFocusTime(totalBlocks, isEn)
+
+    val activeColor by animateColorAsState(
+        targetValue = selectedCategory.brandColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "activeColorAnim"
+    )
+    val animatedProgress by animateFloatAsState(
+        targetValue = impact.progress,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "progressAnim"
+    )
+
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFF0F1523),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40).copy(alpha = 0.8f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            // 1. Üst Başlık & Serbest Zaman Vurgusu
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(activeColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_hourglass),
+                        contentDescription = null,
+                        tint = activeColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isEn) "WHAT YOUR RECLAIMED TIME UNLOCKS" else "KAZANDIĞINIZ ODAKLA NELER MÜMKÜN?",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = activeColor,
+                        letterSpacing = 0.6.sp
+                    )
+                    Text(
+                        text = if (isEn) "Free time gained by breaking the scroll loop ($savedTimeStr):" else "Döngüyü kırdıkça kazandığınız serbest zaman ($savedTimeStr):",
+                        fontSize = 10.5.sp,
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
+
+            // Teselli & Motivasyon Bilgilendirme Rozeti
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF141C2E).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_shield),
+                    contentDescription = null,
+                    tint = activeColor,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isEn)
+                        "You're using AwayDoomscrollin' now! Every block is a win, and your focus will steadily grow stronger over time."
+                    else
+                        "Artık AwayDoomscrollin' kullanıyorsunuz! Her engelleme bir kazanımdır, zamanla odağınız güçlenecek.",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    lineHeight = 14.5.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 2. Kategori Seçim Hapları
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FocusImpactCategory.values().forEach { cat ->
+                    val isSelected = cat == selectedCategory
+                    Surface(
+                        onClick = { selectedCategory = cat },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) cat.brandColor.copy(alpha = 0.18f) else Color(0xFF131A29),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = if (isSelected) cat.brandColor else Color(0xFF1E2A40).copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = cat.iconRes),
+                                contentDescription = null,
+                                tint = if (isSelected) cat.brandColor else Color.White.copy(alpha = 0.65f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (isEn) cat.titleEn else cat.titleTr,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) cat.brandColor else Color.White.copy(alpha = 0.65f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 3. Showcase Vitrin Paneli
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF131A29),
+                border = androidx.compose.foundation.BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // Avatar & Hero Title Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(activeColor.copy(alpha = 0.15f))
+                                .border(1.dp, activeColor.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = impact.iconRes),
+                                contentDescription = null,
+                                tint = activeColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = activeColor.copy(alpha = 0.15f),
+                                modifier = Modifier.wrapContentSize()
+                            ) {
+                                Text(
+                                    text = impact.title.uppercase(),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = activeColor,
+                                    letterSpacing = 0.8.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = impact.headline,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Açıklayıcı Metin
+                    Text(
+                        text = impact.description,
+                        fontSize = 11.5.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        lineHeight = 16.5.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 4. Hedef / Kilometre Taşı İlerleme Çubuğu
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = impact.milestoneLabel,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = "%${(animatedProgress * 100).toInt()}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = activeColor
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFF0F1523))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(animatedProgress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            activeColor.copy(alpha = 0.7f),
+                                            activeColor
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 5. Dipnot
             Text(
-                text = title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isUnlocked) Color.White else Color.White.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = desc,
-                fontSize = 10.sp,
-                color = if (isUnlocked) Color.White.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.35f),
-                lineHeight = 13.sp
+                text = impact.footnote,
+                fontSize = 9.sp,
+                color = Color.White.copy(alpha = 0.4f),
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
             )
         }
     }
@@ -4578,90 +7038,60 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = Color(0xFF0F1523),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00F2FE).copy(alpha = 0.6f)),
-        tonalElevation = 8.dp,
-        shadowElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E2A40).copy(alpha = 0.8f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            // 1. Üst Başlık (Sol Konuma Sabitlenmiş)
-            Column(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            // 1. Üst Açıklama
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = if (isEn) "📊 WEEKLY GUARD TOWERS" else "📊 HAFTALIK NÖBET KULELERİ",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF00F2FE),
-                    letterSpacing = 0.5.sp
+                    text = if (isEn) "Daily Breakdown" else "Günlük Dağılım",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
                 Text(
-                    text = if (isEn) "Tap towers for daily breakdown" else "Detay için kulelere dokunun",
-                    fontSize = 11.5.sp,
-                    color = Color.White.copy(alpha = 0.5f)
+                    text = if (isEn) "Tap bars for details" else "Detaylar için sütuna dokunun",
+                    fontSize = 10.5.sp,
+                    color = Color.White.copy(alpha = 0.45f)
                 )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 2. Renk Açıklama Rozetleri (Legend - Geniş & Rahat Düzlem)
+            // 2. Renk Açıklama Rozetleri (Minimalist Dot Legend)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Instagram Rozeti
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF833AB4).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF833AB4).copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF833AB4), CircleShape))
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text("Instagram", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                // Instagram
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(7.dp).background(Color(0xFFE1306C), CircleShape))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("Instagram", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.75f), fontWeight = FontWeight.Medium)
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // TikTok Rozeti
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF00F2FE).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF00F2FE), CircleShape))
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text("TikTok", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                // TikTok
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(7.dp).background(Color(0xFF00F2FE), CircleShape))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("TikTok", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.75f), fontWeight = FontWeight.Medium)
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // YouTube Shorts Rozeti
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFFF0000).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF0000).copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(8.dp).background(Color(0xFFFF0000), CircleShape))
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text("YouTube", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                // YouTube
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(7.dp).background(Color(0xFFFF0000), CircleShape))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("YouTube", fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.75f), fontWeight = FontWeight.Medium)
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // 7 Kule Yan Yana (Tam Hizanlama & Simetri)
             Row(
@@ -4684,7 +7114,7 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                             .clickable { selectedIndex = if (isSelected) null else index }
                             .padding(vertical = 2.dp)
                     ) {
-                        // 1. ÜST SLOT: Sayı (Sabit 22.dp Yükseklik - Tam Yatay Hizalama)
+                        // 1. ÜST SLOT: Sayı
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -4701,7 +7131,7 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // 2. ORTA SLOT: Çubuk Kanvası (Sabit 105.dp Yükseklik - Alt Taban Hizalama)
+                        // 2. ORTA SLOT: Çubuk Kanvası
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -4710,10 +7140,10 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .width(if (isSelected) 24.dp else 18.dp)
+                                    .width(if (isSelected) 22.dp else 16.dp)
                                     .height(if (total > 0) currentPillarHeightDp else 6.dp)
                                     .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                                    .background(Color(0xFF1E2A40))
+                                    .background(if (isSelected) Color(0xFF2A3B5C) else Color(0xFF162032))
                             ) {
                                 if (total > 0) {
                                     val instaCount = detail.effectiveInsta
@@ -4727,7 +7157,7 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                                     Column(modifier = Modifier.fillMaxSize()) {
                                         // Üst - YouTube Shorts (Kırmızı)
                                         if (ytRatio > 0f) {
-                                            Box(
+                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .weight(ytRatio)
@@ -4743,13 +7173,13 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                                                     .background(Color(0xFF00F2FE))
                                             )
                                         }
-                                        // Alt - Instagram (Mor)
+                                        // Alt - Instagram (Pembe/Mor)
                                         if (instaRatio > 0f) {
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .weight(instaRatio)
-                                                    .background(Color(0xFF833AB4))
+                                                    .background(Color(0xFFE1306C))
                                             )
                                         }
                                     }
@@ -4759,7 +7189,7 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 3. ALT SLOT: Gün Adı (Sabit 20.dp Yükseklik - Tam Yatay Hizalama)
+                        // 3. ALT SLOT: Gün Adı
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -4781,61 +7211,64 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
             if (selectedIndex != null) {
                 val selectedDetail = weeklyDetails.getOrNull(selectedIndex!!)
                 if (selectedDetail != null) {
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF070A12),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, selectedDetail.topAppColor.copy(alpha = 0.8f)),
+                        color = Color(0xFF131A29),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, selectedDetail.topAppColor.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            // 1. SATIR: Gün Başlığı
-                            Text(
-                                text = if (isEn) "📅 ${selectedDetail.dayName} Daily Summary" else "📅 ${selectedDetail.dayName} Günlük Özet",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = selectedDetail.topAppColor
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // 2. SATIR: Rozet Etiketleri (Geniş & Rahat)
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            // 1. SATIR: Gün Başlığı + Rozetler
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF00F2FE).copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.4f))
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_calendar),
+                                        contentDescription = null,
+                                        tint = selectedDetail.topAppColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isEn) "🛡️ ${selectedDetail.totalBlocks} Blocks" else "🛡️ ${selectedDetail.totalBlocks} Engelleme",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF00F2FE),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        text = if (isEn) "${selectedDetail.dayName} Breakdown" else "${selectedDetail.dayName} Günlük Dağılım",
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = selectedDetail.topAppColor
                                     )
                                 }
 
+                                val daySavedTime = formatSavedFocusTime(selectedDetail.totalBlocks, isEn)
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF00FF87).copy(alpha = 0.15f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00FF87).copy(alpha = 0.4f))
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF00FF87).copy(alpha = 0.15f)
                                 ) {
-                                    Text(
-                                        text = if (isEn) "⏳ ${selectedDetail.totalBlocks * 3} Min Saved" else "⏳ ${selectedDetail.totalBlocks * 3} Dk Kurtarıldı",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF00FF87),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_hourglass),
+                                            contentDescription = null,
+                                            tint = Color(0xFF00FF87),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = daySavedTime,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF00FF87)
+                                        )
+                                    }
                                 }
                             }
 
                             if (selectedDetail.totalBlocks > 0) {
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     val total = selectedDetail.totalBlocks
                                     val insta = selectedDetail.effectiveInsta
@@ -4845,9 +7278,18 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                                     if (insta > 0) {
                                         val pct = (insta * 100) / total
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("📸 Instagram:", fontSize = 11.5.sp, color = Color(0xFF833AB4), fontWeight = FontWeight.Bold, modifier = Modifier.width(95.dp))
-                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF1E2A40))) {
-                                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFF833AB4)))
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(95.dp)) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_instagram),
+                                                    contentDescription = null,
+                                                    tint = Color(0xFFE1306C),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Instagram:", fontSize = 11.5.sp, color = Color(0xFFE1306C), fontWeight = FontWeight.Bold)
+                                            }
+                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF0F1523))) {
+                                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFFE1306C)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(if (isEn) "$insta Times ($pct%)" else "$insta Defa (%$pct)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
@@ -4857,8 +7299,17 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                                     if (tiktok > 0) {
                                         val pct = (tiktok * 100) / total
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("🎵 TikTok:", fontSize = 11.5.sp, color = Color(0xFF00F2FE), fontWeight = FontWeight.Bold, modifier = Modifier.width(95.dp))
-                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF1E2A40))) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(95.dp)) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_tiktok),
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF00F2FE),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("TikTok:", fontSize = 11.5.sp, color = Color(0xFF00F2FE), fontWeight = FontWeight.Bold)
+                                            }
+                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF0F1523))) {
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFF00F2FE)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -4869,8 +7320,17 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                                     if (yt > 0) {
                                         val pct = (yt * 100) / total
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("▶️ YouTube:", fontSize = 11.5.sp, color = Color(0xFFFF0000), fontWeight = FontWeight.Bold, modifier = Modifier.width(95.dp))
-                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFFF0000))) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(95.dp)) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_youtube),
+                                                    contentDescription = null,
+                                                    tint = Color(0xFFFF0000),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("YouTube:", fontSize = 11.5.sp, color = Color(0xFFFF0000), fontWeight = FontWeight.Bold)
+                                            }
+                                            Box(modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF0F1523))) {
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFFFF0000)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -4888,341 +7348,6 @@ fun CyberWeeklyPillarsChart(isEn: Boolean = false, weeklyDetails: List<DayBlockD
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun XpTaskRow(icon: String, title: String, xpReward: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, fontSize = 20.sp)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Text(
-            text = xpReward,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-fun WeeklyBarChart(weeklyData: List<Int>) {
-    val days = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
-    val maxBlocks = weeklyData.maxOrNull()?.coerceAtLeast(1) ?: 1
-
-    val todayIndex = java.util.Calendar.getInstance().let { 
-        val dow = it.get(java.util.Calendar.DAY_OF_WEEK)
-        if (dow == java.util.Calendar.SUNDAY) 6 else dow - 2 
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(160.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        days.forEachIndexed { index, day ->
-            val blocks = weeklyData[index]
-            val timeMins = blocks * 3
-            val heightRatio = blocks.toFloat() / maxBlocks.toFloat()
-            val finalHeightRatio = if (blocks > 0) (heightRatio * 0.8f + 0.1f) else 0.05f
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom,
-                modifier = Modifier.weight(1f)
-            ) {
-                if (blocks > 0) {
-                    val timeStr = if (timeMins >= 60) "${timeMins / 60}s\n${timeMins % 60}d" else "${timeMins}d"
-                    Text(
-                        text = timeStr,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 11.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                } else {
-                    Spacer(modifier = Modifier.height(18.dp))
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight(finalHeightRatio)
-                        .width(16.dp)
-                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                        .background(
-                            if (index == todayIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        )
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = day,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = title,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-
-// ------------------------------------------
-// 5. SEKME: HAKKINDA (ABOUT)
-// ------------------------------------------
-
-
-    @Composable
-    fun StreakBanner(streakDays: Int) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFF6D00).copy(alpha = 0.12f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                Color(0xFFFF6D00).copy(alpha = 0.4f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("🔥", fontSize = 28.sp)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "$streakDays GÜNLÜK SERİ!",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFFF6D00)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Kalkan aktif kaldığı sürece serin büyümeye devam edecek. Harikasın!",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                        lineHeight = 16.sp
-                    )
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun AppDistributionChart(
-        instagramBlocks: Int,
-        tiktokBlocks: Int,
-        youtubeBlocks: Int
-    ) {
-        val total = (instagramBlocks + tiktokBlocks + youtubeBlocks).coerceAtLeast(1)
-        val instaWeight = instagramBlocks.toFloat() / total
-        val tiktokWeight = tiktokBlocks.toFloat() / total
-        val youtubeWeight = youtubeBlocks.toFloat() / total
-
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outline
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "📱 Uygulama Dağılım Oranı",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                ) {
-                    if (instagramBlocks > 0) {
-                        Box(
-                            modifier = Modifier
-                                .weight(instaWeight)
-                                .fillMaxHeight()
-                                .background(Color(0xFF833AB4))
-                        )
-                    }
-                    if (tiktokBlocks > 0) {
-                        Box(
-                            modifier = Modifier
-                                .weight(tiktokWeight)
-                                .fillMaxHeight()
-                                .background(Color(0xFF00F2FE))
-                        )
-                    }
-                    if (youtubeBlocks > 0) {
-                        Box(
-                            modifier = Modifier
-                                .weight(youtubeWeight)
-                                .fillMaxHeight()
-                                .background(Color(0xFFFF0000))
-                        )
-                    }
-                    if (instagramBlocks == 0 && tiktokBlocks == 0 && youtubeBlocks == 0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    ChartLegend(
-                        color = Color(0xFF833AB4),
-                        label = "Instagram (%${(instaWeight * 100).toInt()})"
-                    )
-                    ChartLegend(
-                        color = Color(0xFF00F2FE),
-                        label = "TikTok (%${(tiktokWeight * 100).toInt()})"
-                    )
-                    ChartLegend(
-                        color = Color(0xFFFF0000),
-                        label = "YouTube (%${(youtubeWeight * 100).toInt()})"
-                    )
-                }
-            }
-        }
-    }
-
-
-
-@Composable
-fun AppStatDetailRow(
-        appName: String,
-        iconRes: Int,
-        blockCount: Int,
-        color: Color,
-        timeSpentMs: Long = 0L
-    ) {
-        val savedMins = blockCount * 3
-        val timeStr =
-            if (savedMins >= 60) "${savedMins / 60}s ${savedMins % 60}dk" else "${savedMins} dk"
-
-        val spentMins = timeSpentMs / 60000
-        val spentStr =
-            if (spentMins >= 60) "${spentMins / 60}s ${spentMins % 60}dk" else "${spentMins} dk"
-
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            shadowElevation = 4.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = color.copy(alpha = 0.1f),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = iconRes),
-                                contentDescription = null,
-                                tint = color,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            appName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "$blockCount Engelleme Yapıldı",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        // Aktif sureyi 0 olsa bile goster, ki kullanici degisikligi fark edebilsin!
-                        Text(
-                            "Aktif Süre: $spentStr",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.secondary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(timeStr, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color)
-                    Text(
-                        "+${blockCount * 3} XP",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
         }
