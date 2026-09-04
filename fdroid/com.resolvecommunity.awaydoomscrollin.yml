@@ -33,7 +33,7 @@ Binaries:
 Builds:
   - versionName: 1.1.0
     versionCode: 6
-    commit: v1.1.0
+    commit: 6614c8045d43e31d5ccc239d7e8aa29ef800d92a
     subdir: app
     gradle:
       - yes
