@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Break the Infinite Scroll Loop — For Good.</strong><br/>
-  Open-source, privacy-first Android accessibility shield for Instagram Reels, TikTok & YouTube Shorts.<br/>
+  Open-source, privacy-first Android accessibility shield for Instagram Reels, TikTok & YouTube Shorts (Beta).<br/>
   🌐 <strong><a href="https://awaydoomscrollin.com">awaydoomscrollin.com</a></strong>
 </p>
 
@@ -14,6 +14,7 @@
   <a href="https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest"><img src="https://img.shields.io/badge/Release-v1.1.0-emerald.svg" alt="Release: v1.1.0"/></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-blue.svg" alt="Android 8.0+"/></a>
+  <img src="https://img.shields.io/badge/Status-Public%20Beta-FFB000.svg" alt="Public Beta"/>
   <a href="https://www.virustotal.com/gui/file/e2f85493d47f12a64bc8c3877440adf8f9190641aba512dfa5fb08a553842b99"><img src="https://img.shields.io/badge/VirusTotal-0%2F70%20Clean-success.svg" alt="VirusTotal 0/70 Clean"/></a>
   <img src="https://img.shields.io/badge/Telemetry-Explicit%20Opt--In-00F2FE.svg" alt="Explicit Opt-In Telemetry"/>
 </p>
@@ -52,16 +53,18 @@ Everything runs on-device using Android's native **Accessibility Service** (`can
 
 | Platform | Target Package | Protected Route | Available Safe Zones | Status |
 |---|---|---|---|---|
-| **Instagram** | `com.instagram.android` | Reels Feed & Viewer | Direct Messages (DMs), User Profiles, Settings, Comments | 🟢 Active |
-| **TikTok** | `com.zhiliaoapp.musically` | For You & Following Feeds | User Profiles, Settings, Search | 🟢 Active |
-| **YouTube** | `com.google.android.youtube` | Shorts Feed & Pivot Tabs | Long-form Videos, Subscriptions, Search, Library | 🟢 Active |
+| **Instagram** | `com.instagram.android` | Reels Feed & Viewer | Direct Messages (DMs), User Profiles, Settings, Comments | 🔶 Beta |
+| **TikTok** | `com.zhiliaoapp.musically` | For You & Following Feeds | User Profiles, Settings, Search | 🔶 Beta |
+| **YouTube** | `com.google.android.youtube` | Shorts Feed & Pivot Tabs | Long-form Videos, Subscriptions, Search, Library | 🔶 Beta |
+
+> All platform integrations are currently in **Public Beta**. They are functional on tested configurations but may require rule adjustments following third-party app layout updates.
 
 ---
 
 ## 📥 Installation
 
 - **Direct APK (Recommended)**: Download the verified release binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest).
-- **F-Droid**: Inclusion request in progress ([Merge Request 45081](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/45081)).
+- **F-Droid**: Coming soon.
 - **Google Play Store**: Official store release coming soon.
 
 ---
