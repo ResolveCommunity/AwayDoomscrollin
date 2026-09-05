@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest"><img src="https://img.shields.io/badge/Release-v1.1.0-emerald.svg" alt="Release: v1.1.0"/></a>
+  <a href="https://www.bestpractices.dev/projects/14458"><img src="https://www.bestpractices.dev/projects/14458/badge" alt="OpenSSF Best Practices"/></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-blue.svg" alt="Android 8.0+"/></a>
   <img src="https://img.shields.io/badge/Status-Public%20Beta-FFB000.svg" alt="Public Beta"/>
