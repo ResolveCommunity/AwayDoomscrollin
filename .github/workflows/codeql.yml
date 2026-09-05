@@ -1,4 +1,4 @@
-﻿name: "CodeQL Analysis"
+name: "CodeQL Analysis"
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
         run: chmod +x gradlew || true
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
           build-mode: manual
@@ -46,6 +46,6 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:java-kotlin"
