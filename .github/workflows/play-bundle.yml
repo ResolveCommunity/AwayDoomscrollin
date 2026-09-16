@@ -1,0 +1,91 @@
+name: Build Play App Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Existing release tag to build, for example v1.1.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_REF: ${{ github.event.inputs.source_ref }}
+
+jobs:
+  build-play-bundle:
+    name: Verify & Build Signed Play AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Validate immutable release tag
+        shell: bash
+        run: |
+          [[ "$RELEASE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git describe --tags --exact-match)" = "$RELEASE_REF"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant Gradle wrapper permission
+        run: chmod +x gradlew
+
+      - name: Validate Play metadata limits
+        shell: bash
+        run: |
+          test "$(awk '{ print length }' fastlane/metadata/android/en-US/title.txt)" -le 30
+          test "$(awk '{ print length }' fastlane/metadata/android/tr-TR/title.txt)" -le 30
+          test "$(awk '{ print length }' fastlane/metadata/android/en-US/short_description.txt)" -le 80
+          test "$(awk '{ print length }' fastlane/metadata/android/tr-TR/short_description.txt)" -le 80
+          test "$(wc -m < fastlane/metadata/android/en-US/changelogs/7.txt)" -le 500
+          test "$(wc -m < fastlane/metadata/android/tr-TR/changelogs/7.txt)" -le 500
+          for locale in en-US tr-TR; do
+            test -f "fastlane/metadata/android/$locale/images/icon.png"
+            test -f "fastlane/metadata/android/$locale/images/featureGraphic.png"
+            count="$(find "fastlane/metadata/android/$locale/images/phoneScreenshots" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l)"
+            test "$count" -ge 2
+          done
+
+      - name: Decode Play upload keystore
+        shell: bash
+        run: |
+          test -n "$PLAY_UPLOAD_KEYSTORE_BASE64"
+          printf '%s' "$PLAY_UPLOAD_KEYSTORE_BASE64" | base64 --decode > app/play-upload.keystore
+        env:
+          PLAY_UPLOAD_KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+
+      - name: Test, lint, and build signed Play bundle
+        run: ./gradlew testDebugUnitTest lintDebug lintRelease bundleRelease --stacktrace
+        env:
+          PLAY_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
+          PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+
+      - name: Verify AAB signature and prepare artifact
+        shell: bash
+        run: |
+          test -f app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -strict app/build/outputs/bundle/release/app-release.aab
+          mkdir -p play_output
+          cp app/build/outputs/bundle/release/app-release.aab "play_output/AwayDoomscrollin-${RELEASE_REF}-play.aab"
+
+      - name: Retain signed Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: AwayDoomscrollin-${{ env.RELEASE_REF }}-play-aab
+          path: play_output/AwayDoomscrollin-${{ env.RELEASE_REF }}-play.aab
+          if-no-files-found: error
+          retention-days: 14

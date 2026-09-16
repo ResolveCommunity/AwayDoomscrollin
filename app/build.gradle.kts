@@ -4,43 +4,66 @@ plugins {
 }
 
 android {
-    namespace = "com.awaydoomscrollin.app"
-    compileSdk = 34
+    namespace = "com.resolvecommunity.awaydoomscrollin"
+    compileSdk = 36
+
+    val githubKeystoreFile = file("release.keystore")
+    val githubStorePassword = System.getenv("KEYSTORE_PASSWORD")
+    val githubKeyAlias = System.getenv("KEY_ALIAS")
+    val githubKeyPassword = System.getenv("KEY_PASSWORD")
+    val hasGithubSigning = githubKeystoreFile.exists() &&
+        !githubStorePassword.isNullOrBlank() &&
+        !githubKeyAlias.isNullOrBlank() &&
+        !githubKeyPassword.isNullOrBlank()
+
+    val playUploadKeystoreFile = file("play-upload.keystore")
+    val playStorePassword = System.getenv("PLAY_UPLOAD_KEYSTORE_PASSWORD")
+    val playKeyAlias = System.getenv("PLAY_UPLOAD_KEY_ALIAS")
+    val playKeyPassword = System.getenv("PLAY_UPLOAD_KEY_PASSWORD")
+    val hasPlayUploadSigning = playUploadKeystoreFile.exists() &&
+        !playStorePassword.isNullOrBlank() &&
+        !playKeyAlias.isNullOrBlank() &&
+        !playKeyPassword.isNullOrBlank()
 
     defaultConfig {
         applicationId = "com.resolvecommunity.awaydoomscrollin"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 6
-        versionName = "1.1.0"
+        targetSdk = 36
+        versionCode = 7
+        versionName = "1.1.1"
     }
-dependenciesInfo {
+    dependenciesInfo {
         includeInApk = false
         includeInBundle = false
     }
 
     signingConfigs {
         create("release") {
-            val keystoreFile = file("release.keystore")
-            val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
-            val releaseKeyAlias = System.getenv("KEY_ALIAS")
-            val releaseKeyPassword = System.getenv("KEY_PASSWORD")
-            if (keystoreFile.exists() && !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()) {
-                storeFile = keystoreFile
-                storePassword = releaseStorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+            if (hasPlayUploadSigning) {
+                storeFile = playUploadKeystoreFile
+                storePassword = playStorePassword
+                keyAlias = playKeyAlias
+                keyPassword = playKeyPassword
+            } else if (hasGithubSigning) {
+                storeFile = githubKeystoreFile
+                storePassword = githubStorePassword
+                keyAlias = githubKeyAlias
+                keyPassword = githubKeyPassword
             }
         }
     }
 
     buildTypes {
+        debug {
+            // Keep local device builds isolated from the release-signed app so
+            // testing never requires uninstalling it or erasing user data.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            val keystoreFile = file("release.keystore")
-            val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
-            if (keystoreFile.exists() && !releaseStorePassword.isNullOrBlank()) {
+            if (hasPlayUploadSigning || hasGithubSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -51,7 +74,7 @@ dependenciesInfo {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
     lint {
-        abortOnError = false
+        abortOnError = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -66,10 +89,20 @@ dependenciesInfo {
         kotlinCompilerExtensionVersion = "1.5.1"
     }
 
-    dependenciesInfo {
-        includeInApk = false
-        includeInBundle = false
+    val verifyReleaseSigningInputs = tasks.register("verifyReleaseSigningInputs") {
+        group = "verification"
+        description = "Prevents release artifacts from being created without a configured signing key."
+        doLast {
+            check(hasPlayUploadSigning || hasGithubSigning) {
+                "Release signing is not configured. Provide the Play upload key (preferred for AAB) " +
+                    "or the GitHub release key and its matching environment variables."
+            }
+        }
     }
+    tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }
+        .configureEach {
+            dependsOn(verifyReleaseSigningInputs)
+        }
 }
 
 tasks.withType<Test>().configureEach {

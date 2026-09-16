@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AwayDoomscrollin\'</string>
+    <string name="accessibility_service_description">AwayDoomscrollin\' examines on-screen accessibility text and labels, view identifiers, window changes, taps, and scroll events only on your device to identify protected short-content areas in Instagram, TikTok, and YouTube. It can show a protective curtain in Instagram and perform specific Back, tap, and scroll actions on protected screens. Examined screen information is not saved or sent to a server. Optional usage-data sharing is controlled separately. Third-party interface changes can affect how reliably protection detects protected screens.</string>
+</resources>

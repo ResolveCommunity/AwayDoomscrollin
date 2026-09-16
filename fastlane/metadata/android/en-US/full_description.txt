@@ -1,17 +1,19 @@
 AwayDoomscrollin' is an open-source, privacy-first Android accessibility app developed by Resolve Community. It attempts to interrupt endless scrolling on Instagram Reels, TikTok, and YouTube Shorts.
 
 Beta status:
-• Instagram Reels, TikTok, and YouTube Shorts detection are all beta features.
+• Instagram Reels, TikTok, and YouTube Shorts detection is a beta feature.
 • Detection and safe-area classification depend on accessibility information exposed by third-party apps, Android, and device manufacturers. Interface changes can cause missed detections or false positives; perfect detection and universal compatibility are not claimed.
 
 Features:
-• Event-driven Shield: Attempts to recognize supported short-video feeds and return you to the home screen.
-• Safe-Zone Rules: Designed to exclude DMs, comments, search, and long-form YouTube, subject to the beta limitations above.
-• Anti-Cheat Protection: Presents an awareness intervention if you attempt to disable protection during focus mode.
+• Feed Shield: Covers recognized Instagram Home and Explore media in place. When a Reel or protected post viewer is recognized, it performs a Back action. TikTok and YouTube Shorts use event-based protection. Routine interventions are silent.
+• Areas that remain available: Designed to keep Instagram messaging, profile information, Stories and Search, plus normal YouTube videos, usable. Media grids inside profiles and message details may be covered to prevent access to short-form content.
+• User control: Protection can be disabled from the app or Android accessibility settings; the app does not monitor settings or prevent service deactivation.
 • Streak Tracker: Tracks local daily focus streaks and blocking statistics.
 
 Privacy and network transparency:
 • The Android manifest declares INTERNET permission. Screen-content analysis and blocking run on-device, but the app is not fully offline.
-• Telemetry is off by default. No telemetry request is made and no telemetry installation UUID is created until you explicitly enable telemetry in the app.
-• While enabled, telemetry sends the constant PSEUDONYMOUS_TELEMETRY type marker, a random per-installation UUID, device manufacturer/model, Android version and SDK level, app version, aggregate Instagram/TikTok/YouTube and total block counts, streak days, and XP to awaydoomscrollin.com. Explicit opt-in may trigger one immediate attempt; afterward automatic app-startup and blocking-event triggers share one persisted 24-hour attempt interval, including failed attempts. Turning telemetry off stops future submissions; an in-flight request may finish. The latest server snapshot expires within 90 days; the server stores a SHA-256 installation key rather than the raw UUID.
-• Separate automatic network path: the app attempts to fetch non-executable JSON rule/configuration data from GitHub when the app or accessibility service starts. Successful results are cached for six hours. This request runs independently even when telemetry is off. Turning off telemetry does not disable GitHub requests, and there is currently no separate in-app switch for them. Built-in rules remain available if the request fails or the device is offline.
+• Optional usage-data sharing is off by default. No telemetry request is made and no telemetry installation UUID is created until you read the detailed disclosure and confirm “Turn on sharing.”
+• While enabled, telemetry sends v2 protocol/report identifiers, a random installation UUID, device model, Android and screen information, AwayDoomscrollin', Instagram, TikTok and YouTube versions, total and per-app intervention counts, and accumulated Instagram protection time with its measurement version to awaydoomscrollin.com. Local streak days and XP are not sent. Explicit opt-in may trigger one immediate attempt, later automatic attempts share one persisted 24-hour interval, and turning telemetry off stops new submissions, though an in-flight request may finish. The latest server snapshot expires within 90 days, and the server stores a SHA-256 installation key rather than the raw UUID.
+• Detection rules are bundled with the app. The app does not make automatic rule-download requests.
+
+AwayDoomscrollin' is an independent project. It is not affiliated with, sponsored by, or endorsed by Meta, ByteDance, Google, Instagram, TikTok, or YouTube. Their names are used only to describe compatibility.

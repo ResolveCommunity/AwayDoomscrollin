@@ -12,6 +12,7 @@ app/build/
 
 # Gradle cache
 .gradle/
+.tmp/
 gradle.properties.bak
 
 # Native build
@@ -48,3 +49,10 @@ rewrite_ui.py
 play_store_submission_guide.md
 browser-extension/
 
+
+# Root-level testing artifacts (device dumps & screenshots)
+/*.png
+/*.jpg
+/*.jpeg
+/*.xml
+/docs/

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.84"
+        android:scaleY="0.84">
+        <!-- Shield silhouette surrounding the phone. -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M32,27L16,34V49C16,73 30,90 54,98C78,90 92,73 92,49V34L76,27V35L85,39V49C85,67 74,81 54,90C34,81 23,67 23,49V39L32,35V27Z" />
+
+        <!-- Phone frame. -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M39,17H69C75,17 79,21 79,27V75C79,81 75,85 69,85H39C33,85 29,81 29,75V27C29,21 33,17 39,17ZM40,24C38,24 36,26 36,29V73C36,76 38,78 40,78H68C70,78 72,76 72,73V29C72,26 70,24 68,24H63L61,28H47L45,24H40Z" />
+
+        <!-- Blocked-content card and symbol. -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M39,39H69C72,39 74,41 74,44V64C74,67 72,69 69,69H39C36,69 34,67 34,64V44C34,41 36,39 39,39ZM40,45V63H68V45H40Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M54,47A8,8 0,1 1,54 63A8,8 0,1 1,54 47ZM54,50A5,5 0,1 0,54 60A5,5 0,1 0,54 50Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M50,51L57,58L59,56L52,49ZM57,51L50,58L48,56L55,49Z" />
+    </group>
+</vector>

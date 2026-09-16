@@ -1,0 +1,6 @@
+AwayDoomscrollin' v1.1.1
+• Instagram Ana Sayfa ve Keşfet perdesi daha tutarlı ekran ve konum algılamasıyla yenilendi.
+• Korunan Reels ve gönderiler, DM, Hikâyeler, Arama ve profil bilgileriyle daha iyi ayrıştırıldı.
+• Olağan müdahalelerde tekrarlanan bildirim sesi kaldırıldı.
+• Erişilebilirlik ve isteğe bağlı kullanım verisi için açık kabul/ret adımları eklendi.
+• Uygulama simgesi ve Türkçe/İngilizce arayüz metinleri iyileştirildi.

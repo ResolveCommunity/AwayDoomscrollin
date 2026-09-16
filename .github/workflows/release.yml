@@ -53,8 +53,8 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Test, Lint, and Build Release APK
+        run: ./gradlew testDebugUnitTest lintDebug lintRelease assembleRelease --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -64,6 +64,9 @@ jobs:
         run: |
           mkdir -p release_output
           test -f "app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/release/app-release.apk
           cp app/build/outputs/apk/release/app-release.apk "release_output/AwayDoomscrollin-${RELEASE_REF}.apk"
 
       - name: Retain Signed APK Artifact

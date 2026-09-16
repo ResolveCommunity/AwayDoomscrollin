@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="9dp"
+        android:top="9dp"
+        android:right="9dp"
+        android:bottom="9dp">
+        <bitmap
+            android:src="@drawable/ic_splash_logo"
+            android:antialias="true"
+            android:filter="true"
+            android:gravity="fill" />
+    </item>
+</layer-list>

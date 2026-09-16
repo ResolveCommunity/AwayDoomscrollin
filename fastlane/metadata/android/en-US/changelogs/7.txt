@@ -1,0 +1,6 @@
+AwayDoomscrollin' v1.1.1
+• Rebuilt the Instagram Home and Explore curtain with more consistent screen and position detection.
+• Improved separation between protected Reels/posts and DMs, Stories, Search and profile information.
+• Removed repeated notification sounds from routine interventions.
+• Added clear accept/decline steps for Accessibility and optional usage data.
+• Refined the app icon and English/Turkish interface copy.
