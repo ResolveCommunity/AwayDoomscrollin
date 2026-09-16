@@ -133,6 +133,29 @@ class AntiScrollService : AccessibilityService() {
             1001
         )
         Log.d(TAG, "Accessibility protection connected")
+
+        // Auto-return: the user just flipped the service toggle from Settings. Inside
+        // the background-start grace period (~10 s after leaving the app) this launch
+        // succeeds on stock Android; if an OEM blocks it, the user navigates back as
+        // before. Guarded by the foreground package so a boot-time or silent service
+        // rebind never pops the app, and wrapped so a blocked launch can never break
+        // the service.
+        mainHandler.postDelayed({
+            val foreground = rootInActiveWindow?.packageName?.toString() ?: return@postDelayed
+            if (!foreground.startsWith("com.android.settings")) return@postDelayed
+            try {
+                startActivity(
+                    Intent(this, MainActivity::class.java).addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    )
+                )
+            } catch (e: Exception) {
+                Log.d(TAG, "Auto-return to app not allowed: ${e.message}")
+            }
+        }, 250L)
+
         // Updating the APK or attaching UiAutomation can reconnect this service
         // while Instagram is already foreground. No new accessibility event is
         // guaranteed, so initialize protection from the current root as well.
