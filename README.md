@@ -68,9 +68,9 @@ Everything runs on-device using Android's native **Accessibility Service** (`can
 
 ## 📥 Installation
 
-- **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest). The latest published release may describe an older protection architecture than the current development branch; read its own release notes. Google Play Protect may restrict browser-sideloaded apps that provide an Accessibility Service, so this route is not guaranteed to install on every device.
-- **F-Droid**: Under review.
-- **Google Play Store**: Official store release coming soon.
+- **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest). Google Play Protect may restrict browser-sideloaded apps that provide an Accessibility Service, so this route is not guaranteed to install on every device.
+- **F-Droid** (planned)
+- **Google Play** (planned)
 
 ---
 
@@ -106,11 +106,11 @@ AwayDoomscrollin' believes in radical transparency regarding permissions and net
 
 1. **On-Device Core Analysis**:
    - The Accessibility Service evaluates UI window hierarchies strictly in-memory.
-   - It **does not** take screenshots, record screens, read keystrokes (`canRequestFilterKeyEvents` is disabled), or tamper with other running processes (`KILL_BACKGROUND_PROCESSES` is purged).
+   - It **does not** take screenshots, record your screen, or log keystrokes.
    - Before Android Accessibility Settings can open, the app shows a separate disclosure with “Agree and open settings” and “Not now” choices. Declining leaves protection off and does not lock the app.
 2. **Internet Permission (`android.permission.INTERNET`)**:
    - The manifest declares `INTERNET` access for one optional purpose:
-     - **Optional Usage Data (v2 only)**: Disabled by default. The switch opens a separate detailed confirmation before the first report; cancelling creates no telemetry UUID or request. If enabled, it transmits a random installation ID; aggregate intervention counts and measured Instagram protection time; device model and screen metrics; and Android, AwayDoomscrollin', Instagram, TikTok and YouTube version information with a 24-hour attempt limit. Streak and XP are not transmitted. The current client has no legacy-v1 fallback. No personal identifiers (IMEI, MAC, Android ID, Ad ID) are accessed.
+     - **Optional Usage Data (v2 only)**: Disabled by default. The switch opens a separate detailed confirmation before the first report; cancelling creates no telemetry UUID or request. If enabled, it transmits a random installation ID; aggregate intervention counts and measured Instagram protection time; device model and screen metrics; and Android, AwayDoomscrollin', Instagram, TikTok and YouTube version information with a 24-hour attempt limit. Streak and XP are not transmitted. No personal identifiers (IMEI, MAC, Android ID, Ad ID) are accessed.
    - Detection rules are bundled with the app; no automatic rule-download request is made.
 3. **No Third-Party Trackers**:
    - The current Android app does not include commercial advertising, Google Analytics, Firebase, or third-party tracking SDKs.

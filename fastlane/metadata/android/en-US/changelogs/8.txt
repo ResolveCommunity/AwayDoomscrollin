@@ -1,0 +1,6 @@
+Protection refresh across Instagram, TikTok and YouTube Shorts.
+
+• Instagram: Saved, Likes and Reposts collections exit on entry; the highlight picker, menu, banner editor and Threads shortcut stay usable.
+• TikTok: opens normally; the first swipe in For You or Friends exits; Following and Community entries snap back.
+• YouTube Shorts: one Short stays watchable; the first swipe toward the next closes the viewer.
+• No time limits or quotas. New language switch.
