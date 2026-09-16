@@ -1,6 +1,6 @@
 Instagram, TikTok ve YouTube Shorts'ta koruma yenilendi.
 
-• Kaydedilenler, Beğeniler ve Reposts koleksiyonları girişte kapatılır.
-• TikTok normal açılır; Sana Özel veya Arkadaşlar akışında ilk kaydırmada çıkılır; Takipte ve Topluluk girişleri geri alınır.
-• YouTube Shorts'ta tek Short izlenebilir; sonrakine ilk kaydırmada görüntüleyici kapanır.
-• Menü, banner ve Threads kısayolları kullanılabilir kalır. Süre sınırı veya kota yok.
+• Kaydedilenler, Beğeniler ve Reposts koleksiyonları girişte kapatılıyor.
+• TikTok normal açılır; Sana Özel veya Arkadaşlar akışında ilk kaydırmada çıkılır. Takipte ve Topluluk girişleri Sizin İçin'e döndürülür.
+• Shorts'ta açtığın Short sonuna kadar izlenir; sonrakine geçmek için ilk kaydırışında görüntüleyici kapanır.
+• Menü, banner ve Threads kısayolları kullanılabilir. Süre sınırı veya kota yok.
