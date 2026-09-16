@@ -592,9 +592,9 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = if (isEn)
-                                    "Time limits can be useful, but they are easy to bypass. AwayDoomscrollin' instead intervenes directly in supported short-content areas."
+                                    "Time limits are easy to bypass and feeds have no natural stopping point. AwayDoomscrollin' intervenes directly in supported short-content areas."
                                 else
-                                    "Süre sınırları yararlı olabilir ancak kolayca atlanabilir. AwayDoomscrollin' bunun yerine desteklenen kısa içerik alanlarını doğrudan sınırlar.",
+                                    "Süre sınırları kolayca atlanabilir; akışların doğal bir durma noktası yoktur. AwayDoomscrollin' desteklenen kısa içerik alanlarını doğrudan sınırlar.",
                                 fontSize = 11.sp,
                                 color = Color.White.copy(alpha = 0.85f),
                                 lineHeight = 16.sp
@@ -858,13 +858,13 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (isEn) "Why I built this app" else "Bu uygulamayı neden geliştirdim?",
+                            text = if (isEn) "I Am One of You." else "Ben de Sizden Biriyim.",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isEn) "A note from Resolve Community" else "Resolve Community'den kısa bir not",
+                            text = if (isEn) "A letter from Resolve Community" else "Resolve Community'den bir mektup",
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary
@@ -874,27 +874,17 @@ fun OnboardingStepOne(isEn: Boolean = false) {
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Bölüm 1: Hikayenin Başlangıcı
+                // Kısa giriş
                 Text(
-                    text = if (isEn) "Hello, I am an independent developer behind Resolve Community and creator of AwayDoomscrollin'." else "Merhaba, ben Resolve Community adına AwayDoomscrollin' uygulamasını geliştiren bağımsız bir geliştiriciyim.",
+                    text = if (isEn) "Hello, I am the independent developer who built this app." else "Merhaba, ben bu uygulamayı geliştiren bağımsız bir geliştiriciyim.",
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = if (isEn) 
-                        "Ever since the COVID-19 pandemic, almost my entire day has been spent in front of computer and phone screens. Life outside was complicated; playing games or scrolling through feeds for hours felt more enjoyable and safer. The real reason was escaping reality."
-                    else 
-                        "COVID-19 pandemisinden beri günümün neredeyse tamamı bilgisayar ve telefon ekranı karşısında geçiyordu. Dışarıdaki hayat karmaşıktı; sosyalleşmek yerine ekran başında oyun oynamak veya saatlerce akış kaydırmak daha keyifli ve güvenli geliyordu. Sanırım asıl sebebim, gerçek hayattan kaçmaktı.",
-                    fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                    lineHeight = 19.sp
-                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Bölüm 2: Farkındalık & Sağlık Etkileri
+                // Vurgu: Fark ettiğim sorun
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
@@ -918,9 +908,9 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (isEn) 
+                            text = if (isEn)
                                 "I realized that short-content habits were taking more time and attention than I wanted.\n\nI wanted a clearer boundary that would help me get back to my studies and my goals."
-                            else 
+                            else
                                 "Kısa içerik alışkanlığının istediğimden daha fazla zamanımı ve dikkatimi aldığını fark ettim.\n\nOkula ve hayat hedeflerime odaklanmamı sağlayacak daha net bir sınır istedim.",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -930,80 +920,13 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Bölüm 3: Çözüm Arayışı
                 Text(
-                    text = if (isEn) "Why did I build this app under Resolve Community?" else "Bu uygulamayı neden Resolve Community bünyesinde geliştirdim?",
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = if (isEn) 
-                        "Even while doing something else, I would reach for short videos without thinking. I built AwayDoomscrollin' under Resolve Community to create a clear, user-controlled boundary. I use it myself, and the public beta continues to improve through transparent testing."
-                    else 
-                        "Başka bir şeyle ilgilenirken bile düşünmeden kısa videolara yöneldiğimi fark ediyordum. AwayDoomscrollin'ı, kullanıcının kontrol ettiği net bir sınır oluşturmak için Resolve Community çatısı altında geliştirdim. Ben de kullanıyorum; açık beta, şeffaf testlerle gelişmeye devam ediyor.",
-                    fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                    lineHeight = 19.sp
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Bölüm 4: Algoritmanın Tuzağı (Madde Madde)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF85149).copy(alpha = 0.1f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF85149).copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_target),
-                                contentDescription = null,
-                                tint = Color(0xFFF85149),
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isEn) "Why short-content feeds never end" else "Kısa içerik akışları neden bitmez?",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFF85149)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = if (isEn) 
-                                "• Feeds automatically load the next item.\n" +
-                                "• Watch time and interactions can be used to personalize what appears next.\n" +
-                                "• Because there is no natural stopping point, a short visit can last longer than intended."
-                            else 
-                                "• Akışlar sıradaki içeriği otomatik olarak yükler.\n" +
-                                "• İzleme süresi ve etkileşimler, sonraki içerikleri kişiselleştirmek için kullanılabilir.\n" +
-                                "• Doğal bir durma noktası olmadığı için kısa bir ziyaret planlanandan uzun sürebilir.",
-                            fontSize = 11.5.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 17.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Bölüm 5: Çağrı & Kapanış
-                Text(
-                    text = if (isEn) 
-                        "AwayDoomscrollin' was created to make room for study, work and intentional time. Protection is a tool; you can review its scope and choose the apps that fit your needs."
-                    else 
-                        "AwayDoomscrollin'; ders, iş ve bilinçli geçirilen zamana alan açmak için geliştirildi. Koruma bir araçtır; kapsamını inceleyebilir ve ihtiyacınıza uygun uygulamaları seçebilirsiniz.",
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    lineHeight = 18.sp
+                    text = if (isEn) "Full letter: About → Developer Letter" else "Tam mektup: Hakkında → Geliştirici Mektubu",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -2615,6 +2538,28 @@ private fun DashboardSectionHeader(
     }
 }
 
+private fun developerLetterText(isEn: Boolean): String =
+    if (isEn)
+        "Hello, I am an independent developer behind Resolve Community and creator of AwayDoomscrollin'.\n\n" +
+        "Ever since the COVID-19 pandemic, almost my entire day has been spent in front of computer and phone screens. Life outside was complicated; playing games or scrolling through feeds for hours felt more enjoyable and safer. The real reason was escaping reality.\n\n" +
+        "I realized that short-content habits were taking more time and attention than I wanted. I wanted a clearer boundary that would help me get back to my studies and my goals.\n\n" +
+        "Even while doing something else, I would reach for short videos without thinking. I built AwayDoomscrollin' under Resolve Community to create a clear, user-controlled boundary. I use it myself, and the public beta continues to improve through transparent testing.\n\n" +
+        "Why short-content feeds never end?\n" +
+        "• Feeds automatically load the next item.\n" +
+        "• Watch time and interactions can be used to personalize what appears next.\n" +
+        "• Because there is no natural stopping point, a short visit can last longer than intended.\n\n" +
+        "AwayDoomscrollin' was created to make room for study, work and intentional time. Protection is a tool; you can review its scope and choose the apps that fit your needs."
+    else
+        "Merhaba, ben Resolve Community adına AwayDoomscrollin' uygulamasını geliştiren bağımsız bir geliştiriciyim.\n\n" +
+        "COVID-19 pandemisinden beri günümün neredeyse tamamı bilgisayar ve telefon ekranı karşısında geçiyordu. Dışarıdaki hayat karmaşıktı; sosyalleşmek yerine ekran başında oyun oynamak veya saatlerce akış kaydırmak daha keyifli ve güvenli geliyordu. Sanırım asıl sebebim, gerçek hayattan kaçmaktı.\n\n" +
+        "Kısa içerik alışkanlığının istediğimden daha fazla zamanımı ve dikkatimi aldığını fark ettim. Okula ve hayat hedeflerime odaklanmamı sağlayacak daha net bir sınır istedim.\n\n" +
+        "Başka bir şeyle ilgilenirken bile düşünmeden kısa videolara yöneldiğimi fark ediyordum. AwayDoomscrollin'ı, kullanıcının kontrol ettiği net bir sınır oluşturmak için Resolve Community çatısı altında geliştirdim. Ben de kullanıyorum; açık beta, şeffaf testlerle gelişmeye devam ediyor.\n\n" +
+        "Kısa içerik akışları neden bitmez?\n" +
+        "• Akışlar sıradaki içeriği otomatik olarak yükler.\n" +
+        "• İzleme süresi ve etkileşimler, sonraki içerikleri kişiselleştirmek için kullanılabilir.\n" +
+        "• Doğal bir durma noktası olmadığı için kısa bir ziyaret planlanandan uzun sürebilir.\n\n" +
+        "AwayDoomscrollin'; ders, iş ve bilinçli geçirilen zamana alan açmak için geliştirildi. Koruma bir araçtır; kapsamını inceleyebilir ve ihtiyacınıza uygun uygulamaları seçebilirsiniz."
+
 @Composable
 fun AboutScreen(
     prefs: android.content.SharedPreferences,
@@ -2622,6 +2567,7 @@ fun AboutScreen(
 ) {
     val context = LocalContext.current
     var showFeedbackDialog by remember { mutableStateOf<Boolean>(false) }
+    var showDeveloperLetter by remember { mutableStateOf<Boolean>(false) }
     var showTelemetryDetails by remember { mutableStateOf(false) }
     var showTelemetryConsent by remember { mutableStateOf(false) }
     var isTelemetryOnInAbout by remember { mutableStateOf(TelemetryManager.isTelemetryEnabled(context)) }
@@ -2927,6 +2873,7 @@ fun AboutScreen(
                 border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF1E2A40)),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2970,6 +2917,71 @@ fun AboutScreen(
                         modifier = Modifier.size(15.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFF1E2A40))
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDeveloperLetter = true }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF00F2FE).copy(alpha = 0.15f),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_handshake),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isEn) "Developer Letter" else "Geliştirici Mektubu",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (isEn) "The personal story behind the setup"
+                            else "Kurulumun arkasındaki kişisel hikâye",
+                            fontSize = 10.5.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arrow_forward),
+                        contentDescription = null,
+                        tint = Color(0xFF00F2FE),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+                }
+            }
+
+            if (showDeveloperLetter) {
+                ScrollableTextDialog(
+                    isEn = isEn,
+                    title = if (isEn) "I Am One of You." else "Ben de Sizden Biriyim.",
+                    content = developerLetterText(isEn),
+                    iconRes = R.drawable.ic_handshake,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    onDismiss = { showDeveloperLetter = false }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
