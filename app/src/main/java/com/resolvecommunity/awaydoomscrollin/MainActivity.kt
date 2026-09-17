@@ -1776,7 +1776,7 @@ fun OnboardingStepFivePermissions(
                         }
                     } else {
                         Text(
-                            if (isEn) "Review permission and open settings" else "İzni incele ve ayarları aç",
+                            if (isEn) "Open Settings" else "Ayarları Aç",
                             fontWeight = FontWeight.Bold
                         )
                     }
