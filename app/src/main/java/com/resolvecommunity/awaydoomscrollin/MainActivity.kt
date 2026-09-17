@@ -1806,13 +1806,66 @@ fun OnboardingStepFivePermissions(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                     }
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+        if (!isAccessibilityActive) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // BAĞIMSIZ VE DİKKAT ÇEKİCİ KISITLANMIŞ AYAR & ÇÖZÜM KARTI
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF0F1523),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFFB703).copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFFFB703).copy(alpha = 0.15f),
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_lightbulb),
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFB703),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = if (isEn) "Can't toggle or \"Restricted setting\"?" else "İzin açılmıyor veya \"Kısıtlanmış ayar\" mı diyor?",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (isEn) {
+                            "On Samsung, Xiaomi and Android 13+ devices, sideloaded accessibility is restricted by default. Follow our 3-step guide to unlock it in seconds."
+                        } else {
+                            "Samsung, Xiaomi ve Android 13+ cihazlarda güvenlik kısıtlaması nedeniyle izin butonu grileşebilir. 3 basit adımda açmak için resimli rehberimizi inceleyin."
+                        },
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.5.sp,
+                        color = Color.White.copy(alpha = 0.72f)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF00F2FE).copy(alpha = 0.12f),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
+                        shape = RoundedCornerShape(9.dp),
+                        color = Color(0xFFFFB703).copy(alpha = 0.14f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB703).copy(alpha = 0.45f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -1823,49 +1876,22 @@ fun OnboardingStepFivePermissions(
                             }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFF00F2FE).copy(alpha = 0.22f),
-                                modifier = Modifier.size(26.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_link_external),
-                                        contentDescription = null,
-                                        tint = Color(0xFF00F2FE),
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(9.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isEn) "Seeing \"Restricted setting\" or can't toggle?" else "İzin açılmıyor veya \"Kısıtlanmış ayar\" mı diyor?",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    lineHeight = 14.sp
-                                )
-                                Text(
-                                    text = if (isEn) "Open the visual step-by-step setup guide" else "Adım adım resimli çözüm rehberini açın",
-                                    fontSize = 10.5.sp,
-                                    color = Color(0xFF00F2FE),
-                                    fontWeight = FontWeight.SemiBold,
-                                    lineHeight = 13.sp,
-                                    modifier = Modifier.padding(top = 1.dp)
-                                )
-                            }
-
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_arrow_forward),
+                                painter = painterResource(id = R.drawable.ic_link_external),
                                 contentDescription = null,
-                                tint = Color(0xFF00F2FE),
-                                modifier = Modifier.size(14.dp)
+                                tint = Color(0xFFFFB703),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = if (isEn) "Open Step-by-Step Visual Guide" else "Resimli Çözüm Rehberini Aç",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFFFB703)
                             )
                         }
                     }
