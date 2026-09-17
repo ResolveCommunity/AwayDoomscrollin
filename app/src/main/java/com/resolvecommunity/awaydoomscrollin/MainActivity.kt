@@ -1851,9 +1851,9 @@ fun OnboardingStepFivePermissions(
 
                     Text(
                         text = if (isEn) {
-                            "On Samsung, Xiaomi and Android 13+ devices, sideloaded accessibility is restricted by default. Follow our 3-step guide to unlock it in seconds."
+                            "On Samsung, Xiaomi and Android 13+ devices, sideloaded accessibility may be restricted by default. Follow our 3-step guide to unlock it."
                         } else {
-                            "Samsung, Xiaomi ve Android 13+ cihazlarda güvenlik kısıtlaması nedeniyle izin butonu grileşebilir. 3 basit adımda açmak için resimli rehberimizi inceleyin."
+                            "Samsung, Xiaomi ve Android 13+ cihazlarda güvenlik kısıtlaması nedeniyle izin butonu grileşebilir. 3 adımda açmak için rehberi inceleyin."
                         },
                         fontSize = 11.5.sp,
                         lineHeight = 15.5.sp,
@@ -1888,9 +1888,9 @@ fun OnboardingStepFivePermissions(
                             )
                             Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = if (isEn) "Open Step-by-Step Visual Guide" else "Resimli Çözüm Rehberini Aç",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
+                                text = if (isEn) "Open guide" else "Rehberi aç",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFFB703)
                             )
                         }
