@@ -497,11 +497,26 @@ fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (step > 1) {
-                    TextButton(onClick = { step-- }) {
-                        Text(if (isEn) "← Back" else "← Geri", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 15.sp)
+                    TextButton(
+                        onClick = { step-- },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            if (isEn) "← Back" else "← Geri",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                val navButtonVisualState = when {
+                    step == 5 && isAccessibilityActive -> 3
+                    step == 5 -> 2
+                    step == 1 -> 0
+                    else -> 1
                 }
 
                 Button(
@@ -517,24 +532,32 @@ fun OnboardingScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color(0xFF0D1117)
                     ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 11.dp),
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .animateContentSize()
                 ) {
-                    Text(
-                        text = if (step == 5)
-                            if (isAccessibilityActive) {
-                                if (isEn) "Finish setup" else "Kurulumu tamamla"
-                            } else {
-                                if (isEn) "Continue without permission" else "İzin vermeden devam et"
-                            }
-                        else if (step == 1) 
-                            (if (isEn) "Start setup →" else "Kuruluma başla →") 
-                        else 
-                            (if (isEn) "Next →" else "Devam et →"),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (step == 5 && !isAccessibilityActive) 12.5.sp else 14.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    AnimatedContent(
+                        targetState = navButtonVisualState,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180))
+                        },
+                        label = "BottomNavButtonTransition"
+                    ) { visualState ->
+                        val buttonText = when (visualState) {
+                            3 -> if (isEn) "Finish setup" else "Kurulumu tamamla"
+                            2 -> if (isEn) "Continue without permission" else "İzin vermeden devam et"
+                            0 -> if (isEn) "Start setup →" else "Kuruluma başla →"
+                            else -> if (isEn) "Next →" else "Devam et →"
+                        }
+                        Text(
+                            text = buttonText,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (visualState == 2) 14.sp else 15.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
