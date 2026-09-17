@@ -2948,13 +2948,20 @@ class AntiScrollService : AccessibilityService() {
                 .flatMap(::attachedBounds)
                 .minOfOrNull { it.top }
         } else null
+        val detectedTop = barTop ?: tabTop
+        val profileContentBottom = if (screen == InstagramScreen.PROFILE && detectedTop == null) {
+            findVisibleNodeBounds(root, "$INSTAGRAM_PACKAGE:id/layout_container_main")
+                ?.bottom
+                ?.takeIf { it > window.centerY() && it <= window.bottom }
+        } else null
 
         return InstagramBottomNavigationGeometry.resolveTop(
             windowTop = window.top,
             windowBottom = window.bottom,
             retainedTop = retainedTop,
-            detectedTop = barTop ?: tabTop,
-            fallbackInset = dp(48)
+            detectedTop = detectedTop,
+            fallbackInset = dp(48),
+            contentBottom = profileContentBottom
         )
     }
 
