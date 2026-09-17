@@ -1789,30 +1789,30 @@ fun OnboardingStepFivePermissions(
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                                 RoundedCornerShape(8.dp)
                             )
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_lightbulb),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
+                            tint = Color(0xFFFFB703),
+                            modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = getAccessibilityGuidanceTip(isEn),
                             fontSize = 11.sp,
-                            lineHeight = 14.5.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            lineHeight = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF00F2FE).copy(alpha = 0.08f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.25f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF00F2FE).copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -1823,21 +1823,49 @@ fun OnboardingStepFivePermissions(
                             }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFF00F2FE).copy(alpha = 0.22f),
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_link_external),
+                                        contentDescription = null,
+                                        tint = Color(0xFF00F2FE),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(9.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isEn) "Seeing \"Restricted setting\" or can't toggle?" else "İzin açılmıyor veya \"Kısıtlanmış ayar\" mı diyor?",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    lineHeight = 14.sp
+                                )
+                                Text(
+                                    text = if (isEn) "Open the visual step-by-step setup guide" else "Adım adım resimli çözüm rehberini açın",
+                                    fontSize = 10.5.sp,
+                                    color = Color(0xFF00F2FE),
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 13.sp,
+                                    modifier = Modifier.padding(top = 1.dp)
+                                )
+                            }
+
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_link_external),
+                                painter = painterResource(id = R.drawable.ic_arrow_forward),
                                 contentDescription = null,
                                 tint = Color(0xFF00F2FE),
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(7.dp))
-                            Text(
-                                text = if (isEn) "Restricted setting or need help? Open web guide" else "Kısıtlanmış ayar veya takıldınız mı? Resimli rehberi açın",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF00F2FE)
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
