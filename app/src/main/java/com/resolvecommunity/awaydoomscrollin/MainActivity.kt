@@ -2610,73 +2610,6 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // KATEGORİ: REHBER
-            Text(
-                text = if (isEn) "GUIDE" else "REHBER",
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White.copy(alpha = 0.5f),
-                letterSpacing = 1.sp,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color(0xFF0F1523),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF1E2A40)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onReopenOnboarding(1) }
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFFFFB703).copy(alpha = 0.15f),
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_lightbulb),
-                                contentDescription = null,
-                                tint = Color(0xFFFFB703),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (isEn) "Setup & Preview Guide" else "Kurulum ve önizleme rehberi",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = if (isEn) "Revisit the setup steps and the protection preview"
-                            else "Kurulum adımlarını ve koruma önizlemesini tekrar gör",
-                            fontSize = 10.5.sp,
-                            color = Color.White.copy(alpha = 0.6f),
-                            lineHeight = 13.5.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_arrow_forward),
-                        contentDescription = null,
-                        tint = Color(0xFFFFB703),
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
             // 2. KATEGORİ: DİL SEÇİMİ
             Text(
                 text = if (isEn) "LANGUAGE" else "DİL",
@@ -2987,7 +2920,74 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 5. KATEGORİ: TOPLULUK KATKISI
+            // 5. KATEGORİ: REHBER
+            Text(
+                text = if (isEn) "GUIDE" else "REHBER",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xFF0F1523),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF1E2A40)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onReopenOnboarding(1) }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFFB703).copy(alpha = 0.15f),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_lightbulb),
+                                contentDescription = null,
+                                tint = Color(0xFFFFB703),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isEn) "Setup & Preview Guide" else "Kurulum ve önizleme rehberi",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (isEn) "Revisit the setup steps and the protection preview"
+                            else "Kurulum adımlarını ve koruma önizlemesini tekrar gör",
+                            fontSize = 10.5.sp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            lineHeight = 13.5.sp,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arrow_forward),
+                        contentDescription = null,
+                        tint = Color(0xFFFFB703),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 6. KATEGORİ: TOPLULUK KATKISI
             Text(
                 text = if (isEn) "OPTIONAL USAGE DATA" else "İSTEĞE BAĞLI KULLANIM VERİLERİ",
                 fontSize = 11.5.sp,
