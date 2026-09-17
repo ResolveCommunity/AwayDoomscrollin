@@ -3144,6 +3144,7 @@ fun AboutScreen(
                             Text(
                                 text = if (isEn) "Help improve protection" else "Korumayı geliştirmemize yardımcı olun",
                                 fontSize = 13.5.sp,
+                                lineHeight = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
@@ -3152,7 +3153,7 @@ fun AboutScreen(
                                 fontSize = 10.5.sp,
                                 color = Color.White.copy(alpha = 0.6f),
                                 lineHeight = 13.5.sp,
-                                modifier = Modifier.padding(top = 2.dp)
+                                modifier = Modifier.padding(top = 3.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
