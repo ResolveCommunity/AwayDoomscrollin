@@ -31,7 +31,7 @@ This app:
 - Declares Android `INTERNET` permission only for explicit opt-in telemetry
 - Keeps telemetry disabled by default and sends no request to `awaydoomscrollin.com` until the user explicitly opts in
 - Generates a random per-installation UUID for telemetry that is not derived from Android ID, IMEI, MAC address, hardware, account, or advertising data
-- Sends the constant `PSEUDONYMOUS_TELEMETRY` type marker, that UUID, the disclosed device/app fields, and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
+- Sends the constant `PSEUDONYMOUS_TELEMETRY` type marker, that UUID, the disclosed device/app fields, and aggregate blocking and protection measurements to `awaydoomscrollin.com` while telemetry is enabled (local streak and XP statistics are not sent)
 - Allows one immediate attempt after explicit opt-in; afterward automatic app-startup and blocking-event triggers share one persisted 24-hour attempt interval, including failed attempts
 - Stops future submissions when the user opts out; the latest server snapshot expires within 90 days
 - Executes all detection and protection logic locally on-device without remote dependencies
