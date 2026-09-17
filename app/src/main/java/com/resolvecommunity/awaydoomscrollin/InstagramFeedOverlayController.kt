@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -494,20 +495,30 @@ internal class InstagramFeedOverlayController(
 
         shieldContent = content
 
-        content.addView(ImageView(service).apply {
-            setImageDrawable(ContextCompat.getDrawable(service, R.drawable.ic_shield_check))
-            setColorFilter(Color.WHITE)
-            contentDescription = null
-        }, LinearLayout.LayoutParams(dp(44), dp(44)).apply {
-            bottomMargin = dp(20)
+        val iconBadge = FrameLayout(service).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(32, 0, 242, 254)) // 12.5% Neon Cyan glow
+                setStroke(dp(1), Color.argb(64, 0, 242, 254)) // 25% Neon Cyan border
+            }
+            val iconView = ImageView(service).apply {
+                setImageDrawable(ContextCompat.getDrawable(service, R.drawable.ic_shield_check))
+                setColorFilter(Color.rgb(0, 242, 254)) // Neon Cyan #00F2FE
+                contentDescription = null
+            }
+            addView(iconView, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        }
+        content.addView(iconBadge, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            bottomMargin = dp(18)
         })
 
-        val message = textView(copy.message, 21f, Color.WHITE, Typeface.BOLD)
+        val message = textView(copy.message, 20f, Color.rgb(241, 245, 249), Typeface.BOLD)
         messageTextView = message
         content.addView(message)
 
-        val detail = textView(copy.detail, 14f, Color.rgb(180, 180, 180), Typeface.NORMAL).apply {
-            setPadding(0, dp(12), 0, 0)
+        val detail = textView(copy.detail, 14f, Color.rgb(148, 163, 184), Typeface.NORMAL).apply {
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(0, dp(10), 0, 0)
         }
         detailTextView = detail
         content.addView(detail)
@@ -517,8 +528,8 @@ internal class InstagramFeedOverlayController(
             FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             gravity = Gravity.CENTER
-            marginStart = dp(22)
-            marginEnd = dp(22)
+            marginStart = dp(24)
+            marginEnd = dp(24)
         })
 
         return container
@@ -526,30 +537,42 @@ internal class InstagramFeedOverlayController(
 
     private fun copyFor(screen: InstagramScreen, isEnglish: Boolean): OverlayCopy {
         if (isEnglish) {
+            val message = when (screen) {
+                InstagramScreen.EXPLORE -> "Explore Protected"
+                InstagramScreen.PROFILE -> "Profile Protected"
+                InstagramScreen.DIRECT_SHARED_MEDIA -> "Media Gallery Protected"
+                else -> "Feed Protected"
+            }
             val detail = when (screen) {
-                InstagramScreen.HOME_FEED -> "Home feed is unavailable. Stories and Messages remain available."
-                InstagramScreen.EXPLORE -> "Explore is unavailable. Search remains available."
-                InstagramScreen.PROFILE -> "Posts are unavailable. Profile information and Stories remain available."
-                InstagramScreen.DIRECT_SHARED_MEDIA -> "The shared media gallery is unavailable. Messages remain available."
+                InstagramScreen.HOME_FEED -> "Home feed is paused. Stories and Messages remain available."
+                InstagramScreen.EXPLORE -> "Explore is paused. Search remains available."
+                InstagramScreen.PROFILE -> "Posts are paused. Profile info and Stories remain available."
+                InstagramScreen.DIRECT_SHARED_MEDIA -> "Shared media gallery is paused. Messages remain available."
                 InstagramScreen.REELS -> ""
                 InstagramScreen.STORY -> "Returning from Stories…"
                 InstagramScreen.COMMENTS_OR_DETAIL -> "Returning from the post viewer…"
-                else -> "This content is unavailable."
+                else -> "This content is paused."
             }
-            return OverlayCopy("Blocked by AwayDoomscrollin'", detail)
+            return OverlayCopy(message, detail)
         }
 
+        val message = when (screen) {
+            InstagramScreen.EXPLORE -> "Keşfet Korunuyor"
+            InstagramScreen.PROFILE -> "Profil Korunuyor"
+            InstagramScreen.DIRECT_SHARED_MEDIA -> "Medya Galerisi Korunuyor"
+            else -> "Akış Korunuyor"
+        }
         val detail = when (screen) {
-            InstagramScreen.HOME_FEED -> "Ana akış kapalıdır. hikâyeler ve Direkt Mesajlar kullanılabilir."
-            InstagramScreen.EXPLORE -> "Keşfet kapalıdır. Arama kullanılabilir."
-            InstagramScreen.PROFILE -> "Gönderiler kapalıdır. Profil bilgileri ve hikâyeler kullanılabilir."
-            InstagramScreen.DIRECT_SHARED_MEDIA -> "Paylaşılan medya galerisi kapalıdır. Direkt Mesajlar kullanılabilir."
+            InstagramScreen.HOME_FEED -> "Ana akış kapalı. Hikâyeler ve Direkt Mesajlar kullanılabilir."
+            InstagramScreen.EXPLORE -> "Keşfet kapalı. Arama kullanılabilir."
+            InstagramScreen.PROFILE -> "Gönderiler kapalı. Profil bilgileri ve Hikâyeler kullanılabilir."
+            InstagramScreen.DIRECT_SHARED_MEDIA -> "Paylaşılan medya galerisi kapalı. Direkt Mesajlar kullanılabilir."
             InstagramScreen.REELS -> ""
             InstagramScreen.STORY -> "Hikâyeden geri dönülüyor…"
             InstagramScreen.COMMENTS_OR_DETAIL -> "Gönderiden geri dönülüyor…"
-            else -> "Bu içerik kullanılamaz."
+            else -> "Bu içerik kapalı."
         }
-        return OverlayCopy("AwayDoomscrollin' tarafından engellendi", detail)
+        return OverlayCopy(message, detail)
     }
 
     private fun textView(text: String, sizeSp: Float, color: Int, style: Int) =
