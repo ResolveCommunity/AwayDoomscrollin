@@ -68,9 +68,24 @@ Everything runs on-device using Android's native **Accessibility Service** (`can
 
 ## 📥 Installation
 
-- **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest). Google Play Protect may restrict browser-sideloaded apps that provide an Accessibility Service, so this route is not guaranteed to install on every device.
+- **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest).
 - **F-Droid** (planned)
 - **Google Play** (planned)
+
+### 📖 Sideloading & Android 13+ Setup Guide
+
+When installing an open-source APK with an Accessibility Service directly on **Android 13, 14, 15+** (Samsung One UI, Google Pixel, Xiaomi HyperOS/MIUI, etc.), Android and Google Play Protect require two simple permissions:
+
+1. **Google Play Protect Warning**: If prompted with *"Unrecognised app / Blocked by Play Protect"*, tap **More details > Install anyway**. *(AwayDoomscrollin' is 100% open-source, contains zero third-party advertising or trackers, and is verified 0/70 Clean on VirusTotal).*
+2. **Restricted Settings ("Kısıtlanmış Ayar")**: Android restricts Accessibility for sideloaded apps by default. If the switch in Accessibility is greyed out:
+   - Long-press the **AwayDoomscrollin'** icon on your home screen and tap **App Info (ⓘ)** (or go to *Settings > Apps > AwayDoomscrollin'*).
+   - Tap the **three dots (⋮)** in the top-right corner.
+   - Select **"Allow restricted settings"** (*"Kısıtlanmış ayarlara izin ver"*) and confirm with your device PIN or fingerprint.
+   - Return to *Accessibility* and toggle the service on.
+
+> 🌐 **Step-by-Step Web Guides**:
+> - 🇬🇧 **English Guide**: [awaydoomscrollin.com/en/guide](https://awaydoomscrollin.com/en/guide)
+> - 🇹🇷 **Türkçe Rehber**: [awaydoomscrollin.com/tr/rehber](https://awaydoomscrollin.com/tr/rehber)
 
 ---
 
