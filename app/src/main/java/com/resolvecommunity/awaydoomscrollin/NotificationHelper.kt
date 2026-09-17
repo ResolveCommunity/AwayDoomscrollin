@@ -8,11 +8,13 @@ import android.util.Log
 object NotificationHelper {
 
     private const val TAG = "NotificationHelper"
-    // Notification channels freeze their name/description at first creation.
-    // The id therefore carries the language flag so a language switch gets a
-    // freshly named channel instead of keeping the previous language's text.
+    private val VIBRATION_PATTERN = longArrayOf(0, 250, 150, 250)
+
+    // Notification channels freeze their name/description/vibration at first creation.
+    // The id therefore carries the version and language flag so updates get a
+    // freshly configured channel instead of keeping the previous settings.
     fun statusChannelId(isEnglish: Boolean) =
-        if (isEnglish) "shield_status_silent_v2_en" else "shield_status_silent_v2_tr"
+        if (isEnglish) "shield_status_v3_en" else "shield_status_v3_tr"
 
     fun showShieldStatusNotification(
         context: Context,
@@ -33,13 +35,20 @@ object NotificationHelper {
             val channel = android.app.NotificationChannel(
                 channelId,
                 channelTitle,
-                android.app.NotificationManager.IMPORTANCE_LOW
+                android.app.NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = channelDesc
-                enableVibration(false)
+                enableVibration(true)
+                vibrationPattern = VIBRATION_PATTERN
                 setSound(null, null)
             }
             notificationManager.createNotificationChannel(channel)
+
+            // Remove legacy silent channels if present to keep system settings clean
+            runCatching {
+                notificationManager.deleteNotificationChannel("shield_status_silent_v2_en")
+                notificationManager.deleteNotificationChannel("shield_status_silent_v2_tr")
+            }
 
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -50,12 +59,13 @@ object NotificationHelper {
             )
 
             val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setSmallIcon(R.drawable.ic_tier_seed)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(message))
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-                .setSilent(true)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
+                .setVibrate(VIBRATION_PATTERN)
+                .setSound(null)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)

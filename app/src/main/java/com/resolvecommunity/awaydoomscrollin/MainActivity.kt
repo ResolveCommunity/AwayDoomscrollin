@@ -196,10 +196,60 @@ private fun accessibilityDisclosureText(isEn: Boolean): String = if (isEn) {
         "İncelenen ekran bilgileri yalnızca cihazınızda işlenir; kaydedilmez, saklanmaz veya sunucuya gönderilmez. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
 }
 
+private fun getAccessibilityPathGuidance(isEn: Boolean): String {
+    val m = Build.MANUFACTURER.lowercase(java.util.Locale.US)
+    return when {
+        m.contains("honor") || m.contains("huawei") ->
+            if (isEn) "Settings > Accessibility > Downloaded services > AwayDoomscrollin'"
+            else "Ayarlar > Erişilebilirlik > İndirilen servisler > AwayDoomscrollin'"
+
+        m.contains("xiaomi") || m.contains("redmi") || m.contains("poco") ->
+            if (isEn) "Settings > Additional settings > Accessibility > Downloaded apps > AwayDoomscrollin'"
+            else "Ayarlar > Ek ayarlar > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+
+        m.contains("samsung") ->
+            if (isEn) "Settings > Accessibility > Installed apps > AwayDoomscrollin'"
+            else "Ayarlar > Erişilebilirlik > Yüklü uygulamalar > AwayDoomscrollin'"
+
+        m.contains("oppo") || m.contains("realme") || m.contains("oneplus") ->
+            if (isEn) "Settings > Additional settings > Accessibility > Downloaded apps > AwayDoomscrollin'"
+            else "Ayarlar > Ek ayarlar > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+
+        m.contains("vivo") || m.contains("iqoo") ->
+            if (isEn) "Settings > Shortcuts & accessibility > Accessibility > Downloaded apps > AwayDoomscrollin'"
+            else "Ayarlar > Kısayollar ve erişilebilirlik > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+
+        else ->
+            if (isEn) "Settings > Accessibility > Downloaded apps (or Installed services) > AwayDoomscrollin'"
+            else "Ayarlar > Erişilebilirlik > İndirilen uygulamalar (veya Yüklü servisler) > AwayDoomscrollin'"
+    }
+}
+
+private fun getAccessibilityGuidanceTip(isEn: Boolean): String {
+    val m = Build.MANUFACTURER.lowercase(java.util.Locale.US)
+    return when {
+        m.contains("honor") || m.contains("huawei") ->
+            if (isEn) "Tip: In Settings, find it under \"Downloaded services\"."
+            else "İpucu: Ayarlarda \"İndirilen servisler\" başlığı altında bulabilirsiniz."
+
+        m.contains("xiaomi") || m.contains("redmi") || m.contains("poco") ->
+            if (isEn) "Tip: In Settings, find it under \"Downloaded apps\"."
+            else "İpucu: Ayarlarda \"İndirilen uygulamalar\" başlığı altında bulabilirsiniz."
+
+        m.contains("samsung") ->
+            if (isEn) "Tip: In Settings, find it under \"Installed apps\"."
+            else "İpucu: Ayarlarda \"Yüklü uygulamalar\" başlığı altında bulabilirsiniz."
+
+        else ->
+            if (isEn) "Tip: In Settings, find it under \"Downloaded apps\" or \"Installed services\"."
+            else "İpucu: Ayarlarda \"İndirilen uygulamalar\" veya \"Yüklü servisler\" başlığı altında bulabilirsiniz."
+    }
+}
+
 private fun openAccessibilitySettings(context: Context, isEn: Boolean = false) {
     Toast.makeText(
         context,
-        if (isEn) "Settings > Installed apps > AwayDoomscrollin'" else "Ayarlar > Yüklü uygulamalar > AwayDoomscrollin'",
+        getAccessibilityPathGuidance(isEn),
         Toast.LENGTH_LONG
     ).show()
     runCatching {
@@ -1750,10 +1800,7 @@ fun OnboardingStepFivePermissions(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isEn)
-                                "Tip: In Settings, find it under \"Installed apps\" or \"Downloaded services\"."
-                            else
-                                "İpucu: Ayarlarda \"Yüklü uygulamalar\" veya \"İndirilen servisler\" başlığı altında bulabilirsiniz.",
+                            text = getAccessibilityGuidanceTip(isEn),
                             fontSize = 11.sp,
                             lineHeight = 14.5.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
