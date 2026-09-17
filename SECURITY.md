@@ -1,4 +1,4 @@
-﻿# Security Policy
+# Security Policy
 
 ## Supported Versions
 
@@ -34,7 +34,7 @@ This app:
 - Sends the constant `PSEUDONYMOUS_TELEMETRY` type marker, that UUID, the disclosed device/app fields, and aggregate blocking, streak, and XP statistics to `awaydoomscrollin.com` while telemetry is enabled
 - Allows one immediate attempt after explicit opt-in; afterward automatic app-startup and blocking-event triggers share one persisted 24-hour attempt interval, including failed attempts
 - Stops future submissions when the user opts out; the latest server snapshot expires within 90 days
-- Bundles detection rules with the app and makes no automatic rule-download request
+- Executes all detection and protection logic locally on-device without remote dependencies
 - Stores blocking statistics locally via `SharedPreferences` in addition to the disclosed aggregate telemetry submissions
 
 ## Beta Compatibility Scope

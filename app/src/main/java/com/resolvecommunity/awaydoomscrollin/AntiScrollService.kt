@@ -31,6 +31,7 @@ class AntiScrollService : AccessibilityService() {
         private const val YOUTUBE_PACKAGE = "com.google.android.youtube"
         private const val OVERLAY_ATTEMPT_COOLDOWN_MS = 1_000L
         private const val INSTAGRAM_EXIT_TREE_QUIET_MS = 220L
+        private const val INSTAGRAM_VIEWER_EXIT_RETRY_MS = 900L
         private const val PROFILE_ALLOWED_DEPARTURE_QUIET_MS = 450L
         private const val DIRECT_DETAILS_LAUNCH_PENDING_MS = 1_200L
         private const val DIRECT_REEL_LAUNCH_PENDING_MS = 1_500L
@@ -62,6 +63,29 @@ class AntiScrollService : AccessibilityService() {
     private var overlayForegroundCheckScheduled = false
     private var instagramExitInProgress = false
     private var instagramExitTreeQuietUntil = 0L
+    private val instagramViewerExitRetry = Runnable {
+        if (!instagramExitInProgress) return@Runnable
+        if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) {
+            cancelInstagramExit()
+            return@Runnable
+        }
+        val root = rootInActiveWindow
+        if (root == null || root.packageName?.toString() != INSTAGRAM_PACKAGE) {
+            cancelInstagramExit()
+            return@Runnable
+        }
+
+        // Instagram can accept GLOBAL_ACTION_BACK without acting on it when the
+        // main pager has just settled from DM/Home onto Reels. Retry once, but
+        // only while current foreground structure still proves a Reel viewer.
+        if (hasFastMainReelsTabDestination(root) ||
+            hasFastReelsViewer(root) || hasFastReelPreview(root)) {
+            Log.d(TAG, "IG_VIEWER_EXIT_RETRY stillVisible=true")
+            exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.REELS)
+        } else {
+            cancelInstagramExit()
+        }
+    }
     private var profileAllowedDepartureUntil = 0L
     private var directDetailsLaunchPendingUntil = 0L
     private var directDetailsFallbackBackAt = 0L
@@ -120,6 +144,10 @@ class AntiScrollService : AccessibilityService() {
             return
         }
         InstagramProtectionMetrics.discardInterruptedSession(this)
+        AccessibilityStreakPolicy.onServiceConnected(this)
+        serviceShutdownNotified = false
+        NotificationHelper.cancelShieldNotification(this, 1002)
+        NotificationHelper.cancelShieldNotification(this, 1003)
 
         val isEn = isEnglish()
         NotificationHelper.showShieldStatusNotification(
@@ -168,6 +196,7 @@ class AntiScrollService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || !AccessibilityConsent.isAccepted(this)) return
+        maybeRecordHeartbeat()
 
         val reportedPackage = event.packageName?.toString()
         // TYPE_WINDOWS_CHANGED for our own accessibility overlays can have the
@@ -199,6 +228,13 @@ class AntiScrollService : AccessibilityService() {
     }
 
     private val scanSchedule = InstagramScanSchedule()
+    private var lastHeartbeatMs = 0L
+    private fun maybeRecordHeartbeat(now: Long = System.currentTimeMillis()) {
+        if (now - lastHeartbeatMs >= 60_000L) {
+            lastHeartbeatMs = now
+            AccessibilityStreakPolicy.recordHeartbeat(this, now)
+        }
+    }
     private var queuedClick: AccessibilityEvent? = null
     private var directNavigationUntil = 0L
     private var directNavigationSourceWindowId = -1
@@ -671,10 +707,20 @@ class AntiScrollService : AccessibilityService() {
             return
         }
         val initialWindowBounds = instagramWindowBounds(root)
+        currentInstagramWindowId = root.windowId
         refreshProtectedNavigationGuards(root, initialWindowBounds)
         if (instagramResumePending) beginInstagramResumeProtection(root)
         if (directReelLaunchPendingUntil != 0L && scanNow >= directReelLaunchPendingUntil) {
             directReelLaunchPendingUntil = 0L
+        }
+        // Home/DM -> Reels can be a horizontal main-pager swipe. That route has
+        // no click intent, can keep the previous Home/DM hierarchy mounted, and
+        // may reuse the same accessibility window. Resolve the selected bottom
+        // tab before the verified-Home hold and settled-DM shortcuts so neither
+        // can pin the old safe surface while Reels is already playing.
+        if (hasFastMainReelsTabDestination(root)) {
+            exitBlockedViewer(root, initialWindowBounds, InstagramScreen.REELS)
+            return
         }
         if (lastInstagramScreen == InstagramScreen.DIRECT_MESSAGES) {
             val newlyArmed = prearmDirectConversationSurface(root, scanNow)
@@ -705,7 +751,6 @@ class AntiScrollService : AccessibilityService() {
                 return
             }
         }
-        currentInstagramWindowId = root.windowId
         // A structurally complete, full-width inbox is safe to recognize from
         // any previous screen. Doing this before the absent-player/header
         // probes removes the 300-500 ms scan which used to remain queued after
@@ -868,7 +913,7 @@ class AntiScrollService : AccessibilityService() {
         // profile-context requirement: the menu screens classify as UNKNOWN/HOME_FEED
         // along the way, so lastInstagramScreen cannot be trusted here.
         if (InstagramProfileSurfacePolicy.isBlockedCollectionTitle(signals.titles)) {
-            Log.d(TAG, "IG_BLOCKED_COLLECTION_EXIT titles=${signals.titles}")
+            Log.d(TAG, "IG_BLOCKED_COLLECTION_EXIT")
             exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL)
             return
         }
@@ -1126,6 +1171,26 @@ class AntiScrollService : AccessibilityService() {
             homeHostVisible = homeHostVisible,
             backVisible = visible("action_bar_button_back"),
             directLaunchPending = directLaunchPending
+        )
+    }
+
+    private fun hasFastMainReelsTabDestination(root: AccessibilityNodeInfo): Boolean {
+        fun selected(id: String): Boolean = root.findAccessibilityNodeInfosByViewId(
+            "$INSTAGRAM_PACKAGE:id/$id"
+        ).any { it.isVisibleToUser && isSelectedRecursive(it, 2) }
+        fun visible(id: String): Boolean = root.findAccessibilityNodeInfosByViewId(
+            "$INSTAGRAM_PACKAGE:id/$id"
+        ).any { it.isVisibleToUser }
+
+        val reelsSelected = selected("clips_tab")
+        if (!reelsSelected) return false
+        val anotherMainTabSelected = listOf(
+            "feed_tab", "direct_tab", "search_tab", "profile_tab"
+        ).any(::selected)
+        return InstagramEntryPolicy.isMainReelsTabDestination(
+            reelsSelected = true,
+            anotherMainTabSelected = anotherMainTabSelected,
+            hasBackNavigation = visible("action_bar_button_back")
         )
     }
 
@@ -1904,6 +1969,11 @@ class AntiScrollService : AccessibilityService() {
         if (newViewerEncounter) {
             instagramExitInProgress = true
             Log.d(TAG, "IG_VIEWER screen=$screen detected scanMs=${now - lastInstagramScanTime}")
+            if (screen == InstagramScreen.REELS) {
+                mainHandler.removeCallbacks(instagramViewerExitRetry)
+                mainHandler.postDelayed(
+                    instagramViewerExitRetry, INSTAGRAM_VIEWER_EXIT_RETRY_MS)
+            }
         }
         if (exitGate.requestBack(now)) {
             // Prefer the viewer's own Back control when present. Never click a tab
@@ -2142,6 +2212,7 @@ class AntiScrollService : AccessibilityService() {
                 else maybeSnapBackFromBlockedTopTab()
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> maybeSnapBackFromBlockedTopTab()
+            else -> Unit
         }
     }
 
@@ -2652,6 +2723,8 @@ class AntiScrollService : AccessibilityService() {
             .putInt("streak_days", streakDays)
             .putString("last_active_day", currentDate)
             .putString("recent_shield_logs", updatedLogs)
+            .putLong(AccessibilityStreakPolicy.KEY_LAST_ACCESSIBILITY_HEARTBEAT_MS, now)
+            .remove(AccessibilityStreakPolicy.KEY_ACCESSIBILITY_DISABLED_SINCE_MS)
             .apply()
 
         // This remains a no-op unless the user explicitly enabled telemetry.
@@ -2926,6 +2999,7 @@ class AntiScrollService : AccessibilityService() {
         if (!instagramExitInProgress) return
         instagramExitInProgress = false
         instagramExitTreeQuietUntil = 0L
+        mainHandler.removeCallbacks(instagramViewerExitRetry)
     }
 
     private fun logSlowInstagramStage(stage: String, started: Long) {
@@ -3083,6 +3157,7 @@ class AntiScrollService : AccessibilityService() {
         instagramEntryTargets.clear()
         lastDirectConversationGuards.clear()
         cancelInstagramExit()
+        mainHandler.removeCallbacks(instagramViewerExitRetry)
         mainHandler.removeCallbacks(instagramScan)
         mainHandler.removeCallbacks(instagramResumeRescan)
         mainHandler.removeCallbacks(overlayForegroundCheck)
@@ -3183,29 +3258,34 @@ class AntiScrollService : AccessibilityService() {
         return prefs.getString("app_language", null) == "en"
     }
 
+    private var serviceShutdownNotified = false
+
     override fun onUnbind(intent: Intent?): Boolean {
         hideInstagramProtection()
-        val isEn = isEnglish()
-        NotificationHelper.showShieldStatusNotification(
-            this,
-            if (isEn) "Protection disabled" else "Koruma devre dışı",
-            if (isEn) "Enable the accessibility service to resume protection." else "Korumayı sürdürmek için erişilebilirlik servisini yeniden etkinleştirin.",
-            1002
-        )
+        AccessibilityStreakPolicy.onServiceDisconnected(this)
+        notifyProtectionDisabled()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         hideInstagramProtection()
+        AccessibilityStreakPolicy.onServiceDisconnected(this)
         mainHandler.removeCallbacksAndMessages(null)
+        notifyProtectionDisabled()
+        super.onDestroy()
+    }
+
+    private fun notifyProtectionDisabled() {
+        if (serviceShutdownNotified) return
+        serviceShutdownNotified = true
         val isEn = isEnglish()
         NotificationHelper.showShieldStatusNotification(
             this,
-            if (isEn) "Protection stopped" else "Koruma durduruldu",
-            if (isEn) "Check the accessibility service status in Settings." else "Ayarlar'dan erişilebilirlik servisi durumunu kontrol edin.",
-            1003
+            if (isEn) "Protection is not running" else "Koruma çalışmıyor",
+            if (isEn) "Protection is disabled. If not re-enabled, your daily streak will reset in 24 hours."
+            else "Koruma devre dışı bırakıldı. Eğer açmazsanız mevcut seriniz 24 saat sonra sıfırlanacak.",
+            1002
         )
-        super.onDestroy()
     }
 
     override fun onInterrupt() {

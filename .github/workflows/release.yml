@@ -47,9 +47,10 @@ jobs:
         run: chmod +x gradlew || true
 
       - name: Decode Keystore
+        shell: bash
         run: |
           test -n "$KEYSTORE_BASE64"
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
@@ -87,3 +88,8 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove decoded signing key
+        if: always()
+        shell: bash
+        run: rm -f app/release.keystore

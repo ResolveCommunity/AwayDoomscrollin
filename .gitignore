@@ -12,6 +12,7 @@ app/build/
 
 # Gradle cache
 .gradle/
+.android/
 .tmp/
 gradle.properties.bak
 

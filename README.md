@@ -111,7 +111,7 @@ AwayDoomscrollin' believes in radical transparency regarding permissions and net
 2. **Internet Permission (`android.permission.INTERNET`)**:
    - The manifest declares `INTERNET` access for one optional purpose:
      - **Optional Usage Data (v2 only)**: Disabled by default. The switch opens a separate detailed confirmation before the first report; cancelling creates no telemetry UUID or request. If enabled, it transmits a random installation ID; aggregate intervention counts and measured Instagram protection time; device model and screen metrics; and Android, AwayDoomscrollin', Instagram, TikTok and YouTube version information with a 24-hour attempt limit. Streak and XP are not transmitted. No personal identifiers (IMEI, MAC, Android ID, Ad ID) are accessed.
-   - Detection rules are bundled with the app; no automatic rule-download request is made.
+   - Core protection and detection logic run entirely on-device; internet access is never used for protection decisions.
 3. **No Third-Party Trackers**:
    - The current Android app does not include commercial advertising, Google Analytics, Firebase, or third-party tracking SDKs.
    - Read our complete [Privacy Policy](https://awaydoomscrollin.com/privacy).

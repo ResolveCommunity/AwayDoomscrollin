@@ -41,13 +41,31 @@ class PlayReleasePolicyTest {
 
     @Test
     fun `localized Play titles and short descriptions fit Console limits`() {
+        val buildScript = repoFile("app/build.gradle.kts").readText()
+        val versionCode = requireNotNull(
+            Regex("versionCode\\s*=\\s*(\\d+)").find(buildScript)?.groupValues?.get(1)
+        )
         listOf("en-US", "tr-TR").forEach { locale ->
             val title = repoFile("fastlane/metadata/android/$locale/title.txt").readText().trim()
             val shortDescription = repoFile("fastlane/metadata/android/$locale/short_description.txt").readText().trim()
-            val releaseNotes = repoFile("fastlane/metadata/android/$locale/changelogs/7.txt").readText().trim()
+            val releaseNotes = repoFile("fastlane/metadata/android/$locale/changelogs/$versionCode.txt").readText().trim()
             assertTrue("$locale title is longer than 30 characters", title.length <= 30)
             assertTrue("$locale short description is longer than 80 characters", shortDescription.length <= 80)
             assertTrue("$locale release notes are longer than 500 characters", releaseNotes.length <= 500)
+        }
+    }
+
+    @Test
+    fun `each Play locale includes at least two supported phone screenshots`() {
+        listOf("en-US", "tr-TR").forEach { locale ->
+            val imagesDirectory = requireNotNull(
+                repoFile("fastlane/metadata/android/$locale/images/icon.png").parentFile
+            )
+            val directory = imagesDirectory.resolve("phoneScreenshots")
+            val screenshots = directory.listFiles().orEmpty().filter { file ->
+                file.isFile && file.extension.lowercase() in setOf("png", "jpg", "jpeg")
+            }
+            assertTrue("$locale needs at least two PNG or JPEG phone screenshots", screenshots.size >= 2)
         }
     }
 
@@ -90,10 +108,10 @@ class PlayReleasePolicyTest {
         ).readText()
 
         assertTrue(
-            source.contains("AccessibilityDisclosureCard(isEn = isEn)")
+            source.contains("accessibilityDisclosureText(isEn)")
         )
         assertTrue(source.contains("Kabul et ve ayarları aç"))
-        assertTrue(source.contains("Şimdi değil — koruma kapalı kalsın"))
+        assertTrue(source.contains("İzin vermeden devam et"))
         assertTrue(source.contains("AccessibilityConsentDialog("))
         assertTrue(source.contains("onActivateClick = onRequestAccessibility"))
         assertTrue(source.contains("onClick = onRequestAccessibility"))
@@ -120,6 +138,17 @@ class PlayReleasePolicyTest {
             "app/src/main/res/xml/accessibility_service_config.xml"
         ).readText()
         assertTrue(serviceConfig.contains("android:isAccessibilityTool=\"false\""))
+    }
+
+    @Test
+    fun `release does not request direct battery optimization exemption`() {
+        val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
+        val source = repoFile(
+            "app/src/main/java/com/resolvecommunity/awaydoomscrollin/MainActivity.kt"
+        ).readText()
+
+        assertFalse(manifest.contains("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
+        assertFalse(source.contains("ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
     }
 
     @Test
@@ -197,7 +226,7 @@ class PlayReleasePolicyTest {
         ).readText()
 
         assertFalse(source.contains("Instagram akışı ve Reels"))
-        assertTrue(source.contains("Bugün \$todayInterventions engelleme"))
+        assertTrue(source.contains("\$todayInterventions engelleme"))
         assertTrue(source.contains("todayInstagramBlocks"))
         assertTrue(source.contains("todayTiktokBlocks"))
         assertTrue(source.contains("todayYoutubeBlocks"))

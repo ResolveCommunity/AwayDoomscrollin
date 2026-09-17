@@ -53,6 +53,14 @@ class InstagramSurfacePolicyTest {
         assertFalse(gate.requestBack())
     }
 
+    @Test fun stuckReelsViewerAllowsOneFailsafeBackAfterCooldown() {
+        val gate = InstagramExitGate()
+        assertTrue(gate.requestBack(100L))
+        assertFalse(gate.requestBack(899L))
+        assertTrue(gate.requestBack(900L))
+        assertFalse(gate.requestBack(901L))
+    }
+
     @Test fun autonomousPlayerMutationKeepsAnAlreadyProtectedHome() {
         assertTrue(InstagramSurfacePolicy.shouldKeepVerifiedHome(
             InstagramScreen.HOME_FEED,

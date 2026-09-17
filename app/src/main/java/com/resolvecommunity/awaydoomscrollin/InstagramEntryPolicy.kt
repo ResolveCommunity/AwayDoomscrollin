@@ -34,6 +34,18 @@ internal object InstagramEntryPolicy {
             it in setOf("home", "ana sayfa", "feed", "akış")
         })
 
+    /**
+     * A horizontal main-pager swipe does not emit the click intent used by the
+     * regular entry guards. Treat an exclusively selected bottom Reels tab as
+     * an entered main Reels destination, while excluding viewers/sheets which
+     * merely retain that tab underneath their own Back navigation.
+     */
+    fun isMainReelsTabDestination(
+        reelsSelected: Boolean,
+        anotherMainTabSelected: Boolean,
+        hasBackNavigation: Boolean
+    ): Boolean = reelsSelected && !anotherMainTabSelected && !hasBackNavigation
+
     fun isDirectReelIntent(
         ancestryIds: Set<String>,
         ancestryLabels: Set<String>,

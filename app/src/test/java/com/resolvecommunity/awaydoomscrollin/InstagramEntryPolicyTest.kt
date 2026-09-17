@@ -84,6 +84,26 @@ class InstagramEntryPolicyTest {
     @Test fun mainReelsTabIsBlockedEvenIfClickableFlagIsOnItsParent() {
         assertTrue(InstagramEntryPolicy.isEntry("clips_tab", false, ""))
     }
+    @Test fun horizontalMainPagerArrivalAtReelsIsBlockedWithoutAClick() {
+        assertTrue(InstagramEntryPolicy.isMainReelsTabDestination(
+            reelsSelected = true,
+            anotherMainTabSelected = false,
+            hasBackNavigation = false))
+    }
+    @Test fun transientOrUnderlyingReelsSelectionDoesNotOverrideItsForegroundSurface() {
+        assertFalse(InstagramEntryPolicy.isMainReelsTabDestination(
+            reelsSelected = true,
+            anotherMainTabSelected = true,
+            hasBackNavigation = false))
+        assertFalse(InstagramEntryPolicy.isMainReelsTabDestination(
+            reelsSelected = true,
+            anotherMainTabSelected = false,
+            hasBackNavigation = true))
+        assertFalse(InstagramEntryPolicy.isMainReelsTabDestination(
+            reelsSelected = false,
+            anotherMainTabSelected = false,
+            hasBackNavigation = false))
+    }
     @Test fun explicitClickableReelsThumbnailIsBlocked() {
         assertTrue(InstagramEntryPolicy.isEntry("clips_grid_item", true, ""))
         assertTrue(InstagramEntryPolicy.isEntry("clips_thumbnail", true, ""))

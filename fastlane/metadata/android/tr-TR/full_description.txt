@@ -14,6 +14,6 @@ Gizlilik ve ağ şeffaflığı:
 • Android manifestinde INTERNET izni vardır. Ekran içeriği analizi ve engelleme cihaz üzerinde çalışır; ancak uygulama tamamen çevrimdışı değildir.
 • İsteğe bağlı kullanım verisi paylaşımı varsayılan olarak kapalıdır. Ayrıntılı açıklamayı okuyup “Paylaşımı aç” seçeneğini onaylayana kadar telemetri isteği yapılmaz ve telemetri kurulum UUID'si oluşturulmaz.
 • Telemetri açıkken v2 protokol ve rapor kimlikleri; rastgele kurulum UUID'si; cihaz modeli, Android ve ekran bilgileri; AwayDoomscrollin', Instagram, TikTok ve YouTube sürümleri; toplam ve uygulama bazında müdahale sayıları; Instagram perde süresi ve ölçüm sürümü awaydoomscrollin.com adresine gönderilir. Seri günleri ve XP gönderilmez. Açık rıza, ilk denemeyi hemen başlatabilir; bundan sonraki otomatik denemeler kalıcı tek bir 24 saatlik aralığı paylaşır. Telemetriyi kapatmak yeni gönderimleri durdurur; başlamış bir istek tamamlanabilir. Son sunucu kaydı en geç 90 gün içinde silinir; sunucu ham UUID yerine SHA-256 kurulum anahtarı saklar.
-• Algılama kuralları uygulamayla birlikte gelir. Uygulama otomatik kural indirme isteği yapmaz.
+• Algılama ve koruma kararları tamamen cihazınızda yerel olarak verilir; internet bağlantısı koruma kararları için kullanılmaz.
 
 AwayDoomscrollin' bağımsız bir projedir; Meta, ByteDance, Google, Instagram, TikTok veya YouTube ile bağlantılı değildir ve bu kuruluşlar tarafından desteklenmez ya da onaylanmaz. Marka adları yalnızca uyumluluğu açıklamak için kullanılır.

@@ -14,6 +14,6 @@ Privacy and network transparency:
 • The Android manifest declares INTERNET permission. Screen-content analysis and blocking run on-device, but the app is not fully offline.
 • Optional usage-data sharing is off by default. No telemetry request is made and no telemetry installation UUID is created until you read the detailed disclosure and confirm “Turn on sharing.”
 • While enabled, telemetry sends v2 protocol/report identifiers, a random installation UUID, device model, Android and screen information, AwayDoomscrollin', Instagram, TikTok and YouTube versions, total and per-app intervention counts, and accumulated Instagram protection time with its measurement version to awaydoomscrollin.com. Local streak days and XP are not sent. Explicit opt-in may trigger one immediate attempt, later automatic attempts share one persisted 24-hour interval, and turning telemetry off stops new submissions, though an in-flight request may finish. The latest server snapshot expires within 90 days, and the server stores a SHA-256 installation key rather than the raw UUID.
-• Detection rules are bundled with the app. The app does not make automatic rule-download requests.
+• Detection and protection logic runs entirely on-device; internet access is never used for protection decisions.
 
 AwayDoomscrollin' is an independent project. It is not affiliated with, sponsored by, or endorsed by Meta, ByteDance, Google, Instagram, TikTok, or YouTube. Their names are used only to describe compatibility.

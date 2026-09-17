@@ -30,6 +30,9 @@ jobs:
         run: |
           [[ "$RELEASE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           test "$(git describe --tags --exact-match)" = "$RELEASE_REF"
+          version_name="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*$/\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$version_name"
+          test "$RELEASE_REF" = "v$version_name"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -50,12 +53,15 @@ jobs:
           test "$(awk '{ print length }' fastlane/metadata/android/tr-TR/title.txt)" -le 30
           test "$(awk '{ print length }' fastlane/metadata/android/en-US/short_description.txt)" -le 80
           test "$(awk '{ print length }' fastlane/metadata/android/tr-TR/short_description.txt)" -le 80
-          test "$(wc -m < fastlane/metadata/android/en-US/changelogs/7.txt)" -le 500
-          test "$(wc -m < fastlane/metadata/android/tr-TR/changelogs/7.txt)" -le 500
+          version_code="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*$/\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$version_code"
           for locale in en-US tr-TR; do
+            changelog="fastlane/metadata/android/$locale/changelogs/$version_code.txt"
+            test -f "$changelog"
+            test "$(wc -m < "$changelog")" -le 500
             test -f "fastlane/metadata/android/$locale/images/icon.png"
             test -f "fastlane/metadata/android/$locale/images/featureGraphic.png"
-            count="$(find "fastlane/metadata/android/$locale/images/phoneScreenshots" -maxdepth 1 -type f -name '*.png' 2>/dev/null | wc -l)"
+            count="$(find "fastlane/metadata/android/$locale/images/phoneScreenshots" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) 2>/dev/null | wc -l)"
             test "$count" -ge 2
           done
 
@@ -89,3 +95,8 @@ jobs:
           path: play_output/AwayDoomscrollin-${{ env.RELEASE_REF }}-play.aab
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove decoded signing key
+        if: always()
+        shell: bash
+        run: rm -f app/play-upload.keystore

@@ -69,4 +69,12 @@ object NotificationHelper {
         }
     }
 
+    fun cancelShieldNotification(context: Context, notificationId: Int) {
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            notificationManager?.cancel(notificationId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Notification cancel error", e)
+        }
+    }
 }
