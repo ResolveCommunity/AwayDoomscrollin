@@ -3447,8 +3447,25 @@ fun MainNavigationDashboard(
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(160)) togetherWith
-                        fadeOut(animationSpec = tween(120))
+                    if (targetState > initialState) {
+                        (slideInHorizontally(
+                            animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() }
+                        ) + fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing))) togetherWith
+                        (slideOutHorizontally(
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                            targetOffsetX = { fullWidth -> (-fullWidth * 0.12f).toInt() }
+                        ) + fadeOut(animationSpec = tween(160)))
+                    } else {
+                        (slideInHorizontally(
+                            animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> (-fullWidth * 0.12f).toInt() }
+                        ) + fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing))) togetherWith
+                        (slideOutHorizontally(
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                            targetOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() }
+                        ) + fadeOut(animationSpec = tween(160)))
+                    }
                 },
                 label = "TabSwitchAnimation"
             ) { tab ->
