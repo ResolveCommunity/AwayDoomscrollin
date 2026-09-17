@@ -3707,7 +3707,8 @@ fun BorderlessPeakHourRow(
     if (peakHour.first >= 0 && peakHour.second >= 1) {
         val h = peakHour.first
         val cnt = peakHour.second
-        val timeRange = "${h.toString().padStart(2, '0')}:00 - ${(h + 1).toString().padStart(2, '0')}:00"
+        val endHour = (h + 1) % 24
+        val timeRange = "${h.toString().padStart(2, '0')}:00 - ${endHour.toString().padStart(2, '0')}:00"
 
         Row(
             modifier = Modifier
