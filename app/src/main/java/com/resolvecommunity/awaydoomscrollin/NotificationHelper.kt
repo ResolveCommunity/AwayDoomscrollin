@@ -14,7 +14,40 @@ object NotificationHelper {
     // The id therefore carries the version and language flag so updates get a
     // freshly configured channel instead of keeping the previous settings.
     fun statusChannelId(isEnglish: Boolean) =
-        if (isEnglish) "shield_status_v3_en" else "shield_status_v3_tr"
+        if (isEnglish) "shield_status_v4_en" else "shield_status_v4_tr"
+
+    /**
+     * Directly triggers hardware vibration to ensure physical feedback regardless
+     * of OEM-specific notification channel silence heuristics (such as EMUI/MagicOS).
+     */
+    private fun vibrateDevice(context: Context) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                val vibrator = vibratorManager?.defaultVibrator
+                if (vibrator?.hasVibrator() == true) {
+                    vibrator.vibrate(
+                        android.os.VibrationEffect.createWaveform(VIBRATION_PATTERN, -1)
+                    )
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                if (vibrator?.hasVibrator() == true) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(
+                            android.os.VibrationEffect.createWaveform(VIBRATION_PATTERN, -1)
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(VIBRATION_PATTERN, -1)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Hardware vibration trigger failed", e)
+        }
+    }
 
     fun showShieldStatusNotification(
         context: Context,
@@ -44,10 +77,12 @@ object NotificationHelper {
             }
             notificationManager.createNotificationChannel(channel)
 
-            // Remove legacy silent channels if present to keep system settings clean
+            // Remove legacy channels if present to keep system settings clean
             runCatching {
                 notificationManager.deleteNotificationChannel("shield_status_silent_v2_en")
                 notificationManager.deleteNotificationChannel("shield_status_silent_v2_tr")
+                notificationManager.deleteNotificationChannel("shield_status_v3_en")
+                notificationManager.deleteNotificationChannel("shield_status_v3_tr")
             }
 
             val intent = Intent(context, MainActivity::class.java).apply {
@@ -59,7 +94,7 @@ object NotificationHelper {
             )
 
             val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_tier_seed)
+                .setSmallIcon(R.drawable.ic_leaf)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(message))
@@ -73,6 +108,7 @@ object NotificationHelper {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                 androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 notificationManager.notify(notificationId, builder.build())
+                vibrateDevice(context)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Notification posting error", e)
