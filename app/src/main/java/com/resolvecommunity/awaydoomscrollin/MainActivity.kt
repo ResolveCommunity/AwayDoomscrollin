@@ -3125,22 +3125,34 @@ fun AboutScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF00F2FE).copy(alpha = 0.15f),
+                            modifier = Modifier.size(36.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_handshake),
-                                contentDescription = null,
-                                tint = Color(0xFF00F2FE),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_handshake),
+                                    contentDescription = null,
+                                    tint = Color(0xFF00F2FE),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (isEn) "Help improve protection" else "Korumayı geliştirmemize yardımcı olun",
-                                fontSize = 13.sp,
+                                fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
+                            )
+                            Text(
+                                text = if (isEn) "Anonymous compatibility telemetry" else "Anonim uyumluluk telemetrisi",
+                                fontSize = 10.5.sp,
+                                color = Color.White.copy(alpha = 0.6f),
+                                lineHeight = 13.5.sp,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
@@ -3170,7 +3182,7 @@ fun AboutScreen(
                         fontSize = 11.5.sp,
                         color = Color.White.copy(alpha = 0.68f),
                         lineHeight = 16.sp,
-                        modifier = Modifier.padding(top = 6.dp)
+                        modifier = Modifier.padding(top = 10.dp)
                     )
 
                     Text(
