@@ -516,7 +516,8 @@ fun OnboardingScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color(0xFF0D1117)
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Text(
                         text = if (step == 5)
@@ -530,8 +531,9 @@ fun OnboardingScreen(
                         else 
                             (if (isEn) "Next →" else "Devam et →"),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        fontSize = if (step == 5 && !isAccessibilityActive) 12.5.sp else 14.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
