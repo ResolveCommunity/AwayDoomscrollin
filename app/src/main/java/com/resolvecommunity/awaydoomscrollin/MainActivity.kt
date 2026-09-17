@@ -1806,6 +1806,41 @@ fun OnboardingStepFivePermissions(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF00F2FE).copy(alpha = 0.08f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00F2FE).copy(alpha = 0.25f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val guideUrl = if (isEn) "https://awaydoomscrollin.com/en/guide" else "https://awaydoomscrollin.com/tr/rehber"
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guideUrl)))
+                                } catch (_: Exception) {}
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_link_external),
+                                contentDescription = null,
+                                tint = Color(0xFF00F2FE),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = if (isEn) "Restricted setting or need help? Open web guide" else "Kısıtlanmış ayar veya takıldınız mı? Resimli rehberi açın",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00F2FE)
+                            )
+                        }
+                    }
                 }
             }
         }
