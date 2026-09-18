@@ -24,7 +24,7 @@ AutoName: AwayDoomscrollin'
 
 RepoType: git
 Repo: https://github.com/resolvecommunity/AwayDoomscrollin.git
-Binaries:
+Binaries: 
   https://github.com/ResolveCommunity/AwayDoomscrollin/releases/download/v%v/AwayDoomscrollin-v%v.apk
 
 Builds:
