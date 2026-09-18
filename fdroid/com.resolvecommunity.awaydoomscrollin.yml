@@ -41,6 +41,7 @@ Builds:
     subdir: app
     gradle:
       - yes
+    prebuild: sed -i 's/it.name == "packageRelease" || //' build.gradle.kts
 
 AllowedAPKSigningKeys: c59c79a593d1e026f92f5ab264626dfc0799046df6b7ee83b254863db8ab8716
 
