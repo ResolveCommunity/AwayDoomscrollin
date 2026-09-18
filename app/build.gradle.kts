@@ -99,7 +99,7 @@ android {
             }
         }
     }
-    tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }
+    tasks.matching { it.name == "packageReleaseBundle" }
         .configureEach {
             dependsOn(verifyReleaseSigningInputs)
         }
