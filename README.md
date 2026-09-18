@@ -21,6 +21,10 @@
   <img src="https://img.shields.io/badge/Telemetry-Explicit%20Opt--In-00F2FE.svg" alt="Explicit Opt-In Telemetry"/>
 </p>
 
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/featureGraphic.png" alt="AwayDoomscrollin' — Break the loop, keep what matters" width="640"/>
+</p>
+
 ---
 
 ## 🎯 What is it?
