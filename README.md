@@ -154,8 +154,11 @@ We welcome community contributions, bug reports, and rule improvements! Please r
 
 ## 📄 License
 
-Distributed under the **GNU General Public License v3.0** (GPLv3).  
-See the [LICENSE](LICENSE) file for details.
+Copyright (C) 2026 Resolve Community
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3 of the License (**GPL-3.0-only**).
+
+See the [LICENSE](LICENSE) file for the full text of the license.
 
 <p align="center">
   Crafted with care by <a href="https://resolvecommunity.com">Resolve Community</a>

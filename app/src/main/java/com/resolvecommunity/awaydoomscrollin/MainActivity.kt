@@ -2029,9 +2029,9 @@ fun OnboardingStepFivePermissions(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (isEn) 
-                        "By continuing, you agree to our terms. Optional usage data is sent only when you enable it; personal data is never sold." 
+                        "The app is licensed under GPL-3.0. Online service terms apply only if you use optional online features (telemetry/feedback). Personal data is never sold." 
                     else 
-                        "Devam ederek kullanım şartlarını kabul edersiniz. İsteğe bağlı kullanım verileri yalnızca siz açarsanız gönderilir; kişisel veriler satılmaz.",
+                        "Uygulama GPL-3.0 ile lisanslanmıştır. Kullanım koşulları yalnızca isteğe bağlı çevrim içi hizmetleri (telemetri/geri bildirim) kullandığınızda geçerlidir. Kişisel veriler satılmaz.",
                     fontSize = 10.5.sp,
                     color = Color.White.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,

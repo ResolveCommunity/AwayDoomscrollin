@@ -11,7 +11,6 @@ AntiFeatures:
       failed attempts. Opting out stops future submissions; an in-flight request may
       finish, and the latest server snapshot expires within 90 days.
 Categories:
-  - Security
   - System
 License: GPL-3.0-only
 AuthorName: Resolve Community
@@ -28,13 +27,6 @@ Binaries:
   https://github.com/ResolveCommunity/AwayDoomscrollin/releases/download/v%v/AwayDoomscrollin-v%v.apk
 
 Builds:
-  - versionName: 1.1.0
-    versionCode: 6
-    commit: 6614c8045d43e31d5ccc239d7e8aa29ef800d92a
-    subdir: app
-    gradle:
-      - yes
-
   - versionName: 1.2.0
     versionCode: 8
     commit: 781038a2a09997acb056efa1aa759373f59a9e6e
