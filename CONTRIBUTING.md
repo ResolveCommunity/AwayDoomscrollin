@@ -17,7 +17,7 @@ Thank you for your interest in contributing! Here's how to get started.
 
 All three platform integrations are beta. Reports of missed detections, false positives, or safe-area misclassification are especially useful. Do not include private messages, passwords, screen contents, telemetry installation UUIDs, API keys, or other secrets in reports.
 
-For network-behavior reports, keep the two paths distinct: telemetry to `awaydoomscrollin.com` is off by default and requires explicit opt-in, while GitHub rule/configuration requests run automatically even when telemetry is off and currently have no separate switch.
+For network-behavior reports, note that the Android app's only automatic server-data path is optional pseudonymous telemetry to `awaydoomscrollin.com`. It is disabled by default and requires explicit opt-in. Protection rules ship inside the APK; the app does not automatically download GitHub JSON or remote rules. Opening website, privacy, terms, or GitHub links is a separate user-initiated browser action.
 
 ## 💡 Suggesting Features
 
@@ -35,7 +35,7 @@ Open an issue with the `enhancement` label and describe:
 5. Test on a real device (Samsung One UI preferred)
 6. Submit your pull request with a clear description
 
-Changes to telemetry, remote rules, permissions, retention, destinations, or collected fields must update `README.md`, `PRIVACY.md`, `SECURITY.md`, the in-app disclosure, Fastlane descriptions, and F-Droid AntiFeature text in the same release.
+Changes to telemetry, protection behavior, permissions, retention, destinations, or collected fields must update `README.md`, `PRIVACY.md`, `SECURITY.md`, the in-app disclosure, Fastlane descriptions, and F-Droid AntiFeature text in the same release.
 
 ## 📋 Code Style
 
@@ -45,4 +45,4 @@ Changes to telemetry, remote rules, permissions, retention, destinations, or col
 
 ## ⚖️ License
 
-By contributing, you agree that your contributions will be licensed under the **GPLv3** license.
+By contributing, you agree that your contributions will be licensed under the **GPL-3.0-only** license.

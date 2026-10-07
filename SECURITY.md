@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| Latest (main branch) | ✅ |
+| Latest stable release | ✅ |
+| Current `main` branch | ✅ |
 | Older releases | ❌ |
 
 ## Reporting a Vulnerability

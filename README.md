@@ -14,10 +14,9 @@
   <a href="https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest"><img src="https://img.shields.io/github/v/release/ResolveCommunity/AwayDoomscrollin?label=release" alt="Latest release"/></a>
   <a href="https://www.bestpractices.dev/projects/14458"><img src="https://www.bestpractices.dev/projects/14458/badge" alt="OpenSSF Best Practices"/></a>
   <a href="https://github.com/ResolveCommunity/AwayDoomscrollin/actions/workflows/codeql.yml"><img src="https://github.com/ResolveCommunity/AwayDoomscrollin/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Analysis"/></a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-brightgreen.svg" alt="License: GPL v3"/></a>
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPL--3.0--only-brightgreen.svg" alt="License: GPL-3.0-only"/></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-blue.svg" alt="Android 8.0+"/></a>
   <img src="https://img.shields.io/badge/Status-Public%20Beta-FFB000.svg" alt="Public Beta"/>
-  <a href="https://www.virustotal.com/gui/file/e2f85493d47f12a64bc8c3877440adf8f9190641aba512dfa5fb08a553842b99"><img src="https://img.shields.io/badge/VirusTotal-0%2F70%20Clean-success.svg" alt="VirusTotal 0/70 Clean"/></a>
   <img src="https://img.shields.io/badge/Telemetry-Explicit%20Opt--In-00F2FE.svg" alt="Explicit Opt-In Telemetry"/>
 </p>
 
@@ -37,7 +36,7 @@ Unlike screen-time limiters that impose minute budgets or daily quotas, AwayDoom
 - **Keeps socializing available**: Instagram messaging, profile information, Stories and Search, TikTok inbox/DMs/profile/search/comments, and normal YouTube videos stay usable.
 - **No time limits, no quotas, no lockouts**: nothing counts your minutes or locks the app. Protected media grids (including menu collections like Saved, Likes and Reposts) are exited on entry instead.
 
-Everything runs on-device using Android's native **Accessibility Service** (`canRetrieveWindowContent`). It evaluates view routes in memory to identify distraction feeds without capturing screenshots, logging keystrokes, or exfiltrating private personal data.
+Core detection and protection run on-device using Android's native **Accessibility Service** (`canRetrieveWindowContent`). The app evaluates view routes in memory without capturing screenshots, logging keystrokes, or adding inspected screen content to network payloads. Optional pseudonymous telemetry is disabled by default and requires explicit opt-in.
 
 ---
 
@@ -48,7 +47,7 @@ Everything runs on-device using Android's native **Accessibility Service** (`can
 | ⚡ **Behavior-Based Shield** | No minute budgets or daily quotas. Instagram Home/Explore are covered in place and Reels are exited; TikTok and YouTube Shorts chains are interrupted on the first swipe toward the next video. |
 | 🎬 **Single Videos Stay Watchable** | A deliberately opened Short or TikTok video can be watched to its end — the endless chain is what gets closed, not the content itself. |
 | 💬 **Social Safe Zones** | Instagram DMs/Stories/profile/Search, TikTok inbox/DMs/profile/search/comments and normal YouTube videos remain usable while protected media is interrupted. |
-| 🧭 **Focused Intervention** | Instagram profile chrome (menu, banner editor, Threads shortcut, highlight picker) is released on tap so allowed surfaces never draw under the shield. Routine blocks are silent. |
+| 🧭 **Focused Intervention** | Instagram profile chrome (menu, banner editor, Threads shortcut, highlight picker) is released on tap so the shield is designed not to remain over allowed surfaces. Routine blocks are silent. |
 | 🎨 **Modern Vector UI** | Over 50 custom-crafted scalable Android XML vector icons, edge-to-edge dark theme, bilingual Turkish/English interface with in-app language switch. |
 | 🪶 **Lean Build** | Uses Android and Compose components without advertising or analytics SDKs. |
 | 🛡️ **Privacy-First Core** | Accessibility screen analysis is handled in memory on-device. The app does not record the screen or request key-event filtering. |
@@ -73,17 +72,21 @@ Everything runs on-device using Android's native **Accessibility Service** (`can
 ## 📥 Installation
 
 - **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest).
-- **F-Droid** (planned)
-- **Google Play** (planned)
+- **F-Droid**: Install the published package from the [official F-Droid listing](https://f-droid.org/packages/com.resolvecommunity.awaydoomscrollin/).
+- **Google Play**: Not publicly available yet.
+
+> **GitHub v1.2.0 APK SHA-256:** `0fc9848e1c796d8546c6f2d6750ce599c69691a1489b1f6aee3bb17fd28284af`
+>
+> This checksum applies only to `AwayDoomscrollin-v1.2.0.apk` from the [GitHub v1.2.0 release](https://github.com/ResolveCommunity/AwayDoomscrollin/releases/tag/v1.2.0). F-Droid builds are independently built and have different file hashes.
 
 ### 📖 Sideloading & Android 13+ Setup Guide
 
-When installing an open-source APK with an Accessibility Service directly on **Android 13, 14, 15+** (Samsung One UI, Google Pixel, Xiaomi HyperOS/MIUI, etc.), Android and Google Play Protect require two simple permissions:
+When installing the GitHub APK directly on **Android 13, 14, 15+** (Samsung One UI, Google Pixel, Xiaomi HyperOS/MIUI, etc.), Android may show additional security prompts:
 
 1. **Google Play Protect Warning / Block**:
-   - Because AwayDoomscrollin' provides an Accessibility Service and is installed outside the Play Store, Google Play Protect may flag or block the installation.
-   - If Play Protect offers **"More details"**, tap **"Install anyway"** (*"Yine de yükle"*).
-   - If Play Protect **strictly blocks the APK** with no override button: Open **Google Play Store ➔ tap your Profile icon (top right) ➔ Play Protect ➔ Settings gear (⚙️) ➔ temporarily disable "Scan apps with Play Protect"**, install the APK, and then re-enable it. *(AwayDoomscrollin' is 100% open-source, contains zero third-party trackers or ads, and is verified 0/70 Clean on VirusTotal).*
+   - Keep Play Protect scanning enabled and verify that the APK came from the official GitHub release linked above.
+   - If Android offers **"More details"** and **"Install anyway"** (*"Yine de yükle"*), review the warning and continue only if you trust the source.
+   - If installation remains blocked and no override is offered, do not disable Play Protect. Install the published F-Droid build instead or wait for the Google Play release.
 2. **Restricted Settings ("Kısıtlanmış Ayar")**: Android restricts Accessibility for sideloaded apps by default. If the switch in Accessibility is greyed out:
    - Long-press the **AwayDoomscrollin'** icon on your home screen and tap **App Info (ⓘ)** (or go to *Settings > Apps > AwayDoomscrollin'*).
    - Tap the **three dots (⋮)** in the top-right corner.
