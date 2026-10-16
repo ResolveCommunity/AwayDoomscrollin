@@ -1,19 +1,19 @@
-AwayDoomscrollin', Resolve Community tarafından geliştirilen açık kaynaklı ve gizlilik odaklı bir Android erişilebilirlik uygulamasıdır. Instagram Reels, TikTok ve YouTube Shorts üzerindeki sonsuz kaydırmayı kesmeye çalışır.
+Kaydırma döngüsünü kırın, iletişimden kopmayın. Resolve Community tarafından geliştirilen AwayDoomscrollin', Instagram, TikTok ve YouTube'daki akışları ve kısa video kaydırmasını sınırlayan açık kaynaklı bir Android erişilebilirlik uygulamasıdır. Mesajlaşma, arama ve YouTube'daki uzun videolar açık kalır.
 
-Beta durumu:
-• Instagram Reels, TikTok ve YouTube Shorts algılamalarının tamamı beta özelliktir.
-• Algılama ve güvenli alan ayrımı, üçüncü taraf uygulamaların, Android'in ve cihaz üreticilerinin sunduğu erişilebilirlik bilgilerine bağlıdır. Arayüz değişiklikleri kaçırılan veya hatalı algılamalara yol açabilir; kusursuz algılama ya da her cihazla uyumluluk garantisi verilmez.
+Koruma ve uyumluluk:
+• Koruma, diğer uygulamaların sunduğu erişilebilirlik bilgilerini kullanır. Uygulama, Android veya telefon yazılımındaki değişiklikler algılamayı geciktirebilir; bazı ekranlar algılanmayabilir ya da yanlış algılanabilir. Her cihazda kusursuz çalışma garantisi verilmez.
 
 Özellikler:
-• Akış Kalkanı: Algılanan Instagram Ana Sayfa ve Keşfet medyasını bulunduğu yerde kapatır. Reels veya korunan gönderi ekranı algılandığında Geri eylemi uygular. TikTok ve YouTube Shorts için olay tabanlı koruma kullanılır. Olağan müdahaleler sessizdir.
-• Açık kalan alanlar: Instagram mesajları, profil bilgileri, Hikâyeler ve Arama ile normal YouTube videoları kullanılabilir kalacak şekilde tasarlanmıştır. Profil ve mesaj ayrıntılarındaki medya ızgaraları kısa videolara erişimi önlemek için kapatılabilir.
+• Instagram: İki modda da Ana Sayfa ve Keşfet perdelenir; Reels akış sekmesi engellenir. Mesajlar ve arama açık kalır. Dengeli modda profiller ve profil gönderileri açıktır; seçilen tek bir Reel izlenebilir ve yorumları kullanılabilir. Başka videoya geçildiğinde video ekranından geri dönülür. Hikâyeler ve öne çıkanlar da Dengeli modda açıktır. Sert mod ayrıca profil gönderilerini perdeler; Reels, hikâyeler ve öne çıkanları engeller. Mesaj ayrıntılarındaki paylaşılan medya galerileri de perdelenebilir.
+• YouTube: İki modda da Ana Sayfa ve Abonelikler akışları perdelenir; Shorts akış sekmesi engellenir. Arama sonuçları, kanallar, You sekmesi ve uzun videolar açık kalır. Sert modda tüm Shorts videoları engellenir. Dengeli modda aramadan veya bağlantıdan açılan tek bir Short izlenebilir; başka videoya geçildiğinde video ekranından geri dönülür. Yorumlarda kaydırmak video geçişi sayılmaz.
+• TikTok: Koruma, uygulamayı tamamen kapatmak yerine video akışında kaydırmayı durdurur. TikTok'ta şu an tek koruma seçeneği vardır; Sert ve Dengeli modlar yoktur.
 • Kullanıcı kontrolü: Koruma, uygulamadan veya Android erişilebilirlik ayarlarından kapatılabilir; uygulama, ayarları izlemez ve servisin kapatılmasını engellemez.
-• Seri Takibi: Günlük odak serilerini ve engelleme istatistiklerini yerel olarak takip eder.
+• Analiz: Engelleme sayılarını, günlük koruma serilerini ve Instagram ile YouTube'da ölçülen perde sürelerini görebilirsiniz. Perde süresi, kazanılan zamanın tahmini değildir.
 
 Gizlilik ve ağ şeffaflığı:
 • Android manifestinde INTERNET izni vardır. Ekran içeriği analizi ve engelleme cihaz üzerinde çalışır; ancak uygulama tamamen çevrimdışı değildir.
-• İsteğe bağlı kullanım verisi paylaşımı varsayılan olarak kapalıdır. Ayrıntılı açıklamayı okuyup “Paylaşımı aç” seçeneğini onaylayana kadar telemetri isteği yapılmaz ve telemetri kurulum UUID'si oluşturulmaz.
-• Telemetri açıkken v2 protokol ve rapor kimlikleri; rastgele kurulum UUID'si; cihaz modeli, Android ve ekran bilgileri; AwayDoomscrollin', Instagram, TikTok ve YouTube sürümleri; toplam ve uygulama bazında müdahale sayıları; Instagram perde süresi ve ölçüm sürümü awaydoomscrollin.com adresine gönderilir. Seri günleri ve XP gönderilmez. Açık rıza, ilk denemeyi hemen başlatabilir; bundan sonraki otomatik denemeler kalıcı tek bir 24 saatlik aralığı paylaşır. Telemetriyi kapatmak yeni gönderimleri durdurur; başlamış bir istek tamamlanabilir. Son sunucu kaydı en geç 90 gün içinde silinir; sunucu ham UUID yerine SHA-256 kurulum anahtarı saklar.
+• İsteğe bağlı kullanım verisi paylaşımı varsayılan olarak kapalıdır. Ayrıntılı açıklamayı okuyup “Paylaşmayı kabul et” seçeneğini kullanana kadar telemetri isteği yapılmaz ve telemetri kurulum UUID'si oluşturulmaz. Koruma, paylaşım olmadan da çalışır.
+• Telemetri açıkken v3 protokol ve rapor kimlikleri; rastgele kurulum UUID'si; cihaz modeli, Android ve ekran bilgileri; AwayDoomscrollin', Instagram, TikTok ve YouTube sürümleri; toplam ve uygulama bazında müdahale sayıları; Instagram ve YouTube perdelerinin birikimli görünürlük süreleri ile ölçüm sürümleri awaydoomscrollin.com adresine gönderilir. Seri günleri ve XP gönderilmez. Daha önce v2 paylaşımını açan kullanıcılardan, kapsamı genişleyen v3 özeti gönderilmeden önce yeniden seçim yapmaları istenir. Açık onay ilk denemeyi hemen başlatabilir; sonraki otomatik denemeler kalıcı tek bir 24 saatlik aralığı paylaşır. Telemetriyi kapatmak yeni gönderimleri durdurur; başlamış bir istek tamamlanabilir. Sunucudaki son etkin özet en fazla 90 gün tutulur, şifreli yerel yedekler ayrı bir 14 günlük döngüye tabidir ve sunucu ham UUID yerine SHA-256 kurulum anahtarı saklar.
 • Algılama ve koruma kararları tamamen cihazınızda yerel olarak verilir; internet bağlantısı koruma kararları için kullanılmaz.
 
 AwayDoomscrollin' bağımsız bir projedir; Meta, ByteDance, Google, Instagram, TikTok veya YouTube ile bağlantılı değildir ve bu kuruluşlar tarafından desteklenmez ya da onaylanmaz. Marka adları yalnızca uyumluluğu açıklamak için kullanılır.

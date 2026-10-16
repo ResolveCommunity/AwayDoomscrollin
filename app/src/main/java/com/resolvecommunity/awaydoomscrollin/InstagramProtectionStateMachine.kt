@@ -22,7 +22,11 @@ internal class InstagramProtectionStateMachine {
         private set
     private var revision = 0L
 
-    fun observe(screen: InstagramScreen, windowId: Int): InstagramProtectionDecision {
+    fun observe(screen: InstagramScreen, windowId: Int,
+        allowChosenReel: Boolean = false,
+        allowProfile: Boolean = false,
+        allowChosenProfilePost: Boolean = false,
+        allowUserCollection: Boolean = false): InstagramProtectionDecision {
         if (screen == InstagramScreen.UNKNOWN) {
             return InstagramProtectionDecision(
                 currentScreen, InstagramProtectionAction.KEEP_CURRENT, revision, changed = false)
@@ -31,7 +35,16 @@ internal class InstagramProtectionStateMachine {
         if (changed) revision++
         currentScreen = screen
         currentWindowId = windowId
-        return InstagramProtectionDecision(screen, actionFor(screen), revision, changed)
+        val action = when {
+            screen == InstagramScreen.REELS && allowChosenReel -> InstagramProtectionAction.ALLOW
+            screen == InstagramScreen.PROFILE && allowProfile -> InstagramProtectionAction.ALLOW
+            screen == InstagramScreen.SAVED_COLLECTION && allowUserCollection ->
+                InstagramProtectionAction.ALLOW
+            screen == InstagramScreen.COMMENTS_OR_DETAIL && allowChosenProfilePost ->
+                InstagramProtectionAction.ALLOW
+            else -> actionFor(screen)
+        }
+        return InstagramProtectionDecision(screen, action, revision, changed)
     }
 
     fun leaveInstagram() {
@@ -51,6 +64,8 @@ internal class InstagramProtectionStateMachine {
         InstagramScreen.EXPLORE,
         InstagramScreen.PROFILE,
         InstagramScreen.DIRECT_SHARED_MEDIA -> InstagramProtectionAction.SHOW_CURTAIN
+
+        InstagramScreen.SAVED_COLLECTION -> InstagramProtectionAction.EXIT
 
         InstagramScreen.REELS,
         InstagramScreen.COMMENTS_OR_DETAIL -> InstagramProtectionAction.EXIT

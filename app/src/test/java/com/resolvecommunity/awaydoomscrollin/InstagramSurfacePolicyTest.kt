@@ -4,6 +4,38 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class InstagramSurfacePolicyTest {
+    @Test fun inboxPruningDoesNotSkipChatsOrViewerLayers() {
+        assertTrue(InstagramSurfacePolicy.skipInboxRows("inbox_refreshable_thread_list_recyclerview"))
+        for (id in listOf("message_list", "root_clips_layout", "story_viewer_container",
+                "thread_details_pager", "tab_bar", "direct_inbox_action_bar")) {
+            assertFalse(InstagramSurfacePolicy.skipInboxRows(id))
+        }
+    }
+
+    @Test fun feedSnapshotCanYieldOnlyTwiceAndOnlyAfterBudget() {
+        assertFalse(InstagramSurfacePolicy.yieldFeedSnapshot(99, 0))
+        assertTrue(InstagramSurfacePolicy.yieldFeedSnapshot(100, 0))
+        assertTrue(InstagramSurfacePolicy.yieldFeedSnapshot(1000, 1))
+        assertFalse(InstagramSurfacePolicy.yieldFeedSnapshot(1000, 2))
+    }
+
+    @Test fun onlyMeasuredProfilePagerCanSkipMediaDescendants() {
+        assertTrue(InstagramSurfacePolicy.skipProtectedProfileGridChildren("profile_viewpager", true, true))
+        assertFalse(InstagramSurfacePolicy.skipProtectedProfileGridChildren("profile_viewpager", false, true))
+        assertFalse(InstagramSurfacePolicy.skipProtectedProfileGridChildren("profile_viewpager", true, false))
+        for (id in listOf("action_bar", "profile_header_container", "message_list", "clips_view_pager")) {
+            assertFalse(InstagramSurfacePolicy.skipProtectedProfileGridChildren(id, true, true))
+        }
+    }
+
+    @Test fun verifiedAccountSearchReleasesOnlyAnAbsentProfile() {
+        assertTrue(InstagramSurfacePolicy.canReleaseProfileToAccountSearch(true, true, true, false))
+        assertFalse(InstagramSurfacePolicy.canReleaseProfileToAccountSearch(true, true, true, true))
+        assertFalse(InstagramSurfacePolicy.canReleaseProfileToAccountSearch(true, false, true, false))
+        assertFalse(InstagramSurfacePolicy.canReleaseProfileToAccountSearch(true, true, false, false))
+        assertFalse(InstagramSurfacePolicy.canReleaseProfileToAccountSearch(false, true, true, false))
+    }
+
     @Test fun homeExploreAndProfileGridsHaveVisibleCurtains() {
         for (screen in InstagramScreen.entries) {
             assertEquals(screen.name, screen in setOf(
@@ -56,9 +88,9 @@ class InstagramSurfacePolicyTest {
     @Test fun stuckReelsViewerAllowsOneFailsafeBackAfterCooldown() {
         val gate = InstagramExitGate()
         assertTrue(gate.requestBack(100L))
-        assertFalse(gate.requestBack(899L))
-        assertTrue(gate.requestBack(900L))
-        assertFalse(gate.requestBack(901L))
+        assertFalse(gate.requestBack(599L))
+        assertTrue(gate.requestBack(601L))
+        assertFalse(gate.requestBack(602L))
     }
 
     @Test fun autonomousPlayerMutationKeepsAnAlreadyProtectedHome() {

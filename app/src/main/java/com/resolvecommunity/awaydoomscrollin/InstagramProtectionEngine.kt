@@ -9,6 +9,7 @@ internal enum class InstagramScreen {
     DIRECT_MESSAGES,
     DIRECT_SHARED_MEDIA,
     PROFILE,
+    SAVED_COLLECTION,
     COMMENTS_OR_DETAIL,
     STORY,
     CREATION,
@@ -147,6 +148,13 @@ internal object InstagramProtectionEngine {
     fun classify(signals: InstagramUiSignals, navigatedBackFromDm: Boolean = false): InstagramScreen {
         val ids = signals.ids
 
+        // Saved/Likes/Reposts are user-curated collections. Classify them
+        // before generic Reels/title checks so Balanced can expose the library
+        // without mistaking it for an algorithmic feed.
+        if (InstagramProfileSurfacePolicy.isUserCollectionTitle(signals.titles)) {
+            return InstagramScreen.SAVED_COLLECTION
+        }
+
         val hasBackNav = signals.hasBackNavigation || ids.hasBackNavigation()
         val isExplicitReelsViewerTitle = signals.titles.hasAnyContaining(
             "reel",
@@ -173,6 +181,9 @@ internal object InstagramProtectionEngine {
 
         // A story viewer may retain the host tab beneath it.
         if (ids.hasStoryViewer()) return InstagramScreen.STORY
+        if (InstagramPostIdentity.isViewer(ids, signals.titles, hasBackNav)) {
+            return InstagramScreen.COMMENTS_OR_DETAIL
+        }
 
         // An opened viewer can retain the Home tab/header during its transition.
         // Dedicated viewer chrome plus Back is stronger evidence than that host.
@@ -215,6 +226,21 @@ internal object InstagramProtectionEngine {
             "row_thread_composer_edittext"
         ) || ids.hasAny("inbox_refreshable_thread_list_recyclerview") ||
             signals.selectedTabs.contains(InstagramTab.DIRECT)
+        // Instagram Notes ("durum"): the notes tray, the note composer and its
+        // audience picker live inside the Direct area and are a safe zone in
+        // both modes. Their exact ids classify the screen as Direct Messages
+        // so no feed curtain is ever mounted over them.
+        val hasNotesStructure = ids.hasAny(
+            "notes_creation_top_container",
+            "pog_note_bubble_card_view",
+            "notes_audience_picker_share_with",
+            "condensed_audience_picker_container",
+            "alternative_notes_options"
+        )
+
+        if (hasNotesStructure) {
+            return InstagramScreen.DIRECT_MESSAGES
+        }
 
         if (signals.selectedTabs.contains(InstagramTab.DIRECT) ||
             (hasDirectStructure &&
@@ -245,6 +271,13 @@ internal object InstagramProtectionEngine {
 
         if (isCreationFlow && !isExplicitReelsViewerTitle && !signals.selectedTabs.contains(InstagramTab.REELS)) {
             return InstagramScreen.CREATION
+        }
+
+        // Following/Favorites are separate action-bar screens, but still
+        // infinite Home feeds. Empty Favorites has no row_feed_* nodes, so its
+        // semantic title and list shell are required to keep the curtain owned.
+        if (InstagramHomeGeometry.isAlternateFeed(ids, signals.titles, hasBackNav)) {
+            return InstagramScreen.HOME_FEED
         }
 
         // 5. Unambiguous Home Feed Context:
@@ -579,8 +612,7 @@ internal object InstagramProtectionEngine {
         )
 
     private fun Set<String>.hasStoryViewer(): Boolean =
-        hasAny("reel_item_toolbar_container") ||
-        (hasAnyContaining("story_viewer_container") && !hasAnyContaining("reels_tray", "inbox"))
+        InstagramStoryIdentity.isViewer(this)
 
     private fun Set<String>.hasPostViewer(): Boolean =
         hasAnyContaining(

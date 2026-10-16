@@ -2,10 +2,16 @@ package com.resolvecommunity.awaydoomscrollin
 
 /** Inbox-only evidence: thread headers/media previews do not qualify. */
 internal object InstagramInboxPolicy {
-    fun isDirectNavigation(id: String, description: String): Boolean =
-        id == "direct_tab" || (id == "action_bar_button_action" &&
-            description.trim().lowercase().let { it == "direct" || it.startsWith("direct,") ||
-                it == "mesajlar" || it == "messages" })
+    fun canReleaseFeedForDirectIntent(screen: InstagramScreen?, freshClick: Boolean): Boolean =
+        freshClick && (screen == InstagramScreen.HOME_FEED || screen == InstagramScreen.EXPLORE)
+
+    fun isDirectNavigation(id: String, description: String): Boolean {
+        if (id.contains("direct_tab") || id == "direct_tab_icon_view") return true
+        val text = description.trim().lowercase()
+        return (id == "action_bar_button_action" &&
+            (text == "direct" || text.startsWith("direct,") ||
+                text == "mesajlar" || text == "messages" || text.startsWith("mesajlar,")))
+    }
 
     fun isInbox(listVisible: Boolean, headerVisible: Boolean, reelVisible: Boolean): Boolean =
         listVisible && headerVisible && !reelVisible

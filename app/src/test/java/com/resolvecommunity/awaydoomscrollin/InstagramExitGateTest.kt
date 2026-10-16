@@ -5,12 +5,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstagramExitGateTest {
+    @Test fun blockedStoryIsNotMistakenForSafeReturn() {
+        val gate = InstagramExitGate()
+        assertTrue(gate.requestBack(100))
+        gate.observe(InstagramScreen.STORY, 150)
+        gate.observe(InstagramScreen.STORY, 600)
+        assertFalse(gate.requestBack(550))
+        assertTrue(gate.requestBack(601))
+    }
+
     @Test fun missedSafeReturnCannotLeaveViewerUsableForever() {
         val gate = InstagramExitGate()
         assertTrue(gate.requestBack(100))
         gate.observe(InstagramScreen.REELS, 200)
-        assertFalse(gate.requestBack(899))
-        assertTrue(gate.requestBack(900))
+        assertFalse(gate.requestBack(599))
+        assertTrue(gate.requestBack(601))
     }
     @Test fun currentDmClassificationImmediatelyRearmsNextEncounter() {
         val gate = InstagramExitGate()

@@ -126,8 +126,9 @@ class PlayReleasePolicyTest {
         ).readText()
 
         assertTrue(source.contains("TelemetryConsentDialog("))
-        assertTrue(source.contains("Paylaşımı aç"))
-        assertTrue(source.contains("Vazgeç"))
+        assertTrue(source.contains("Paylaşmayı kabul et"))
+        assertTrue(source.contains("Paylaşma"))
+        assertTrue(source.contains("requiresRenewedConsent"))
         assertTrue(source.contains("showTelemetryConsent = true"))
         assertTrue(source.contains("TelemetryManager.setTelemetryEnabled(context, true)"))
     }

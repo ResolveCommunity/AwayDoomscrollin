@@ -5,6 +5,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstagramInboxPolicyTest {
+    @Test fun exactDirectIntentCanReleaseExploreAsWellAsHome() {
+        assertTrue(InstagramInboxPolicy.canReleaseFeedForDirectIntent(InstagramScreen.HOME_FEED, true))
+        assertTrue(InstagramInboxPolicy.canReleaseFeedForDirectIntent(InstagramScreen.EXPLORE, true))
+        assertFalse(InstagramInboxPolicy.canReleaseFeedForDirectIntent(InstagramScreen.EXPLORE, false))
+        assertFalse(InstagramInboxPolicy.canReleaseFeedForDirectIntent(InstagramScreen.PROFILE, true))
+        assertFalse(InstagramInboxPolicy.canReleaseFeedForDirectIntent(null, true))
+    }
     @Test fun directNavigationIsRecognizedWithoutTreatingMediaAsNavigation() {
         assertTrue(InstagramInboxPolicy.isDirectNavigation("direct_tab", ""))
         assertTrue(InstagramInboxPolicy.isDirectNavigation("action_bar_button_action", "Direct"))

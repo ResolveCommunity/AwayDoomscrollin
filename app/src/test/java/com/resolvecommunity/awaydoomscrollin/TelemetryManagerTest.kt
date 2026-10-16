@@ -39,10 +39,22 @@ class TelemetryManagerTest {
     }
 
     @Test
-    fun anExplicitStoredOptInIsHonored() {
-        preferences().edit().putBoolean("telemetry_enabled", true).commit()
+    fun aCurrentV3OptInIsHonored() {
+        preferences().edit()
+            .putBoolean("telemetry_enabled", true)
+            .putInt("telemetry_choice_version", TelemetryManager.CURRENT_CONSENT_VERSION)
+            .commit()
 
         assertTrue(TelemetryManager.isTelemetryEnabled(context))
+        assertFalse(TelemetryManager.requiresRenewedConsent(context))
+    }
+
+    @Test
+    fun aLegacyV2OptInIsPausedUntilTheUserMakesANewChoice() {
+        preferences().edit().putBoolean("telemetry_enabled", true).commit()
+
+        assertFalse(TelemetryManager.isTelemetryEnabled(context))
+        assertTrue(TelemetryManager.requiresRenewedConsent(context))
     }
 
     @Test
@@ -60,12 +72,18 @@ class TelemetryManagerTest {
         assertFalse(preferences().contains("telemetry_v2_pending_report_id"))
         assertFalse(preferences().contains("telemetry_v2_pending_sequence"))
         assertFalse(preferences().contains("telemetry_v2_pending_payload"))
+        assertEquals(
+            TelemetryManager.CURRENT_CONSENT_VERSION,
+            preferences().getInt("telemetry_choice_version", 0)
+        )
+        assertFalse(TelemetryManager.requiresRenewedConsent(context))
     }
 
     @Test
     fun recentAttemptThrottlesAutomaticTriggersBeforeCreatingAnInstallationId() {
         preferences().edit()
             .putBoolean("telemetry_enabled", true)
+            .putInt("telemetry_choice_version", TelemetryManager.CURRENT_CONSENT_VERSION)
             .putLong("telemetry_last_attempt_ms", System.currentTimeMillis())
             .commit()
 
@@ -78,6 +96,7 @@ class TelemetryManagerTest {
     fun previousSuccessfulSendTimestampStillThrottlesTheNextSnapshot() {
         preferences().edit()
             .putBoolean("telemetry_enabled", true)
+            .putInt("telemetry_choice_version", TelemetryManager.CURRENT_CONSENT_VERSION)
             .putLong("telemetry_last_send_ms", System.currentTimeMillis())
             .commit()
 
@@ -87,7 +106,7 @@ class TelemetryManagerTest {
     }
 
     @Test
-    fun v2PayloadIsACompleteVersionedSnapshot() {
+    fun v3PayloadIsACompleteVersionedSnapshot() {
         preferences().edit()
             .putInt("total_blocks", 17)
             .putInt("blocks_instagram", 9)
@@ -96,9 +115,10 @@ class TelemetryManagerTest {
             .putInt("streak_days", 4)
             .putLong("user_xp", 251L)
             .putLong(InstagramProtectionMetrics.KEY_TOTAL_MS, 42_900L)
+            .putLong("youtube_protection_total_ms", 17_900L)
             .commit()
 
-        val payload = TelemetryManager.buildV2Payload(
+        val payload = TelemetryManager.buildV3Payload(
             context = context,
             prefs = preferences(),
             installationId = "150e8400-e29b-41d4-a716-446655440000",
@@ -107,8 +127,8 @@ class TelemetryManagerTest {
         )
 
         assertEquals("PSEUDONYMOUS_TELEMETRY", payload.getString("type"))
-        assertEquals(2, payload.getInt("schemaVersion"))
-        assertEquals(26, payload.length())
+        assertEquals(3, payload.getInt("schemaVersion"))
+        assertEquals(28, payload.length())
         assertEquals(7L, payload.getLong("snapshotSequence"))
         assertEquals(17, payload.getInt("totalBlocks"))
         assertEquals(9, payload.getInt("instagramBlocks"))
@@ -118,6 +138,8 @@ class TelemetryManagerTest {
         assertFalse(payload.has("userXp"))
         assertEquals(42L, payload.getLong("instagramProtectionSeconds"))
         assertEquals(InstagramProtectionMetrics.MEASUREMENT_VERSION, payload.getInt("instagramMeasurementVersion"))
+        assertEquals(17L, payload.getLong("youtubeProtectionSeconds"))
+        assertEquals(YouTubeProtectionMetrics.MEASUREMENT_VERSION, payload.getInt("youtubeMeasurementVersion"))
         assertTrue(payload.has("appVersionCode"))
         assertTrue(payload.has("instagramVersionName"))
         assertTrue(payload.has("instagramVersionCode"))
@@ -129,8 +151,8 @@ class TelemetryManagerTest {
     }
 
     @Test
-    fun v2PayloadUsesOnlyThePublishedAllowlist() {
-        val payload = TelemetryManager.buildV2Payload(
+    fun v3PayloadUsesOnlyThePublishedAllowlist() {
+        val payload = TelemetryManager.buildV3Payload(
             context = context,
             prefs = preferences(),
             installationId = "350e8400-e29b-41d4-a716-446655440000",
@@ -147,16 +169,17 @@ class TelemetryManagerTest {
             "tiktokVersionName", "tiktokVersionCode",
             "youtubeVersionName", "youtubeVersionCode",
             "displayWidthPx", "displayHeightPx", "densityDpi",
-            "instagramProtectionSeconds", "instagramMeasurementVersion"
+            "instagramProtectionSeconds", "instagramMeasurementVersion",
+            "youtubeProtectionSeconds", "youtubeMeasurementVersion"
         )
 
         assertEquals(expected, payload.keys().asSequence().toSet())
     }
 
     @Test
-    fun v2PayloadRejectsInvalidIdentifiersAndSequence() {
+    fun v3PayloadRejectsInvalidIdentifiersAndSequence() {
         val invalidInstallation = runCatching {
-            TelemetryManager.buildV2Payload(
+            TelemetryManager.buildV3Payload(
                 context,
                 preferences(),
                 "not-a-uuid",
@@ -165,7 +188,7 @@ class TelemetryManagerTest {
             )
         }
         val invalidReport = runCatching {
-            TelemetryManager.buildV2Payload(
+            TelemetryManager.buildV3Payload(
                 context,
                 preferences(),
                 "650e8400-e29b-41d4-a716-446655440000",
@@ -174,7 +197,7 @@ class TelemetryManagerTest {
             )
         }
         val invalidSequence = runCatching {
-            TelemetryManager.buildV2Payload(
+            TelemetryManager.buildV3Payload(
                 context,
                 preferences(),
                 "850e8400-e29b-41d4-a716-446655440000",
@@ -206,6 +229,38 @@ class TelemetryManagerTest {
         val next = TelemetryManager.getOrCreatePendingReport(context, preferences())!!
         assertEquals(first.sequence + 1L, next.sequence)
         assertFalse(first.reportId == next.reportId)
+    }
+
+    @Test
+    fun aLegacyV2PendingReportIsReplacedWithoutResettingIdentityOrSequence() {
+        val installationId = "a50e8400-e29b-41d4-a716-446655440000"
+        val legacyReportId = "b50e8400-e29b-41d4-a716-446655440000"
+        val legacyPayload = """
+            {
+              "type":"PSEUDONYMOUS_TELEMETRY",
+              "schemaVersion":2,
+              "device_id":"$installationId",
+              "snapshotSequence":12,
+              "reportId":"$legacyReportId"
+            }
+        """.trimIndent()
+        preferences().edit()
+            .putString("telemetry_installation_id", installationId)
+            .putLong("telemetry_v2_last_sequence", 12L)
+            .putString("telemetry_v2_pending_report_id", legacyReportId)
+            .putLong("telemetry_v2_pending_sequence", 12L)
+            .putString("telemetry_v2_pending_payload", legacyPayload)
+            .putInt("blocks_youtube", 6)
+            .commit()
+
+        val replacement = TelemetryManager.getOrCreatePendingReport(context, preferences())!!
+        val payload = org.json.JSONObject(replacement.payload)
+
+        assertEquals(13L, replacement.sequence)
+        assertEquals(3, payload.getInt("schemaVersion"))
+        assertEquals(installationId, payload.getString("device_id"))
+        assertEquals(6, payload.getInt("youtubeBlocks"))
+        assertFalse(legacyReportId == replacement.reportId)
     }
 
     private fun preferences() =

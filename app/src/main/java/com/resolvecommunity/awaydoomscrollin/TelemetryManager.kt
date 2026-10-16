@@ -30,6 +30,7 @@ object TelemetryManager {
     private const val TAG = "TelemetryManager"
     private const val PREFS_NAME = "away_doomscroll_prefs"
     private const val KEY_TELEMETRY_ENABLED = "telemetry_enabled"
+    private const val KEY_TELEMETRY_CHOICE_VERSION = "telemetry_choice_version"
     private const val KEY_LAST_TELEMETRY_ATTEMPT = "telemetry_last_attempt_ms"
     private const val KEY_LAST_TELEMETRY_SEND = "telemetry_last_send_ms"
     private const val KEY_INSTALLATION_ID = "telemetry_installation_id"
@@ -39,7 +40,8 @@ object TelemetryManager {
     private const val KEY_PENDING_PAYLOAD = "telemetry_v2_pending_payload"
     private const val VDS_TELEMETRY_ENDPOINT = "https://awaydoomscrollin.com/api/telemetry"
     private const val TELEMETRY_ATTEMPT_INTERVAL_MS = 24 * 60 * 60 * 1000L
-    private const val SCHEMA_VERSION = 2
+    internal const val CURRENT_CONSENT_VERSION = 3
+    private const val SCHEMA_VERSION = 3
     private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
     private const val INSTAGRAM_PACKAGE = "com.instagram.android"
     private const val TIKTOK_PACKAGE = "com.zhiliaoapp.musically"
@@ -51,15 +53,29 @@ object TelemetryManager {
 
     fun isTelemetryEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_TELEMETRY_ENABLED, false)
+        return prefs.getBoolean(KEY_TELEMETRY_ENABLED, false) &&
+            prefs.getInt(KEY_TELEMETRY_CHOICE_VERSION, 0) == CURRENT_CONSENT_VERSION
+    }
+
+    /**
+     * A legacy v2 opt-in must not silently authorize the expanded v3 payload.
+     * Until the user makes a fresh choice, all telemetry sends remain paused.
+     */
+    fun requiresRenewedConsent(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_TELEMETRY_ENABLED, false) &&
+            prefs.getInt(KEY_TELEMETRY_CHOICE_VERSION, 0) != CURRENT_CONSENT_VERSION
     }
 
     fun setTelemetryEnabled(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val editor = prefs.edit().putBoolean(KEY_TELEMETRY_ENABLED, enabled)
-        if (!enabled) {
+        val previousChoiceVersion = prefs.getInt(KEY_TELEMETRY_CHOICE_VERSION, 0)
+        val editor = prefs.edit()
+            .putBoolean(KEY_TELEMETRY_ENABLED, enabled)
+            .putInt(KEY_TELEMETRY_CHOICE_VERSION, CURRENT_CONSENT_VERSION)
+        if (!enabled || previousChoiceVersion != CURRENT_CONSENT_VERSION) {
             // A future opt-in must report a fresh snapshot rather than retrying
-            // data that was prepared before the user opted out.
+            // data prepared before opt-out or under the narrower v2 consent.
             editor
                 .remove(KEY_PENDING_REPORT_ID)
                 .remove(KEY_PENDING_SEQUENCE)
@@ -143,7 +159,7 @@ object TelemetryManager {
 
         val sequence = currentSequence + 1L
         val reportId = UUID.randomUUID().toString()
-        val payload = buildV2Payload(
+        val payload = buildV3Payload(
             context = context,
             prefs = prefs,
             installationId = installationId,
@@ -207,7 +223,7 @@ object TelemetryManager {
         if (prefs.edit().putString(KEY_INSTALLATION_ID, generatedId).commit()) generatedId else null
     }
 
-    internal fun buildV2Payload(
+    internal fun buildV3Payload(
         context: Context,
         prefs: SharedPreferences,
         installationId: String,
@@ -254,6 +270,11 @@ object TelemetryManager {
                 safeInteger(InstagramProtectionMetrics.totalMs(prefs) / 1000L)
             )
             put("instagramMeasurementVersion", InstagramProtectionMetrics.MEASUREMENT_VERSION)
+            put(
+                "youtubeProtectionSeconds",
+                safeInteger(YouTubeProtectionMetrics.totalMs(prefs) / 1000L)
+            )
+            put("youtubeMeasurementVersion", YouTubeProtectionMetrics.MEASUREMENT_VERSION)
         }
     }
 

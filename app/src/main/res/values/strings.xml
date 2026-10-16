@@ -1,4 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AwayDoomscrollin\'</string>
-    <string name="accessibility_service_description">AwayDoomscrollin\', Instagram, TikTok ve YouTube\'daki korunan kısa içerik alanlarını tanımak için ekrandaki erişilebilirlik metinlerini, etiketleri, görünüm kimliklerini, pencere değişikliklerini, dokunma ve kaydırma olaylarını yalnızca cihazınızda inceler. Instagram\'da koruma perdesi gösterebilir; belirli ekranlarda Geri, dokunma ve kaydırma işlemleri uygulayabilir. İncelenen ekran bilgileri kaydedilmez veya sunucuya gönderilmez. İsteğe bağlı kullanım verisi paylaşımı ayrı olarak yönetilir. Üçüncü taraf uygulamalardaki arayüz değişiklikleri korumayı etkileyebilir.</string>
+    <string name="accessibility_service_description">AwayDoomscrollin\' examines accessibility text and labels, view identifiers, window changes, taps and scroll events on your device to recognize protected feeds and short videos in Instagram, TikTok and YouTube. It can show curtains in Instagram and YouTube and perform specific, rule-based Back, tap and scroll actions on protected screens. Screen information is processed only on your device, never saved or sent to a server. Optional usage-data sharing is a separate choice. Changes to other apps\' interfaces can affect detection.</string>
 </resources>

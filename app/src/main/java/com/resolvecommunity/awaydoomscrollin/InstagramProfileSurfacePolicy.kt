@@ -6,13 +6,56 @@ package com.resolvecommunity.awaydoomscrollin
  * the foreground surface.
  */
 internal object InstagramProfileSurfacePolicy {
-    private val allowedLayerIds = setOf(
+    /**
+     * Exact, visible node ids of Instagram's intentional profile-side layers.
+     * These surfaces belong to the user's deliberate workflow (sharing their
+     * profile, opening the profile menu, reading About this account); the
+     * curtain must yield to every one of them while it is on screen and return
+     * as soon as it closes.
+     */
+    val allowedSurfaceMarkerIds = listOf(
+        // Share profile card (full-screen layer, not a bottom sheet)
+        "profile_share_card",
+        "profile_share_card_share_button",
+        "profile_share_card_copy_link_button",
+        "profile_share_card_download_button",
+        "nametag_container",
+        "nametag_outer_container",
+        "background_mode_button",
+        "background_mode_label",
+        "qr_scan_button",
+        // Edit profile body
+        "edit_profile_fields",
+        // Native bottom sheets (profile menu, action sheets)
         "bottom_sheet_container",
         "layout_container_bottom_sheet",
         "bottom_sheet_container_view",
         "action_sheet_container",
-        "action_sheet_row_text_view"
+        "action_sheet_row_text_view",
+        // About this account
+        "about_this_account_container",
+        "account_transparency_container",
+        "account_transparency_root",
+        "about_account_fragment"
     )
+
+    /**
+     * One decision point for every allowed profile-side layer. The ids are
+     * exact matches so always-mounted decorative hosts (for example
+     * bottom_sheet_camera_container on the ordinary profile) can never
+     * release the curtain by accident.
+     */
+    fun isAllowedProfileSurface(visibleIds: Set<String>, titles: Set<String> = emptySet()): Boolean {
+        if (visibleIds.any(allowedSurfaceMarkerIds::contains)) return true
+        if (isHighlightPicker(titles)) return true
+        return titles.any { title ->
+            val normalized = title.trim().lowercase(java.util.Locale.ROOT)
+            normalized == "edit profile" || normalized == "profili düzenle" ||
+                normalized == "share profile" || normalized == "profili paylaş" ||
+                normalized.contains("about this account") ||
+                normalized.contains("bu hesap hakkında")
+        }
+    }
 
     // The full-screen "Öne çıkanlara ekle" story picker is reached from the profile
     // header, not from the covered media grid. Its action-bar title is the stable signal:
@@ -31,23 +74,64 @@ internal object InstagramProfileSurfacePolicy {
             highlightPickerTitles.any(normalized::contains)
         }
 
-    // Menu collection screens (Saved / Likes / Reposts) are full media grids - the same
-    // doomscroll surface class as the profile grid, reached through the profile menu.
-    // Their only stable marker is the action-bar title: the grid itself is Bloks-driven
-    // and carries no resource ids.
-    private val blockedCollectionTitles = listOf(
+    // Their only stable marker is the action-bar title: the grid itself is
+    // Bloks-driven and carries no resource ids. These are user-curated
+    // collections in Balanced; Strict still treats them as blocked.
+    private val userCollectionTitles = listOf(
         "likes",
         "beğeniler",
         "saved",
         "kaydedilenler",
+        "reposts",
         "repost",
-        "yeniden paylaşılan"
+        "yeniden paylaşılanlar",
+        "yeniden paylaşılan",
+        // Saved's typed filters open these secondary library surfaces.
+        "all posts",
+        "all reels",
+        "all videos",
+        "tüm gönderiler",
+        "tüm reels",
+        "tüm videolar"
     )
 
-    fun isBlockedCollectionTitle(titles: Set<String>): Boolean =
+    /**
+     * A blocked collection opened from a protected feed's own bookmark button
+     * returns to that feed on Back, so its mounted curtain must stay. One
+     * opened from the profile menu returns to the menu (an allowed surface).
+     */
+    fun keepsFeedCoverOnCollectionExit(origin: InstagramScreen,
+        mountedCurtain: InstagramScreen?): Boolean =
+        (origin == InstagramScreen.EXPLORE || origin == InstagramScreen.HOME_FEED) &&
+            mountedCurtain == origin
+
+    fun isUserCollectionTitle(titles: Set<String>): Boolean =
         titles.any { title ->
             val normalized = title.trim().lowercase(java.util.Locale.ROOT)
-            blockedCollectionTitles.any(normalized::contains)
+            userCollectionTitles.any { candidate ->
+                normalized == candidate || normalized.startsWith("$candidate ")
+            }
+        }
+
+    fun isBlockedCollectionTitle(titles: Set<String>): Boolean =
+        isUserCollectionTitle(titles)
+
+    /**
+     * The profile menu is a safe settings surface. It is not classified as a
+     * feed by the main screen classifier, so a curtain retained from Explore
+     * must be released while this page is visible.
+     */
+    fun isSettingsSurfaceTitle(titles: Set<String>): Boolean =
+        titles.any { title ->
+            val normalized = title.trim().lowercase(java.util.Locale.ROOT)
+            normalized == "settings and activity" ||
+                normalized == "ayarlar ve hareketler" ||
+                normalized == "close friends" ||
+                normalized == "yakın arkadaşlar" ||
+                normalized == "accounts center" ||
+                normalized == "account center" ||
+                normalized == "hesaplar merkezi" ||
+                normalized == "hesap merkezi"
         }
 
     fun isAllowedDeparture(sourceIds: Set<String>, sourceLabels: Set<String>): Boolean {
@@ -90,19 +174,10 @@ internal object InstagramProfileSurfacePolicy {
         }
 
     fun hasAllowedLayer(ids: Set<String>, titles: Set<String> = emptySet()): Boolean {
-        val hasNativeSheet = ids.any { id ->
-            id in allowedLayerIds || id.contains("action_sheet") || id.contains("bottom_sheet")
-        }
-        val isAboutAccount = ids.any { id ->
-            id.contains("about_this_account") || id.contains("account_transparency")
-        } || titles.any { title ->
-            title.contains("about this account") || title.contains("bu hesap hakkında")
-        }
-        val isProfileEditorOrShare = titles.any { title ->
-            title == "edit profile" || title == "profili düzenle" ||
-                title == "share profile" || title == "profili paylaş"
-        }
-        return hasNativeSheet || isAboutAccount || isProfileEditorOrShare ||
-            isHighlightPicker(titles)
+        // Instagram's ordinary profile has bottom_sheet_camera_container as
+        // an always-mounted host. Structural/decorative nodes are now exposed,
+        // so substring matching would uncover the profile grid every scan.
+        // Exact ids only: see isAllowedProfileSurface.
+        return isAllowedProfileSurface(ids, titles)
     }
 }

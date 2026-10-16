@@ -2,6 +2,8 @@ package com.resolvecommunity.awaydoomscrollin
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -10,6 +12,31 @@ import org.junit.Test
  * bottom-sheet scrolling stay usable. No time limit, quota or pattern rule exists.
  */
 class YouTubeShortsPolicyTest {
+    @Test
+    fun `shared curtain allows balanced intentional Shorts but strict rejects them`() {
+        for (mode in ProtectionMode.entries) {
+            val curtain = YouTubeCurtainState()
+            assertEquals(YouTubeProtectedSurface.HOME, curtain.observe(YouTubeCurtainScreen.HOME, 0))
+            assertEquals(YouTubeProtectedSurface.SUBSCRIPTIONS, curtain.observe(YouTubeCurtainScreen.SUBSCRIPTIONS, 10))
+            assertNull(curtain.observe(YouTubeCurtainScreen.SEARCH, 20))
+            assertNull(curtain.observe(YouTubeCurtainScreen.SHORTS, 30))
+            assertEquals(mode == ProtectionMode.STRICT, YouTubeShortsPolicy.shouldBlockEntry(mode, false))
+            assertTrue(YouTubeShortsPolicy.shouldBlockEntry(mode, true))
+            assertEquals(YouTubeProtectedSurface.HOME, curtain.observe(YouTubeCurtainScreen.HOME, 40))
+            assertNull(curtain.observe(YouTubeCurtainScreen.YOU, 50))
+        }
+    }
+    @Test
+    fun `strict rejects both feed tab and intentional single video entry`() {
+        assertTrue(YouTubeShortsPolicy.shouldBlockEntry(ProtectionMode.STRICT, true))
+        assertTrue(YouTubeShortsPolicy.shouldBlockEntry(ProtectionMode.STRICT, false))
+    }
+
+    @Test
+    fun `balanced rejects feed tab but allows search and link entry`() {
+        assertTrue(YouTubeShortsPolicy.shouldBlockEntry(ProtectionMode.BALANCED, true))
+        assertFalse(YouTubeShortsPolicy.shouldBlockEntry(ProtectionMode.BALANCED, false))
+    }
     @Test
     fun `opening a Short without scrolling never exits`() {
         assertFalse(
@@ -67,10 +94,4 @@ class YouTubeShortsPolicyTest {
         assertFalse(YouTubeShortsPolicy.shouldExit(true, isScrollEvent = false, true, true, true, false))
     }
 
-    @Test
-    fun `cooldown is scoped to accepted Shorts exits`() {
-        assertTrue(YouTubeShortsPolicy.cooldownElapsed(nowMs = 1_000L, lastAcceptedExitMs = 0L))
-        assertFalse(YouTubeShortsPolicy.cooldownElapsed(nowMs = 1_599L, lastAcceptedExitMs = 1_000L))
-        assertTrue(YouTubeShortsPolicy.cooldownElapsed(nowMs = 1_600L, lastAcceptedExitMs = 1_000L))
-    }
 }

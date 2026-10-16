@@ -1,15 +1,18 @@
 package com.resolvecommunity.awaydoomscrollin
 
 /**
- * Pure policy for YouTube Shorts' narrow contract: entering a Short is always allowed and it
+ * Balanced-mode single-video policy: an intentionally opened Short is allowed and it
  * can be watched to the end; the first vertical swipe toward the next video requests a
  * deterministic Back action that closes the viewer on its source surface. Comment and
  * bottom-sheet scrolling stay usable. There is no time limit, quota or pattern rule - the
  * chain is what gets interrupted, never a single video.
  */
 internal object YouTubeShortsPolicy {
-    const val EXIT_COOLDOWN_MS = 600L
     const val EXIT_RETRY_DELAY_MS = 250L
+
+    /** The feed tab is never intentional single-video entry; strict also rejects links/results. */
+    fun shouldBlockEntry(mode: ProtectionMode, fromShortsTab: Boolean): Boolean =
+        mode == ProtectionMode.STRICT || fromShortsTab
 
     fun shouldExit(
         protectionEnabled: Boolean,
@@ -24,7 +27,4 @@ internal object YouTubeShortsPolicy {
         shortsVisible &&
         isVerticalScroll &&
         !isSafeSourcePath
-
-    fun cooldownElapsed(nowMs: Long, lastAcceptedExitMs: Long): Boolean =
-        lastAcceptedExitMs <= 0L || nowMs - lastAcceptedExitMs >= EXIT_COOLDOWN_MS
 }

@@ -12,8 +12,21 @@ enum class ProtectedApp(
     YOUTUBE("com.google.android.youtube", "is_youtube_enabled")
 }
 
+enum class ProtectionMode {
+    BALANCED,
+    STRICT;
+
+    companion object {
+        fun fromStored(value: String?): ProtectionMode =
+            entries.firstOrNull { it.name == value } ?: BALANCED
+    }
+}
+
 object ProtectionPreferences {
     const val PREFS_NAME = "away_doomscroll_prefs"
+
+    private fun modeKey(app: ProtectedApp): String =
+        "protection_mode_${app.name.lowercase()}"
 
     fun isEnabled(prefs: SharedPreferences, app: ProtectedApp): Boolean =
         prefs.getBoolean(app.preferenceKey, true)
@@ -26,6 +39,25 @@ object ProtectionPreferences {
             ?: return false
         return isEnabled(context, app)
     }
+
+    /**
+     * Missing and unknown values intentionally resolve to BALANCED. Existing installs therefore
+     * keep the published behavior without a migration write or any change to counters/streaks.
+     */
+    fun getMode(prefs: SharedPreferences, app: ProtectedApp): ProtectionMode =
+        ProtectionMode.fromStored(prefs.getString(modeKey(app), null))
+
+    fun hasStoredMode(prefs: SharedPreferences, app: ProtectedApp): Boolean =
+        prefs.contains(modeKey(app))
+
+    fun getMode(context: Context, app: ProtectedApp): ProtectionMode =
+        getMode(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE), app)
+
+    fun setMode(
+        prefs: SharedPreferences,
+        app: ProtectedApp,
+        mode: ProtectionMode
+    ): Boolean = prefs.edit().putString(modeKey(app), mode.name).commit()
 
     /**
      * Persist user-facing shield changes synchronously so the accessibility service

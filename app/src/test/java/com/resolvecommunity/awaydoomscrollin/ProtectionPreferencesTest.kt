@@ -29,6 +29,28 @@ class ProtectionPreferencesTest {
     }
 
     @Test
+    fun instagramModeDefaultsToBalancedWithoutMigrationWrites() {
+        val before = preferences().all.toMap()
+        assertEquals(ProtectionMode.BALANCED, ProtectionPreferences.getMode(context, ProtectedApp.INSTAGRAM))
+        assertEquals(before, preferences().all)
+    }
+
+    @Test
+    fun instagramModePersistsWithoutChangingExistingUserData() {
+        preferences().edit().putInt("streak_days", 25).putInt("blocks_instagram", 37)
+            .putString(ProtectionPreferences.KEY_IG_FEED_MODE, InstagramProtectionConfig.FEED_MODE_DIRECTLY_DM)
+            .putBoolean(ProtectionPreferences.KEY_IG_BLOCK_STORIES, false).commit()
+        val before = preferences().all.toMap()
+        assertTrue(ProtectionPreferences.setMode(preferences(), ProtectedApp.INSTAGRAM, ProtectionMode.STRICT))
+        val reopened = context.getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+        assertEquals(ProtectionMode.STRICT, ProtectionPreferences.getMode(reopened, ProtectedApp.INSTAGRAM))
+        before.forEach { (key, value) -> assertEquals(value, reopened.all[key]) }
+        assertEquals(ProtectionMode.BALANCED, ProtectionPreferences.getMode(reopened, ProtectedApp.YOUTUBE))
+        assertTrue(ProtectionPreferences.setMode(reopened, ProtectedApp.INSTAGRAM, ProtectionMode.BALANCED))
+        before.forEach { (key, value) -> assertEquals(value, reopened.all[key]) }
+    }
+
+    @Test
     fun shieldsAreEnabledByDefault() {
         assertTrue(ProtectionPreferences.isEnabled(context, ProtectedApp.INSTAGRAM))
         assertTrue(ProtectionPreferences.isEnabled(context, ProtectedApp.TIKTOK))

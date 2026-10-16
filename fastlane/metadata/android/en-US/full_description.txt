@@ -1,19 +1,19 @@
-AwayDoomscrollin' is an open-source, privacy-first Android accessibility app developed by Resolve Community. It attempts to interrupt endless scrolling on Instagram Reels, TikTok, and YouTube Shorts.
+Break the scrolling loop without losing touch. AwayDoomscrollin' is an open-source Android accessibility app from Resolve Community that limits feeds and short-video scrolling on Instagram, TikTok and YouTube while keeping purposeful use available.
 
-Beta status:
-• Instagram Reels, TikTok, and YouTube Shorts detection is a beta feature.
-• Detection and safe-area classification depend on accessibility information exposed by third-party apps, Android, and device manufacturers. Interface changes can cause missed detections or false positives; perfect detection and universal compatibility are not claimed.
+Protection and compatibility:
+• Protection uses accessibility information provided by other apps. App, Android or device software changes can delay detection or cause missed or incorrect detections. Protection is not guaranteed to work perfectly on every device.
 
 Features:
-• Feed Shield: Covers recognized Instagram Home and Explore media in place. When a Reel or protected post viewer is recognized, it performs a Back action. TikTok and YouTube Shorts use event-based protection. Routine interventions are silent.
-• Areas that remain available: Designed to keep Instagram messaging, profile information, Stories and Search, plus normal YouTube videos, usable. Media grids inside profiles and message details may be covered to prevent access to short-form content.
+• Instagram: Both modes cover Home and Explore and block the Reels feed tab. Messages and search remain available. Balanced keeps profiles and profile posts open, allows one selected Reel and its comments, and closes the viewer when you move to another video. Stories and Highlights also remain available in Balanced. Strict additionally covers profile posts and blocks Reels, Stories and Highlights. Shared media galleries in message details may also be covered.
+• YouTube: Both modes cover Home and Subscriptions and block the Shorts feed tab. Search results, channels, the You tab and long videos remain available. Strict blocks all Shorts. Balanced allows one specific Short opened from search or a link; moving to another video closes the viewer. Scrolling comments does not count as changing videos.
+• TikTok: Protection interrupts video-feed scrolling rather than blocking the entire app. TikTok currently uses one protection setting, not Strict and Balanced modes.
 • User control: Protection can be disabled from the app or Android accessibility settings; the app does not monitor settings or prevent service deactivation.
-• Streak Tracker: Tracks local daily focus streaks and blocking statistics.
+• Analytics: View block counts, daily protection streaks and measured Instagram and YouTube curtain durations. Curtain time is not an estimate of time saved.
 
 Privacy and network transparency:
 • The Android manifest declares INTERNET permission. Screen-content analysis and blocking run on-device, but the app is not fully offline.
-• Optional usage-data sharing is off by default. No telemetry request is made and no telemetry installation UUID is created until you read the detailed disclosure and confirm “Turn on sharing.”
-• While enabled, telemetry sends v2 protocol/report identifiers, a random installation UUID, device model, Android and screen information, AwayDoomscrollin', Instagram, TikTok and YouTube versions, total and per-app intervention counts, and accumulated Instagram protection time with its measurement version to awaydoomscrollin.com. Local streak days and XP are not sent. Explicit opt-in may trigger one immediate attempt, later automatic attempts share one persisted 24-hour interval, and turning telemetry off stops new submissions, though an in-flight request may finish. The latest server snapshot expires within 90 days, and the server stores a SHA-256 installation key rather than the raw UUID.
+• Optional usage-data sharing is off by default. No telemetry request is made and no telemetry installation UUID is created until you read the detailed disclosure and choose “Agree to share.” Protection works without sharing.
+• While enabled, telemetry sends v3 protocol/report identifiers, a random installation UUID, device model, Android and screen information, AwayDoomscrollin', Instagram, TikTok and YouTube versions, total and per-app intervention counts, and accumulated Instagram and YouTube curtain-visibility times with their measurement versions to awaydoomscrollin.com. Local streak days and XP are not sent. Users who previously enabled v2 sharing are asked again before the expanded v3 summary is sent. Explicit opt-in may trigger one immediate attempt; later automatic attempts share one persisted 24-hour interval. Turning telemetry off stops new submissions, though an in-flight request may finish. The latest active server snapshot expires within 90 days, encrypted local backups use a separate 14-day rotation, and the server stores a SHA-256 installation key rather than the raw UUID.
 • Detection and protection logic runs entirely on-device; internet access is never used for protection decisions.
 
 AwayDoomscrollin' is an independent project. It is not affiliated with, sponsored by, or endorsed by Meta, ByteDance, Google, Instagram, TikTok, or YouTube. Their names are used only to describe compatibility.

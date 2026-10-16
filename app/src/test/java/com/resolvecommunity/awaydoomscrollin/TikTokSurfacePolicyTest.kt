@@ -112,10 +112,10 @@ class TikTokSurfacePolicyTest {
 
     @Test
     fun `non rail descriptions stay null`() {
-        assertNull(TikTokSurfacePolicy.railActionCategory("Ses: ariigilmore - orijinal ses, ari"))
-        assertNull(TikTokSurfacePolicy.railActionCategory("blmyoru adlı kullanıcının videosu, #keşfet"))
+        assertNull(TikTokSurfacePolicy.railActionCategory("Ses: ornek_sanatci - orijinal ses, ornek"))
+        assertNull(TikTokSurfacePolicy.railActionCategory("ornek_hesap adlı kullanıcının videosu, #keşfet"))
         assertNull(TikTokSurfacePolicy.railActionCategory("Ara"))
-        assertNull(TikTokSurfacePolicy.railActionCategory("\$ek3r2.0 Takip Edin"))
+        assertNull(TikTokSurfacePolicy.railActionCategory("\$ornek2.0 Takip Edin"))
         assertNull(TikTokSurfacePolicy.railActionCategory(null))
     }
 

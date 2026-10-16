@@ -4,8 +4,11 @@ package com.resolvecommunity.awaydoomscrollin
 internal class InstagramExitGate {
     companion object {
         // A missed safe-screen sample must never leave a Reel usable forever.
-        // The service asks again only while a blocked viewer is still detected.
-        const val VIEWER_FAILSAFE_REARM_MS = 800L
+        // The service asks again only while a blocked viewer is still detected,
+        // and the first Back is often swallowed by Instagram's opening
+        // animation: a half-second rearm keeps the visible playback window
+        // brief without allowing a double Back on a stale tree.
+        const val VIEWER_FAILSAFE_REARM_MS = 500L
     }
 
     private var issued = false
@@ -29,9 +32,9 @@ internal class InstagramExitGate {
         }
     }
 
-    fun requestBack(now: Long = 0L): Boolean {
+    fun requestBack(now: Long = 0L, rearmAfterMs: Long = VIEWER_FAILSAFE_REARM_MS): Boolean {
         val previousIssue = issuedAt
-        if (issued && (previousIssue == null || now - previousIssue < VIEWER_FAILSAFE_REARM_MS)) {
+        if (issued && (previousIssue == null || now - previousIssue < rearmAfterMs)) {
             return false
         }
         issued = true
@@ -52,6 +55,7 @@ internal class InstagramExitGate {
             return false
         }
         if (InstagramSurfacePolicy.needsExit(screen) ||
+            screen == InstagramScreen.STORY ||
             screen == InstagramScreen.UNKNOWN) {
             safeScreen = null
             return false

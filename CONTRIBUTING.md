@@ -4,7 +4,7 @@ Thank you for your interest in contributing! Here's how to get started.
 
 ---
 
-## 🐛 Reporting Bugs
+## Reporting Bugs
 
 1. Search [existing issues](https://gitlab.com/resolve-community/AwayDoomscrollin/-/issues) first.
 2. If not found, open a new issue with:
@@ -19,14 +19,14 @@ All three platform integrations are beta. Reports of missed detections, false po
 
 For network-behavior reports, note that the Android app's only automatic server-data path is optional pseudonymous telemetry to `awaydoomscrollin.com`. It is disabled by default and requires explicit opt-in. Protection rules ship inside the APK; the app does not automatically download GitHub JSON or remote rules. Opening website, privacy, terms, or GitHub links is a separate user-initiated browser action.
 
-## 💡 Suggesting Features
+## Suggesting Features
 
 Open an issue with the `enhancement` label and describe:
 - The problem you're solving
 - Your proposed solution
 - Any alternative approaches you considered
 
-## 🔧 Pull Requests
+## Pull Requests
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/your-feature`
@@ -37,12 +37,12 @@ Open an issue with the `enhancement` label and describe:
 
 Changes to telemetry, protection behavior, permissions, retention, destinations, or collected fields must update `README.md`, `PRIVACY.md`, `SECURITY.md`, the in-app disclosure, Fastlane descriptions, and F-Droid AntiFeature text in the same release.
 
-## 📋 Code Style
+## Code Style
 
 - Kotlin idiomatic code, no Java interop unless necessary
 - All new UI composables should use the existing color tokens (`#00F2FE`, `#00FF87`, `#FF0055`, `#0F1523`)
 - New SharedPreferences keys must be documented in a comment near their usage
 
-## ⚖️ License
+## License
 
 By contributing, you agree that your contributions will be licensed under the **GPL-3.0-only** license.

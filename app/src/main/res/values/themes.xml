@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.AwayDoomscrollin" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#070A12</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
     <style name="Theme.AwaySplashScreen" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#070A12</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo_balanced_v2</item>
         <item name="windowSplashScreenIconBackgroundColor">#070A12</item>
-        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="postSplashScreenTheme">@style/Theme.AwayDoomscrollin</item>
     </style>
 </resources>

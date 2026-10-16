@@ -1,168 +1,138 @@
 <p align="center">
-  <img src="assets/logo.png" alt="AwayDoomscrollin' Logo" width="120"/>
+  <img src="assets/logo.png" alt="AwayDoomscrollin' logo" width="120"/>
 </p>
 
 <h1 align="center">AwayDoomscrollin'</h1>
 
 <p align="center">
-  <strong>Set clearer boundaries for short-content feeds.</strong><br/>
-  Open-source, privacy-first Android accessibility shield for Instagram Reels, TikTok & YouTube Shorts (Beta).<br/>
-  🌐 <strong><a href="https://awaydoomscrollin.com">awaydoomscrollin.com</a></strong>
+  An open-source Android app that covers short-video feeds in Instagram and YouTube
+  and interrupts feed scrolling in TikTok.<br/>
+  <a href="https://awaydoomscrollin.com">awaydoomscrollin.com</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest"><img src="https://img.shields.io/github/v/release/ResolveCommunity/AwayDoomscrollin?label=release" alt="Latest release"/></a>
+  <a href="https://f-droid.org/packages/com.resolvecommunity.awaydoomscrollin/"><img src="https://img.shields.io/f-droid/v/com.resolvecommunity.awaydoomscrollin" alt="F-Droid"/></a>
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue.svg" alt="License: GPL-3.0-only"/></a>
   <a href="https://www.bestpractices.dev/projects/14458"><img src="https://www.bestpractices.dev/projects/14458/badge" alt="OpenSSF Best Practices"/></a>
-  <a href="https://github.com/ResolveCommunity/AwayDoomscrollin/actions/workflows/codeql.yml"><img src="https://github.com/ResolveCommunity/AwayDoomscrollin/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Analysis"/></a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPL--3.0--only-brightgreen.svg" alt="License: GPL-3.0-only"/></a>
-  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-blue.svg" alt="Android 8.0+"/></a>
-  <img src="https://img.shields.io/badge/Status-Public%20Beta-FFB000.svg" alt="Public Beta"/>
-  <img src="https://img.shields.io/badge/Telemetry-Explicit%20Opt--In-00F2FE.svg" alt="Explicit Opt-In Telemetry"/>
 </p>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/featureGraphic.png" alt="AwayDoomscrollin' — Break the loop, keep what matters" width="640"/>
+  <img src="fastlane/metadata/android/en-US/images/featureGraphic.png" alt="AwayDoomscrollin' feature graphic" width="640"/>
 </p>
 
----
+## About
 
-## 🎯 What is it?
+AwayDoomscrollin' is a digital wellbeing app for people who want to keep using
+Instagram, YouTube and TikTok for messages, search and things they chose to
+watch, without getting pulled into endless short-video feeds. It does not set
+time limits. Instead it covers the feeds themselves and stops the move from one
+short video to the next.
 
-**AwayDoomscrollin'** is an open-source Android digital wellbeing utility designed to interrupt unwanted short-video scrolling and help users keep the boundaries they choose.
+The app is in public beta. It relies on accessibility information exposed by
+other apps, so updates to those apps, Android or the phone's software can delay
+detection or cause missed or incorrect detections.
 
-Unlike screen-time limiters that impose minute budgets or daily quotas, AwayDoomscrollin' works on **behavior, not clocks**: it interrupts the *chain* — the endless swipe loop — while keeping single pieces of content and everyday social features reachable.
+## What it covers
 
-- **Interrupts the chain, not the single video**: a deliberately opened Short or TikTok video can be watched to the end; the swipe toward the *next* one is where protection kicks in.
-- **Keeps socializing available**: Instagram messaging, profile information, Stories and Search, TikTok inbox/DMs/profile/search/comments, and normal YouTube videos stay usable.
-- **No time limits, no quotas, no lockouts**: nothing counts your minutes or locks the app. Protected media grids (including menu collections like Saved, Likes and Reposts) are exited on entry instead.
+Instagram and YouTube have two modes. TikTok has a single protection setting.
 
-Core detection and protection run on-device using Android's native **Accessibility Service** (`canRetrieveWindowContent`). The app evaluates view routes in memory without capturing screenshots, logging keystrokes, or adding inspected screen content to network payloads. Optional pseudonymous telemetry is disabled by default and requires explicit opt-in.
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| ⚡ **Behavior-Based Shield** | No minute budgets or daily quotas. Instagram Home/Explore are covered in place and Reels are exited; TikTok and YouTube Shorts chains are interrupted on the first swipe toward the next video. |
-| 🎬 **Single Videos Stay Watchable** | A deliberately opened Short or TikTok video can be watched to its end — the endless chain is what gets closed, not the content itself. |
-| 💬 **Social Safe Zones** | Instagram DMs/Stories/profile/Search, TikTok inbox/DMs/profile/search/comments and normal YouTube videos remain usable while protected media is interrupted. |
-| 🧭 **Focused Intervention** | Instagram profile chrome (menu, banner editor, Threads shortcut, highlight picker) is released on tap so the shield is designed not to remain over allowed surfaces. Routine blocks are silent. |
-| 🎨 **Modern Vector UI** | Over 50 custom-crafted scalable Android XML vector icons, edge-to-edge dark theme, bilingual Turkish/English interface with in-app language switch. |
-| 🪶 **Lean Build** | Uses Android and Compose components without advertising or analytics SDKs. |
-| 🛡️ **Privacy-First Core** | Accessibility screen analysis is handled in memory on-device. The app does not record the screen or request key-event filtering. |
-| 🏆 **Streaks & Achievements** | Keeps local daily protection streaks and optional achievement progress. |
-| 🕒 **Peak Hour Insight** | Identifies your single most vulnerable hour of the day and intervention count directly on the home dashboard. |
-| 📊 **Impact Dashboard** | Local analytics showing per-platform interventions and measured Instagram protection time. |
-
----
-
-## 📱 Supported Platforms
-
-| Platform | Interrupted | Stays Available | Status |
+| App | Both modes | Balanced | Strict |
 |---|---|---|---|
-| **Instagram**<br/>`com.instagram.android` | Home feed & Explore grid (covered in place), Reels viewers (including from DMs/profiles/links), profile & message-detail media grids, menu collections (Saved, Likes, Reposts) | Stories, Direct Messages, profile information & chrome (menu, banner editor, Threads shortcut), highlight picker, Search | 🔶 Beta |
-| **TikTok**<br/>`com.zhiliaoapp.musically` | For You & Friends feeds (first vertical swipe exits), fullscreen video watch chains, Following & Community top-tab entries (snapped back) | Browsing, Inbox & DMs, profiles (visits, follows, messaging), Search, comments — the opened video stays watchable to the end | 🔶 Beta |
-| **YouTube**<br/>`com.google.android.youtube` | Shorts chain: the first swipe toward the next video closes the viewer | A deliberately opened Short watched to the end, long-form videos, Subscriptions, Search, comments | 🔶 Beta |
+| Instagram | Home and Explore are covered and the Reels tab is blocked. Messages and account search stay open; the suggested grid under keyword search results is covered. | Profiles, profile posts, Stories, Highlights and your Saved, Liked and Reposted lists stay open. One Reel you open can be watched with its comments; moving to the next video closes it. | Profile posts are covered. Reels, including those shared in messages, Stories and Highlights are blocked. Saved, Liked and Reposted lists are closed. |
+| YouTube | Home and Subscriptions are covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos stay open. | One Short opened from search, a channel or a link can be watched with its comments; moving to the next video closes it. | All Shorts are blocked, wherever they are opened. |
 
-> All platform integrations are currently in **Public Beta**. They are functional on tested configurations but may require rule adjustments following third-party app layout updates.
+TikTok: browsing, messages, profiles, search and comments stay open. The first
+vertical swipe in the For You or Friends feed takes you back, and switching to
+the Following or Community tabs is undone.
 
----
+The app also keeps local statistics: blocks per app, the busiest hour of the
+day, measured Instagram and YouTube curtain time, a daily streak and
+achievements. These stay on the device.
 
-## 📥 Installation
+## Installation
 
-- **Direct APK**: Download the signed public-beta binary from [GitHub Releases](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest).
-- **F-Droid**: Install the published package from the [official F-Droid listing](https://f-droid.org/packages/com.resolvecommunity.awaydoomscrollin/).
-- **Google Play**: Not publicly available yet.
+Requires Android 8.0 or newer.
 
-> **GitHub v1.2.0 APK SHA-256:** `0fc9848e1c796d8546c6f2d6750ce599c69691a1489b1f6aee3bb17fd28284af`
->
-> This checksum applies only to `AwayDoomscrollin-v1.2.0.apk` from the [GitHub v1.2.0 release](https://github.com/ResolveCommunity/AwayDoomscrollin/releases/tag/v1.2.0). F-Droid builds are independently built and have different file hashes.
+- **F-Droid:** [f-droid.org/packages/com.resolvecommunity.awaydoomscrollin](https://f-droid.org/packages/com.resolvecommunity.awaydoomscrollin/)
+- **Google Play:** [play.google.com/store/apps/details?id=com.resolvecommunity.awaydoomscrollin](https://play.google.com/store/apps/details?id=com.resolvecommunity.awaydoomscrollin)
+- **GitHub:** signed APKs on the [releases page](https://github.com/resolvecommunity/AwayDoomscrollin/releases/latest)
 
-### 📖 Sideloading & Android 13+ Setup Guide
+GitHub and F-Droid builds are signed with the same key. Its SHA-256 certificate
+fingerprint is:
 
-When installing the GitHub APK directly on **Android 13, 14, 15+** (Samsung One UI, Google Pixel, Xiaomi HyperOS/MIUI, etc.), Android may show additional security prompts:
-
-1. **Google Play Protect Warning / Block**:
-   - Keep Play Protect scanning enabled and verify that the APK came from the official GitHub release linked above.
-   - If Android offers **"More details"** and **"Install anyway"** (*"Yine de yükle"*), review the warning and continue only if you trust the source.
-   - If installation remains blocked and no override is offered, do not disable Play Protect. Install the published F-Droid build instead or wait for the Google Play release.
-2. **Restricted Settings ("Kısıtlanmış Ayar")**: Android restricts Accessibility for sideloaded apps by default. If the switch in Accessibility is greyed out:
-   - Long-press the **AwayDoomscrollin'** icon on your home screen and tap **App Info (ⓘ)** (or go to *Settings > Apps > AwayDoomscrollin'*).
-   - Tap the **three dots (⋮)** in the top-right corner.
-   - Select **"Allow restricted settings"** (*"Kısıtlanmış ayarlara izin ver"*) and confirm with your device PIN or fingerprint.
-   - Return to *Accessibility* and toggle the service on.
-
-> 🌐 **Step-by-Step Web Guides**:
-> - 🇬🇧 **English Guide**: [awaydoomscrollin.com/en/guide](https://awaydoomscrollin.com/en/guide)
-> - 🇹🇷 **Türkçe Rehber**: [awaydoomscrollin.com/tr/rehber](https://awaydoomscrollin.com/tr/rehber)
-
----
-
-## 🚀 Building from Source
-
-### Prerequisites
-- Android Studio Meerkat 2024.3.1 Patch 1 or newer
-- Android SDK 36, Build Tools 35.0.0+
-- JDK 17 / Kotlin 1.9+
-
-### Quick Start
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/resolvecommunity/AwayDoomscrollin.git
-cd AwayDoomscrollin
-
-# 2. Build the debug APK
-# On Linux / macOS:
-./gradlew assembleDebug
-
-# On Windows (PowerShell / CMD):
-.\gradlew.bat assembleDebug
+```
+c59c79a593d1e026f92f5ab264626dfc0799046df6b7ee83b254863db8ab8716
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Release APK/AAB tasks intentionally fail unless a release or Play upload key and its matching environment variables are configured.
+You can compare it with the output of `apksigner verify --print-certs` for a
+downloaded APK. The Google Play build uses Play App Signing and may not match
+this fingerprint; switching between the Play build and a GitHub or F-Droid build
+can require uninstalling first.
 
----
+### Turning on accessibility for an APK installed outside a store
 
-## 🔒 Privacy & Network Boundaries
+Android 13 and newer restrict accessibility access for apps installed from an
+APK file. If the AwayDoomscrollin' switch is greyed out in Accessibility
+settings:
 
-AwayDoomscrollin' believes in radical transparency regarding permissions and network boundaries:
+1. Open **Settings > Apps > AwayDoomscrollin'**.
+2. Tap the three-dot menu in the top-right corner and choose **Allow restricted settings**.
+3. Confirm with your PIN or fingerprint, then turn the service on in Accessibility settings.
 
-1. **On-Device Core Analysis**:
-   - The Accessibility Service evaluates UI window hierarchies strictly in-memory.
-   - It **does not** take screenshots, record your screen, or log keystrokes.
-   - Before Android Accessibility Settings can open, the app shows a separate disclosure with “Agree and open settings” and “Not now” choices. Declining leaves protection off and does not lock the app.
-2. **Internet Permission (`android.permission.INTERNET`)**:
-   - The manifest declares `INTERNET` access for one optional purpose:
-     - **Optional Usage Data (v2 only)**: Disabled by default. The switch opens a separate detailed confirmation before the first report; cancelling creates no telemetry UUID or request. If enabled, it transmits a random installation ID; aggregate intervention counts and measured Instagram protection time; device model and screen metrics; and Android, AwayDoomscrollin', Instagram, TikTok and YouTube version information with a 24-hour attempt limit. Streak and XP are not transmitted. No personal identifiers (IMEI, MAC, Android ID, Ad ID) are accessed.
-   - Core protection and detection logic run entirely on-device; internet access is never used for protection decisions.
-3. **No Third-Party Trackers**:
-   - The current Android app does not include commercial advertising, Google Analytics, Firebase, or third-party tracking SDKs.
-   - Read our complete [Privacy Policy](https://awaydoomscrollin.com/privacy).
+Menu names differ between phone makers. Step-by-step guides are available in
+[English](https://awaydoomscrollin.com/en/guide) and
+[Turkish](https://awaydoomscrollin.com/tr/rehber).
 
----
+## Privacy
 
-## 🛡️ Security & Vulnerability Reporting
+- Screen information is read through Android's Accessibility Service and
+  processed in memory on the device. The app does not take screenshots, record
+  the screen or log keystrokes, and it does not store or send what it reads
+  from the screen.
+- Before Android's accessibility settings open, the app explains what the
+  permission is used for. Declining leaves protection off.
+- The `INTERNET` permission is used only for optional usage data, which is off
+  by default and needs a separate opt-in. When enabled, it sends a random
+  installation ID, device model and screen size, Android and app versions,
+  block counts and measured curtain time; automatic reports are sent at most
+  once every 24 hours. It never includes messages or screen content.
+- The app contains no advertising, analytics or tracking libraries.
 
-Security reports are welcome. If you discover a potential vulnerability, please consult [SECURITY.md](SECURITY.md) for the responsible disclosure process.
+The full [privacy policy](https://awaydoomscrollin.com/privacy) describes what
+is collected and how long it is kept.
 
----
+## Building from source
 
-## 🤝 Contributing
+Requirements: Android SDK 36, JDK 17.
 
-We welcome community contributions, bug reports, and rule improvements! Please review [CONTRIBUTING.md](CONTRIBUTING.md) before submitting pull requests.
+```bash
+git clone https://github.com/resolvecommunity/AwayDoomscrollin.git
+cd AwayDoomscrollin
+./gradlew assembleDebug
+```
 
----
+On Windows, use `gradlew.bat assembleDebug`. The debug APK is written to
+`app/build/outputs/apk/debug/app-debug.apk` and uses a separate `.debug`
+application ID, so it can be installed next to a release build. Unit tests run
+with `./gradlew testDebugUnitTest`.
 
-## 📄 License
+Release builds need a signing key. A release APK built without one is unsigned
+and only useful as a build check.
+
+Changes in the current version are listed in the
+[v1.3.0 release notes](RELEASE_NOTES.md).
+
+## Contributing and security
+
+Bug reports and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## License
 
 Copyright (C) 2026 Resolve Community
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3 of the License (**GPL-3.0-only**).
-
-See the [LICENSE](LICENSE) file for the full text of the license.
-
-<p align="center">
-  Crafted with care by <a href="https://resolvecommunity.com">Resolve Community</a>
-</p>
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 of the License (GPL-3.0-only). See [LICENSE](LICENSE) for
+the full text.

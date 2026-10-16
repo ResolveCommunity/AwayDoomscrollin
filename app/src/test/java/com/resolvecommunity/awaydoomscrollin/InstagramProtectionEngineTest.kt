@@ -8,6 +8,19 @@ import org.junit.Test
 class InstagramProtectionEngineTest {
 
     @Test
+    fun instagramNotesScreensClassifyAsDirectMessages() {
+        val composer = InstagramUiSignals(ids = setOf(
+            "notes_creation_top_container", "pog_note_bubble_card_view", "composer_container"))
+        assertEquals(InstagramScreen.DIRECT_MESSAGES, InstagramProtectionEngine.classify(composer))
+        val picker = InstagramUiSignals(ids = setOf(
+            "notes_audience_picker_share_with", "condensed_audience_picker_container"))
+        assertEquals(InstagramScreen.DIRECT_MESSAGES, InstagramProtectionEngine.classify(picker))
+        val tray = InstagramUiSignals(ids = setOf(
+            "pog_note_bubble_card_view", "alternative_notes_options"))
+        assertEquals(InstagramScreen.DIRECT_MESSAGES, InstagramProtectionEngine.classify(tray))
+    }
+
+    @Test
     fun openingHomeFeedDoesNotBlockUntilVerticalScroll() {
         val signals = homeFeed()
 
@@ -1269,6 +1282,33 @@ class InstagramProtectionEngineTest {
         assertEquals(InstagramScreen.REELS, InstagramProtectionEngine.classify(signals))
         assertTrue(InstagramSurfacePolicy.needsExit(
             InstagramProtectionEngine.classify(signals)))
+    }
+
+    @Test
+    fun emptyFavoritesFeedIsClassifiedAsProtectedHomeFeed() {
+        val signals = InstagramUiSignals(
+            ids = setOf(
+                "action_bar_container", "action_bar_button_back", "refreshable_container",
+                "layout_listview_parent_container", "list", "empty_state_view_root",
+                "igds_empty_state_image"
+            ),
+            titles = setOf("Favorites", "Empty Favorites Feed"),
+            hasBackNavigation = true
+        )
+        assertEquals(InstagramScreen.HOME_FEED, InstagramProtectionEngine.classify(signals))
+        assertEquals(InstagramGuardAction.COVER_FEED, InstagramProtectionEngine.guardAction(
+            signals, InstagramInteraction(InstagramEventKind.CONTENT_CHANGED)))
+    }
+
+    @Test
+    fun alternateFeedRuleDoesNotCaptureProfileNamedFavorites() {
+        val signals = InstagramUiSignals(
+            ids = setOf("action_bar_container", "action_bar_button_back", "refreshable_container",
+                "list", "profile_header_container", "profile_viewpager"),
+            titles = setOf("Favorites"),
+            hasBackNavigation = true
+        )
+        assertEquals(InstagramScreen.PROFILE, InstagramProtectionEngine.classify(signals))
     }
 
     private fun homeFeed(

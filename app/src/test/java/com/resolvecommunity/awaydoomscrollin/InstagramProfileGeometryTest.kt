@@ -28,4 +28,12 @@ class InstagramProfileGeometryTest {
     @Test fun partialStatusBarNodeCannotPullCurtainOverToolbar() {
         assertEquals(266, InstagramProfileGeometry.scrollFloor(0, 126, 98, 168))
     }
+    @Test fun strictProfileCurtainIsFixedBelowTheAppBarInsteadOfFollowingTheGrid() {
+        listOf(769, 896, 1030, 1276, 1609).forEach { movingGridTop ->
+            assertEquals(266, InstagramProfileGeometry.strictCurtainTop(
+                movingGridTop, actionBarFloor = 266, bottom = 2295))
+        }
+        assertEquals(896, InstagramProfileGeometry.strictCurtainTop(
+            measuredTop = 896, actionBarFloor = 2295, bottom = 2295))
+    }
 }

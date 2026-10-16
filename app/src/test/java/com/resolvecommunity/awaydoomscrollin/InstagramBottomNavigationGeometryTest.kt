@@ -4,6 +4,23 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class InstagramBottomNavigationGeometryTest {
+    @Test fun visibleBarRepairsShortCurtainAfterTaskReturn() {
+        assertEquals(2151, InstagramBottomNavigationGeometry.alignToVisibleNavigation(
+            900, 2295, 2069, 2151))
+    }
+
+    @Test fun visibleBarKeepsNavigationOutsideCurtain() {
+        assertEquals(2151, InstagramBottomNavigationGeometry.alignToVisibleNavigation(
+            900, 2295, 2196, 2151))
+    }
+
+    @Test fun absentOrInvalidVisibleBarPreservesResolvedBoundary() {
+        for (sample in listOf(null, 800, 2400)) {
+            assertEquals(2151, InstagramBottomNavigationGeometry.alignToVisibleNavigation(
+                900, 2295, 2151, sample))
+        }
+    }
+
     @Test fun firstCurtainUsesMeasuredNavigationTop() {
         assertEquals(2196, InstagramBottomNavigationGeometry.resolveTop(
             0, 2340, retainedTop = null, detectedTop = 2196, fallbackInset = 144))
@@ -17,6 +34,11 @@ class InstagramBottomNavigationGeometryTest {
     @Test fun mountedCurtainIgnoresTransientUpperNavigationReading() {
         assertEquals(2196, InstagramBottomNavigationGeometry.resolveTop(
             0, 2340, retainedTop = 2196, detectedTop = 2100, fallbackInset = 144))
+    }
+
+    @Test fun largeNavigationJumpUsesFreshMeasurementAfterResume() {
+        assertEquals(2151, InstagramBottomNavigationGeometry.resolveTop(
+            0, 2340, retainedTop = 1647, detectedTop = 2151, fallbackInset = 144))
     }
 
     @Test fun invalidSamplesUseSafeFallback() {

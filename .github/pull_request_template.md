@@ -1,20 +1,20 @@
-﻿## 📝 Description
+## Description
 
 Briefly describe the changes introduced by this pull request.
 
 - Fixes #(issue_number)
 - Related to:
 
-## 🔍 Type of Change
+## Type of change
 
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 🎨 UI/UX improvement
-- [ ] ⚡ Performance optimization
-- [ ] 🔒 Security hardening / rule update
-- [ ] 📚 Documentation update
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] UI/UX improvement
+- [ ] Performance optimization
+- [ ] Security hardening / rule update
+- [ ] Documentation update
 
-## ✅ Checklist
+## Checklist
 
 - [ ] My code follows the project's code style and guidelines.
 - [ ] I have tested these changes on a physical device or emulator.

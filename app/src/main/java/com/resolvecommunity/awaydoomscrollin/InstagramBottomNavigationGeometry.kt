@@ -2,6 +2,20 @@ package com.resolvecommunity.awaydoomscrollin
 
 /** Keeps a verified Instagram bottom boundary stable during layout churn. */
 internal object InstagramBottomNavigationGeometry {
+    /** A visible navigation bar is authoritative; a prior curtain is not chrome. */
+    fun alignToVisibleNavigation(
+        minimumTop: Int,
+        windowBottom: Int,
+        currentBottom: Int,
+        visibleNavigationTop: Int?
+    ): Int = visibleNavigationTop?.takeIf { it > minimumTop && it < windowBottom }
+        ?: currentBottom
+
+    // A retained boundary protects against small transient accessibility
+    // samples during a fling. It must not survive a task/Recents return where
+    // Instagram publishes a wholly different navigation geometry.
+    private const val MAX_RETAINED_DRIFT_PX = 240
+
     fun resolveTop(
         windowTop: Int,
         windowBottom: Int,
@@ -28,9 +42,13 @@ internal object InstagramBottomNavigationGeometry {
         }
 
         // Once a curtain is correctly mounted, Instagram's bottom bar is
-        // static for that surface. Its transient accessibility coordinates
-        // during a fling must never resize the curtain over the navigation.
-        return retained
+        // static for that surface. Its small transient accessibility
+        // coordinates during a fling must never resize the curtain over the
+        // navigation. A large jump, however, indicates a task/Recents return
+        // or a recreated layout; prefer the fresh measurement in that case.
+        val retainedIsStale = retained != null && detected != null &&
+            kotlin.math.abs(retained - detected) > MAX_RETAINED_DRIFT_PX
+        return if (retainedIsStale) detected!! else retained
             ?: detected
             ?: content
             ?: fallbackTop
