@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -214,8 +215,25 @@ fun ZenTheme(
         onErrorContainer = Color(0xFFFF0055)
     )
 
+    // Material's default line heights are fixed (bodyLarge: 24sp). Texts here
+    // usually set a smaller fontSize without a lineHeight, so wrapped lines kept
+    // the 24sp gap. Relative heights scale with whatever fontSize a text sets.
+    val base = Typography()
+    val typography = base.copy(
+        bodyLarge = base.bodyLarge.copy(lineHeight = 1.4.em),
+        bodyMedium = base.bodyMedium.copy(lineHeight = 1.4.em),
+        bodySmall = base.bodySmall.copy(lineHeight = 1.4.em),
+        labelLarge = base.labelLarge.copy(lineHeight = 1.4.em),
+        labelMedium = base.labelMedium.copy(lineHeight = 1.4.em),
+        labelSmall = base.labelSmall.copy(lineHeight = 1.4.em),
+        titleLarge = base.titleLarge.copy(lineHeight = 1.3.em),
+        titleMedium = base.titleMedium.copy(lineHeight = 1.3.em),
+        titleSmall = base.titleSmall.copy(lineHeight = 1.3.em)
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = typography,
         content = content
     )
 }
@@ -612,6 +630,134 @@ fun onboardingStepName(step: Int, isEn: Boolean): String = when (step) {
     3 -> if (isEn) "Scope and privacy" else "Kapsam ve gizlilik"
     4 -> if (isEn) "Apps" else "Uygulamalar"
     else -> if (isEn) "Permissions" else "İzinler"
+}
+
+fun isBatteryUnrestricted(context: Context): Boolean =
+    context.getSystemService(android.os.PowerManager::class.java)
+        ?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+/**
+ * Shows Android's "Allow / Deny" dialog for running without battery
+ * optimization. Falls back to the app info page if a vendor hides it.
+ */
+@android.annotation.SuppressLint("BatteryLife")
+fun requestBatteryUnrestricted(context: Context) {
+    val request = Intent(
+        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        Uri.fromParts("package", context.packageName, null)
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(request) }.onFailure { openBackgroundSettings(context) }
+}
+
+/**
+ * Opens the app's info page: it holds Battery ("Unrestricted") on every
+ * vendor and the Autostart switch on Xiaomi and POCO.
+ */
+fun openBackgroundSettings(context: Context) {
+    val appInfo = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null)
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(appInfo) }.onFailure {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+}
+
+/**
+ * Optional step for phones whose battery manager stops background services
+ * (common on Xiaomi, POCO and OnePlus), which turns protection off until a
+ * restart. Refreshes when the user comes back from settings.
+ */
+@Composable
+fun BackgroundRunCard(isEn: Boolean, modifier: Modifier = Modifier, stepNumber: Int? = null) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var unrestricted by remember { mutableStateOf(isBatteryUnrestricted(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) unrestricted = isBatteryUnrestricted(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (unrestricted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+        ),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (stepNumber != null && !unrestricted) {
+                    Text(
+                        text = stepNumber.toString(),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(id = if (unrestricted) R.drawable.ic_shield_check else R.drawable.ic_shield),
+                        contentDescription = null,
+                        tint = if (unrestricted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    if (isEn) "Run in the background (optional)" else "Arka planda çalışma (isteğe bağlı)",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                if (isEn) {
+                    "On phones such as Xiaomi, POCO and OnePlus, the system can stop protection in the background. " +
+                        "On these phones, we recommend allowing it to run in the background. " +
+                        "On Xiaomi and POCO, also turn on Autostart in app info."
+                } else {
+                    "Xiaomi, POCO, OnePlus gibi cihazlarda sistem korumayı arka planda kapatabilir. " +
+                        "Bu cihazlarda arka planda çalışmaya izin vermeniz önerilir. " +
+                        "Xiaomi ve POCO'da uygulama bilgilerinden Otomatik başlatma'yı da açın."
+                },
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                lineHeight = 16.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = {
+                    // Once allowed, the button leads to app info for Xiaomi's Autostart switch.
+                    if (unrestricted) openBackgroundSettings(context) else requestBatteryUnrestricted(context)
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (unrestricted) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
+                    contentColor = if (unrestricted) MaterialTheme.colorScheme.secondary else Color.White
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    when {
+                        unrestricted && isEn -> "Allowed"
+                        unrestricted -> "İzin verildi"
+                        isEn -> "Allow running in the background"
+                        else -> "Arka planda çalışmaya izin ver"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }
 
 /** Installed protected apps, refreshed whenever the screen resumes. */
@@ -1119,7 +1265,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isEn) "On-device detection" else "Cihazda algılama",
+                                        text = if (isEn) "On-device" else "Cihazda çalışır",
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF00FF87),
@@ -2549,6 +2695,14 @@ fun OnboardingStepFivePermissions(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Numbered after Notifications, which only exists on Android 13+.
+        BackgroundRunCard(
+            isEn = isEn,
+            stepNumber = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 3 else 2
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -6297,7 +6451,7 @@ fun ModesAndAppsScreen(
             },
             installed = installedApps
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
     }
 }

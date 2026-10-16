@@ -37,6 +37,10 @@ way of messaging, search or long YouTube videos.
   and setup transitions, clearer mode explanations in setup and updated
   English/Turkish copy. Android's accessibility settings now show the English
   description on phones not set to Turkish.
+- New optional setup step, also reachable from About > Setup and protection
+  guide: on phones such as Xiaomi, POCO and OnePlus, where the system can stop
+  protection in the background, it asks Android to stop battery optimization
+  for the app.
 - Fixed the setup screen's high-refresh-rate preference and extended its dark
   background behind the system navigation area.
 - TikTok protection is unchanged in this release.
@@ -81,6 +85,10 @@ YouTube'daki uzun videolar açık kalır.
   kurulum geçişleri daha akıcı, kurulumda modlar ayrı ayrı anlatılıyor, Türkçe ve
   İngilizce metinler güncellendi. Telefon dili Türkçe değilse Android'in
   erişilebilirlik ayarlarında İngilizce açıklama gösterilir.
+- Kurulumda isteğe bağlı yeni bir adım var; Hakkında > Kurulum ve koruma
+  rehberi'nden de açılır. Xiaomi, POCO, OnePlus gibi sistemin korumayı arka
+  planda kapatabildiği cihazlarda pil optimizasyonunu durdurmak için Android'in
+  izin penceresini açar.
 - Kurulum ekranının yüksek yenileme hızı tercihi düzeltildi; koyu arka plan
   sistem gezinme alanının arkasına kadar uzatıldı.
 - Bu sürümde TikTok koruması değişmedi.

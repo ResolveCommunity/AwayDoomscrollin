@@ -3,4 +3,4 @@
 • Instagram Saved lists: open in Balanced, closed in Strict.
 • Faster, steadier curtains; taps in messages work again.
 • YouTube protection time, better counting and a new consent prompt for optional data.
-• Smoother setup. TikTok is unchanged.
+• Optional battery step for Xiaomi, POCO and OnePlus.

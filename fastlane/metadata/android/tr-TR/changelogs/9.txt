@@ -1,6 +1,6 @@
 • Instagram ve YouTube'a Sert ve Dengeli mod geldi. Dengeli modda tek Reel veya Short izlenir; sonrakine geçilemez.
 • YouTube Ana Sayfa ve Abonelikler perdeli; arama, kanallar, oynatma listeleri ve uzun videolar açık.
-• Kaydedilenler: Dengeli modda açık, Sert modda kapalı.
-• Perdeler daha hızlı ve kararlı; mesajlarda dokunma sorunu giderildi.
+• Kaydedilenler: Dengeli'de açık, Sert'te kapalı.
+• Perdeler daha hızlı ve kararlı; mesajlarda dokunma düzeldi.
 • YouTube koruma süresi, daha doğru sayım ve isteğe bağlı veri için yeni onay.
-• Daha akıcı kurulum. TikTok değişmedi.
+• Xiaomi, POCO, OnePlus için isteğe bağlı pil adımı.

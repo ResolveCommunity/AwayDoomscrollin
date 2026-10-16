@@ -97,6 +97,9 @@ Menu names differ between phone makers. Step-by-step guides are available in
   installation ID, device model and screen size, Android and app versions,
   block counts and measured curtain time; automatic reports are sent at most
   once every 24 hours. It never includes messages or screen content.
+- An optional setup step can ask Android to stop battery optimization for the
+  app, so phones such as Xiaomi, POCO and OnePlus do not stop protection in the
+  background. It is requested only when you tap that step.
 - The app contains no advertising, analytics or tracking libraries.
 
 The full [privacy policy](https://awaydoomscrollin.com/privacy) describes what

@@ -142,14 +142,22 @@ class PlayReleasePolicyTest {
     }
 
     @Test
-    fun `release does not request direct battery optimization exemption`() {
+    fun `battery optimization exemption is only requested from the optional user step`() {
         val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
         val source = repoFile(
             "app/src/main/java/com/resolvecommunity/awaydoomscrollin/MainActivity.kt"
         ).readText()
+        val service = repoFile(
+            "app/src/main/java/com/resolvecommunity/awaydoomscrollin/AntiScrollService.kt"
+        ).readText()
 
-        assertFalse(manifest.contains("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
-        assertFalse(source.contains("ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
+        // Vendor battery managers can stop the accessibility service, which turns
+        // protection off. The exemption is asked for only when the user taps the
+        // optional background step; nothing requests it automatically.
+        assertTrue(manifest.contains("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"))
+        assertEquals(1, Regex("ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS").findAll(source).count())
+        assertTrue(source.contains("else requestBatteryUnrestricted(context)"))
+        assertFalse(service.contains("IGNORE_BATTERY_OPTIMIZATIONS"))
     }
 
     @Test
