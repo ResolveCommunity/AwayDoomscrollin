@@ -132,13 +132,36 @@ class YouTubeSurfacePolicyTest {
     }
 
     @Test
-    fun `Subscriptions badge label is recognized`() {
-        assertEquals(
+    fun `bottom navigation tabs are named by position in any language`() {
+        // "Accueil, Shorts, Créer, Abonnements : De nouveaux contenus..., Vous".
+        val expected = listOf(
+            YouTubeNavigationDestination.HOME,
+            YouTubeNavigationDestination.SHORTS,
+            YouTubeNavigationDestination.UNKNOWN,
             YouTubeNavigationDestination.SUBSCRIPTIONS,
-            YouTubeSurfacePolicy.navigationDestination(
-                "Subscriptions: New content is available"
-            )
+            YouTubeNavigationDestination.YOU
         )
+        expected.forEachIndexed { index, destination ->
+            assertEquals(destination, YouTubeSurfacePolicy.navigationDestinationAt(index, 5))
+        }
+    }
+
+    @Test
+    fun `a bar without Create keeps its ends`() {
+        assertEquals(YouTubeNavigationDestination.SUBSCRIPTIONS,
+            YouTubeSurfacePolicy.navigationDestinationAt(2, 4))
+        assertEquals(YouTubeNavigationDestination.YOU,
+            YouTubeSurfacePolicy.navigationDestinationAt(3, 4))
+    }
+
+    @Test
+    fun `an unknown bar shape or index names nothing`() {
+        assertEquals(YouTubeNavigationDestination.UNKNOWN,
+            YouTubeSurfacePolicy.navigationDestinationAt(0, 3))
+        assertEquals(YouTubeNavigationDestination.UNKNOWN,
+            YouTubeSurfacePolicy.navigationDestinationAt(-1, 5))
+        assertEquals(YouTubeNavigationDestination.UNKNOWN,
+            YouTubeSurfacePolicy.navigationDestinationAt(5, 5))
     }
 
     @Test

@@ -7,242 +7,96 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Signal values come from real uiautomator dumps of TikTok (Turkish locale, 2026-09):
- * bottom tabs expose localized descriptions with a selected state, resource ids are
- * obfuscated ("olw", "htb"), and the video action rail uses running descriptions.
+ * Values come from scroll events and uiautomator dumps of TikTok 47.4.3 on a
+ * 1080x2340 screen with a French UI. No label or obfuscated id is involved, so
+ * the same values hold for every language.
  */
 class TikTokSurfacePolicyTest {
+    private val screenWidth = 1080
+    private val screenHeight = 2340
+    private val viewPager = "androidx.viewpager.widget.ViewPager"
 
-    // ---- resolveSelectedTab (bottom bar) ----
+    private fun swipe(
+        className: String?,
+        id: String?,
+        vertical: Boolean,
+        width: Int,
+        height: Int,
+        top: Int = 0
+    ) = TikTokSurfacePolicy.isFeedSwipe(
+        className, id, vertical, top, width, height, screenWidth, screenHeight)
 
     @Test
-    fun `real bottom tab labels resolve`() {
-        assertEquals(TikTokSurfacePolicy.TAB_FEED, TikTokSurfacePolicy.resolveSelectedTab(null, "Ana sayfa", "Ana sayfa"))
-        assertEquals(TikTokSurfacePolicy.TAB_FEED, TikTokSurfacePolicy.resolveSelectedTab(null, "Arkadaşlar", null))
-        assertEquals(TikTokSurfacePolicy.TAB_INBOX, TikTokSurfacePolicy.resolveSelectedTab("olx", "Gelen kutusu", "Gelen kutusu"))
-        assertEquals(TikTokSurfacePolicy.TAB_PROFILE, TikTokSurfacePolicy.resolveSelectedTab("oly", "Profil", "Profil"))
+    fun `vertical scroll of the fullscreen video pager is a feed swipe`() {
+        // For You / Following pager: bounds [0,0][1080,2148], dy=626.
+        assertTrue(swipe(viewPager, "viewpager", vertical = true, width = 1080, height = 2148))
     }
 
     @Test
-    fun `obfuscated ids and captions never resolve as bottom tabs`() {
-        assertNull(TikTokSurfacePolicy.resolveSelectedTab("olw", null, null))
-        assertNull(TikTokSurfacePolicy.resolveSelectedTab(null, "amazing video #funny", null))
-        assertNull(TikTokSurfacePolicy.resolveSelectedTab(null, null, null))
-    }
-
-    // ---- resolveSelectedTopTab (feed header) ----
-
-    @Test
-    fun `Takipte and Topluluk top tabs are blocked`() {
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_BLOCKED, TikTokSurfacePolicy.resolveSelectedTopTab("Takipte", "Takipte"))
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_BLOCKED, TikTokSurfacePolicy.resolveSelectedTopTab("Topluluk", "Topluluk"))
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_BLOCKED, TikTokSurfacePolicy.resolveSelectedTopTab("Following", null))
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_BLOCKED, TikTokSurfacePolicy.resolveSelectedTopTab("Community", null))
+    fun `a renamed pager class is still recognized by its id, and the reverse`() {
+        assertTrue(swipe("X.05rH", "viewpager", vertical = true, width = 1080, height = 2148))
+        assertTrue(swipe(viewPager, "q9x", vertical = true, width = 1080, height = 2148))
     }
 
     @Test
-    fun `Sizin Icin and For You top tabs are home`() {
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_HOME, TikTokSurfacePolicy.resolveSelectedTopTab("Sizin İçin", "Sizin İçin"))
-        assertEquals(TikTokSurfacePolicy.TOP_TAB_HOME, TikTokSurfacePolicy.resolveSelectedTopTab(null, "For You"))
+    fun `horizontal top tab swipes never exit`() {
+        // Top-tab pager: class X.05rH, id viewpager, bounds [0,0][1080,2295], dx=-279 dy=0.
+        assertFalse(swipe("X.05rH", "viewpager", vertical = false, width = 1080, height = 2295))
     }
 
     @Test
-    fun `unknown selected header text is not a top tab`() {
-        assertNull(TikTokSurfacePolicy.resolveSelectedTopTab("LIVE", null))
-        assertNull(TikTokSurfacePolicy.resolveSelectedTopTab("Rabia Tunçbilek", null))
+    fun `lists, grids and sheets never exit`() {
+        // Profile tab pager [0,958][1080,2295]: 57% of the screen.
+        assertFalse(swipe(viewPager, "v_y", vertical = true, width = 1080, height = 1337, top = 958))
+        // Search results pager [0,374][1080,2295] starts below the search tabs.
+        assertFalse(swipe(viewPager, "viewpager_search", vertical = true,
+            width = 1080, height = 1921, top = 374))
+        // Comment sheet, message list, search results and profile grid are RecyclerViews.
+        assertFalse(swipe("androidx.recyclerview.widget.RecyclerView", "jwa",
+            vertical = true, width = 1080, height = 2148))
+        assertFalse(swipe("androidx.recyclerview.widget.RecyclerView", null,
+            vertical = true, width = 1080, height = 1400))
     }
 
     @Test
-    fun `top tab label helpers work on raw labels`() {
-        assertTrue(TikTokSurfacePolicy.isBlockedTopTabLabel("Takipte"))
-        assertTrue(TikTokSurfacePolicy.isBlockedTopTabLabel("Topluluk"))
-        assertFalse(TikTokSurfacePolicy.isBlockedTopTabLabel("Sizin İçin"))
-        assertTrue(TikTokSurfacePolicy.isHomeTopTabLabel("Sizin İçin"))
-        assertFalse(TikTokSurfacePolicy.isHomeTopTabLabel("Takipte"))
-        assertFalse(TikTokSurfacePolicy.isHomeTopTabLabel(null))
-    }
-
-    // ---- classifyComposer ----
-
-    @Test
-    fun `real watch page comment bar classifies as comment composer`() {
-        assertEquals(
-            TikTokComposer.COMMENT,
-            TikTokSurfacePolicy.classifyComposer("Yorum ekleyin...", null, null, "ejc")
-        )
-        assertEquals(
-            TikTokComposer.COMMENT,
-            TikTokSurfacePolicy.classifyComposer("Add a comment...", null, null, null)
-        )
+    fun `a recycled source with empty bounds is not a feed swipe`() {
+        assertFalse(swipe(viewPager, "viewpager", vertical = true, width = 0, height = 2148))
+        assertFalse(TikTokSurfacePolicy.isFeedPagerBounds(0, 1080, 2148, 0, 0))
+        assertFalse(TikTokSurfacePolicy.isFeedPagerBounds(-1, 1080, 2148, screenWidth, screenHeight))
     }
 
     @Test
-    fun `message and search fields classify`() {
-        assertEquals(
-            TikTokComposer.MESSAGE,
-            TikTokSurfacePolicy.classifyComposer("Mesaj gönder", null, null, null)
-        )
-        assertEquals(
-            TikTokComposer.SEARCH,
-            TikTokSurfacePolicy.classifyComposer("Ara", null, null, "htb")
-        )
-        assertEquals(
-            TikTokComposer.SEARCH,
-            TikTokSurfacePolicy.classifyComposer(null, null, null, "et_search")
-        )
-        assertEquals(
-            TikTokComposer.NONE,
-            TikTokSurfacePolicy.classifyComposer(null, "ahmet", null, "htb")
-        )
-    }
-
-    // ---- railActionCategory (real running descriptions) ----
-
-    @Test
-    fun `real rail descriptions map to categories`() {
-        assertEquals("like", TikTokSurfacePolicy.railActionCategory("Video beğenin. 55,2 B beğeni"))
-        assertEquals("like", TikTokSurfacePolicy.railActionCategory("Beğen"))
-        assertEquals("comment", TikTokSurfacePolicy.railActionCategory("Yorum okuyun veya ekleyin. 402 yorum"))
-        assertEquals("share", TikTokSurfacePolicy.railActionCategory("Videoyu paylaş. 3.255 paylaşım"))
-        assertEquals(
-            "favorite",
-            TikTokSurfacePolicy.railActionCategory("Bu videoyu Favorilere ekleyin veya Favorilerden çıkarın. 5.078")
-        )
+    fun `the top tab strip sits near the top of the screen`() {
+        assertTrue(TikTokSurfacePolicy.isTopTabStrip(top = 98, screenHeight = screenHeight))
+        assertFalse(TikTokSurfacePolicy.isTopTabStrip(top = 900, screenHeight = screenHeight))
     }
 
     @Test
-    fun `non rail descriptions stay null`() {
-        assertNull(TikTokSurfacePolicy.railActionCategory("Ses: ornek_sanatci - orijinal ses, ornek"))
-        assertNull(TikTokSurfacePolicy.railActionCategory("ornek_hesap adlı kullanıcının videosu, #keşfet"))
-        assertNull(TikTokSurfacePolicy.railActionCategory("Ara"))
-        assertNull(TikTokSurfacePolicy.railActionCategory("\$ornek2.0 Takip Edin"))
-        assertNull(TikTokSurfacePolicy.railActionCategory(null))
-    }
-
-    // ---- classify ----
-
-    private fun signals(
-        selectedTab: String? = null,
-        selectedTopTab: String? = null,
-        composer: TikTokComposer = TikTokComposer.NONE,
-        hasProfileSignals: Boolean = false,
-        hasFeedPager: Boolean = false,
-        railCategories: Set<String> = emptySet()
-    ) = TikTokUiSignals(
-        selectedTab,
-        selectedTopTab,
-        composer,
-        hasProfileSignals,
-        hasFeedPager,
-        railCategories
-    )
-
-    // ---- isProfileLabel (real profile header strings) ----
-
-    @Test
-    fun `follower count lines identify profile surfaces`() {
-        assertTrue(TikTokSurfacePolicy.isProfileLabel("0 takip ediliyor · 1.5M takipçi"))
-        assertTrue(TikTokSurfacePolicy.isProfileLabel("1,3 B takipçi · 256,4 B Beğeni"))
-        assertTrue(TikTokSurfacePolicy.isProfileLabel("500 Followers"))
-        assertFalse(TikTokSurfacePolicy.isProfileLabel("Takip Et"))
-        assertFalse(TikTokSurfacePolicy.isProfileLabel("Mesaj..."))
-        assertFalse(TikTokSurfacePolicy.isProfileLabel("amazing video #funny"))
-        assertFalse(TikTokSurfacePolicy.isProfileLabel(null))
+    fun `every other Home top tab snaps back to For You, the last tab`() {
+        // "Communauté, Suivis, Pour toi" with Suivis selected.
+        assertEquals(2, TikTokSurfacePolicy.snapBackTarget(1, 3, homeTabSelected = true))
+        // "Сообщество" is a post grid, not a video pager; it is undone too.
+        assertEquals(2, TikTokSurfacePolicy.snapBackTarget(0, 3, homeTabSelected = true))
+        // "Communauté, Nord, Suivis, Boutique, Pour toi" with Boutique selected.
+        assertEquals(4, TikTokSurfacePolicy.snapBackTarget(3, 5, homeTabSelected = true))
     }
 
     @Test
-    fun `profile surfaces stay safe even when feed signals bleed behind them`() {
-        assertEquals(
-            TikTokSurface.SAFE,
-            TikTokSurfacePolicy.classify(
-                signals(
-                    selectedTab = TikTokSurfacePolicy.TAB_FEED,
-                    hasProfileSignals = true,
-                    railCategories = setOf("like", "comment", "share", "favorite")
-                )
-            )
-        )
-        assertEquals(
-            TikTokSurface.SAFE,
-            TikTokSurfacePolicy.classify(signals(hasProfileSignals = true))
-        )
+    fun `For You itself and strips outside Home are left alone`() {
+        assertNull(TikTokSurfacePolicy.snapBackTarget(2, 3, homeTabSelected = true))
+        // Search results: "Top, Utilisateurs, Vidéos, ..." with no bottom bar.
+        assertNull(TikTokSurfacePolicy.snapBackTarget(0, 8, homeTabSelected = false))
+        assertNull(TikTokSurfacePolicy.snapBackTarget(-1, 3, homeTabSelected = true))
+        assertNull(TikTokSurfacePolicy.snapBackTarget(0, 1, homeTabSelected = true))
     }
 
     @Test
-    fun `main feed via selected bottom tab`() {
-        assertEquals(
-            TikTokSurface.FEED,
-            TikTokSurfacePolicy.classify(signals(selectedTab = TikTokSurfacePolicy.TAB_FEED))
-        )
-    }
-
-    @Test
-    fun `inbox profile and shop tabs are safe`() {
-        assertEquals(TikTokSurface.SAFE, TikTokSurfacePolicy.classify(signals(selectedTab = TikTokSurfacePolicy.TAB_INBOX)))
-        assertEquals(TikTokSurface.SAFE, TikTokSurfacePolicy.classify(signals(selectedTab = TikTokSurfacePolicy.TAB_PROFILE)))
-        assertEquals(TikTokSurface.SAFE, TikTokSurfacePolicy.classify(signals(selectedTab = TikTokSurfacePolicy.TAB_SHOP)))
-    }
-
-    @Test
-    fun `search and message composers are safe`() {
-        assertEquals(TikTokSurface.SAFE, TikTokSurfacePolicy.classify(signals(composer = TikTokComposer.SEARCH)))
-        assertEquals(TikTokSurface.SAFE, TikTokSurfacePolicy.classify(signals(composer = TikTokComposer.MESSAGE)))
-    }
-
-    @Test
-    fun `watch page with full rail is feed despite the persistent comment bar`() {
-        assertEquals(
-            TikTokSurface.FEED,
-            TikTokSurfacePolicy.classify(
-                signals(
-                    composer = TikTokComposer.COMMENT,
-                    railCategories = setOf("like", "comment", "share", "favorite")
-                )
-            )
-        )
-    }
-
-    @Test
-    fun `a lone comment composer without a strong rail is safe`() {
-        assertEquals(
-            TikTokSurface.SAFE,
-            TikTokSurfacePolicy.classify(
-                signals(composer = TikTokComposer.COMMENT, railCategories = setOf("like"))
-            )
-        )
-    }
-
-    @Test
-    fun `selected blocked top tab is feed`() {
-        assertEquals(
-            TikTokSurface.FEED,
-            TikTokSurfacePolicy.classify(signals(selectedTopTab = TikTokSurfacePolicy.TOP_TAB_BLOCKED))
-        )
-    }
-
-    @Test
-    fun `selected home top tab alone stays unknown`() {
-        assertEquals(
-            TikTokSurface.UNKNOWN,
-            TikTokSurfacePolicy.classify(signals(selectedTopTab = TikTokSurfacePolicy.TOP_TAB_HOME))
-        )
-    }
-
-    @Test
-    fun `weaker rail evidence still identifies the feed`() {
-        assertEquals(
-            TikTokSurface.FEED,
-            TikTokSurfacePolicy.classify(signals(railCategories = setOf("like", "comment")))
-        )
-        assertEquals(
-            TikTokSurface.FEED,
-            TikTokSurfacePolicy.classify(signals(hasFeedPager = true, railCategories = setOf("share")))
-        )
-    }
-
-    @Test
-    fun `a bare pager id or single rail marker is not the feed`() {
-        assertEquals(TikTokSurface.UNKNOWN, TikTokSurfacePolicy.classify(signals(hasFeedPager = true)))
-        assertEquals(TikTokSurface.UNKNOWN, TikTokSurfacePolicy.classify(signals(railCategories = setOf("like"))))
+    fun `the bottom bar is a full-width row of items along the bottom edge`() {
+        // [0,2148][1080,2295] with Home, Friends, Create, Inbox, Profile.
+        assertTrue(TikTokSurfacePolicy.isBottomBar(2148, 1080, 5, screenWidth, screenHeight))
+        // The profile's tab row [0,836][1080,956] is not at the bottom.
+        assertFalse(TikTokSurfacePolicy.isBottomBar(836, 1080, 4, screenWidth, screenHeight))
+        // A message composer row at the bottom has fewer items.
+        assertFalse(TikTokSurfacePolicy.isBottomBar(2148, 1080, 3, screenWidth, screenHeight))
     }
 }

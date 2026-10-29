@@ -3,7 +3,7 @@ package com.resolvecommunity.awaydoomscrollin
 /**
  * Pure policy for TikTok's intentionally narrow contract: opening TikTok is allowed, while
  * the first vertical scroll on a classified feed surface requests a deterministic Back
- * action. Surfaces classified safe or unknown by [TikTokSurfacePolicy] never trigger it.
+ * action. Scrolls that [TikTokSurfacePolicy] does not identify as a feed swipe never trigger it.
  */
 internal object TikTokInterventionPolicy {
     const val EXIT_COOLDOWN_MS = 600L

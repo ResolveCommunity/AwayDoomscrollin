@@ -74,32 +74,38 @@ class InstagramProfileSurfacePolicyTest {
     }
 
     @Test
-    fun aboutThisAccountIsAllowed() {
+    fun aboutThisAccountIsAllowedByItsIds() {
         assertTrue(InstagramProfileSurfacePolicy.hasAllowedLayer(
             setOf("profile_viewpager", "about_this_account_container")))
-        assertTrue(InstagramProfileSurfacePolicy.hasAllowedLayer(
-            setOf("profile_viewpager"), setOf("bu hesap hakkında")))
+        assertTrue(InstagramProfileSurfacePolicy.isAboutAccountDeparture(
+            setOf("about_this_account_row"), emptySet()))
     }
 
     @Test
-    fun shareProfileCardIsAllowed() {
+    fun shareAndEditProfileAreAllowedByTheirIds() {
         assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(setOf(
             "profile_share_card", "profile_share_card_copy_link_button",
             "profile_share_card_download_button")))
         assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            emptySet(), setOf("Share profile")))
-        assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            emptySet(), setOf("Profili paylaş")))
+            setOf("edit_profile_fields")))
+        assertTrue(InstagramProfileSurfacePolicy.isAllowedDeparture(setOf("edit_profile_button"), emptySet()))
+        assertTrue(InstagramProfileSurfacePolicy.isAllowedDeparture(setOf("share_profile_button"), emptySet()))
     }
 
     @Test
-    fun editProfileBodyIsAllowed() {
-        assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            setOf("edit_profile_fields")))
-        assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            emptySet(), setOf("Edit profile")))
-        assertTrue(InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            emptySet(), setOf("Profili düzenle")))
+    fun localizedTitlesAndLabelsNeverDecideInAnyLanguage() {
+        // Turkish/English titles used to release the curtain; no language may
+        // behave differently from another, so none of them decides anymore.
+        for (title in listOf("Edit profile", "Profili düzenle", "Share profile", "Profili paylaş",
+                "bu hesap hakkında", "About this account", "Öne çıkanlara ekle", "Add to highlights",
+                "Modifier le profil", "Редактировать профиль")) {
+            assertFalse(title, InstagramProfileSurfacePolicy.isAllowedProfileSurface(emptySet(), setOf(title)))
+            assertFalse(title, InstagramProfileSurfacePolicy.hasAllowedLayer(emptySet(), setOf(title)))
+            assertFalse(title, InstagramProfileSurfacePolicy.isAllowedDeparture(
+                emptySet(), setOf(title.lowercase())))
+        }
+        // "Threads" is a brand name, not a translated label.
+        assertTrue(InstagramProfileSurfacePolicy.isAllowedDeparture(emptySet(), setOf("threads")))
     }
 
     @Test
@@ -110,88 +116,33 @@ class InstagramProfileSurfacePolicyTest {
     }
 
     @Test
-    fun aboutThisAccountActionSheetRowReleasesCurtainBeforeNavigation() {
-        assertTrue(InstagramProfileSurfacePolicy.isAllowedDeparture(
-            setOf("action_sheet_row_text_view"), setOf("about this account")))
-        assertTrue(InstagramProfileSurfacePolicy.isAboutAccountDeparture(
-            emptySet(), setOf("bu hesap hakkında")))
-    }
-
-    @Test
     fun ordinaryProfileGridStillNeedsCurtain() {
         assertFalse(InstagramProfileSurfacePolicy.hasAllowedLayer(setOf(
             "profile_viewpager", "profile_header_container", "profile_tabs_container")))
-    }
-
-    @Test
-    fun editAndShareProfileReleaseAndKeepTheCurtainAway() {
-        for (label in setOf("profili düzenle", "edit profile", "profili paylaş", "share profile")) {
-            assertTrue(InstagramProfileSurfacePolicy.isAllowedDeparture(emptySet(), setOf(label)))
-            assertTrue(InstagramProfileSurfacePolicy.hasAllowedLayer(emptySet(), setOf(label)))
-        }
         assertFalse(InstagramProfileSurfacePolicy.isAllowedDeparture(
             setOf("button_container"), emptySet()))
     }
 
     @Test
-    fun highlightStoryPickerReleasesTheProfileCurtain() {
-        // Real action-bar title of the full-screen story picker (Turkish locale):
-        // "Öne çıkanlara ekle" - note the çıkanlara spelling from the live dump.
-        assertTrue(InstagramProfileSurfacePolicy.isHighlightPicker(setOf("Öne çıkanlara ekle")))
-        assertTrue(InstagramProfileSurfacePolicy.isHighlightPicker(
-            setOf("Öne çıkanlara ekle Öne çıkanlara ekle")))
-        assertTrue(InstagramProfileSurfacePolicy.hasAllowedLayer(
-            setOf("action_bar_title", "day_text", "video_duration_label"),
-            setOf("Öne çıkanlara ekle")))
-        assertTrue(InstagramProfileSurfacePolicy.hasAllowedLayer(
-            emptySet(), setOf("Add to highlights")))
+    fun menuCollectionScreensAreRecognizedByStructureInEveryLanguage() {
+        // Saved and the Story archive by their own ids (any language).
+        assertTrue(InstagramProfileSurfacePolicy.isUserCollection(setOf("saved_view_pager")))
+        assertTrue(InstagramProfileSurfacePolicy.isUserCollection(setOf("archive_home_fragment_container")))
+        // Your activity's Likes/Reposts/Tags: an id-less Bloks media grid.
+        assertTrue(InstagramProfileSurfacePolicy.isUserCollection(setOf("bloks_container"), 15))
+        assertFalse(InstagramProfileSurfacePolicy.isUserCollection(setOf("bloks_container"), 0))
+        // An ordinary profile or settings page is not a collection.
+        assertFalse(InstagramProfileSurfacePolicy.isUserCollection(setOf("profile_viewpager")))
     }
 
     @Test
-    fun otherProfileTitlesNeverReleaseThroughThePickerRule() {
-        assertFalse(InstagramProfileSurfacePolicy.isHighlightPicker(
-            setOf("ornek_hesap_", "Profil", "Gönderiler", "1 Seçili")))
-        assertFalse(InstagramProfileSurfacePolicy.hasAllowedLayer(
-            setOf("profile_viewpager"), setOf("ornek_hesap_")))
-    }
-
-    @Test
-    fun menuCollectionScreensAreBlockedByTitle() {
-        // Real action-bar titles of the Saved / Likes / Reposts screens.
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Likes")))
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Beğeniler")))
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Saved")))
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Kaydedilenler")))
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Reposts")))
-        assertTrue(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(setOf("Yeniden paylaşılanlar")))
-    }
-
-    @Test
-    fun menuCollectionScreensAreRecognizedAsUserCollections() {
-        assertTrue(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("Saved")))
-        assertTrue(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("Reposts")))
-        assertTrue(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("Kaydedilenler")))
-        assertTrue(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("All Posts")))
-        assertTrue(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("All Reels")))
-        assertFalse(InstagramProfileSurfacePolicy.isUserCollectionTitle(setOf("Explore")))
-    }
-
-    @Test
-    fun otherMenuScreensAreNotBlockedCollections() {
-        assertFalse(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(
-            setOf("Ayarlar ve hareketler", "ornek_hesap_")))
-        // The highlight picker is released by its own rule, not this one.
-        assertFalse(InstagramProfileSurfacePolicy.isBlockedCollectionTitle(
-            setOf("Öne çıkanlara ekle")))
-    }
-
-    @Test
-    fun profileSettingsSurfaceIsRecognizedForStaleCurtainRelease() {
-        assertTrue(InstagramProfileSurfacePolicy.isSettingsSurfaceTitle(
-            setOf("Settings and activity")))
-        assertTrue(InstagramProfileSurfacePolicy.isSettingsSurfaceTitle(
-            setOf("Ayarlar ve hareketler")))
-        assertFalse(InstagramProfileSurfacePolicy.isSettingsSurfaceTitle(
-            setOf("Saved", "Explore")))
+    fun idlessMediaTilesAreGridSizedImages() {
+        // Likes (3 columns, ~354x360) and Reposts (2 columns, ~455x612) on a 1080 px window.
+        assertTrue(InstagramProfileSurfacePolicy.isIdlessMediaTile("android.widget.ImageView", 354, 360, 1080))
+        assertTrue(InstagramProfileSurfacePolicy.isIdlessMediaTile("android.widget.ImageView", 455, 612, 1080))
+        // Badges, full-width images and text are not tiles.
+        assertFalse(InstagramProfileSurfacePolicy.isIdlessMediaTile("android.widget.ImageView", 96, 96, 1080))
+        assertFalse(InstagramProfileSurfacePolicy.isIdlessMediaTile("android.widget.ImageView", 1080, 1080, 1080))
+        assertFalse(InstagramProfileSurfacePolicy.isIdlessMediaTile("android.widget.TextView", 354, 360, 1080))
     }
 }

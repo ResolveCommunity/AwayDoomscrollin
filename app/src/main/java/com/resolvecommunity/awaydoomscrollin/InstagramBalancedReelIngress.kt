@@ -6,7 +6,8 @@ internal enum class InstagramBalancedReelIngress {
     DIRECT_INTENT,
     DIRECT_VIEWER_WINDOW,
     PROFILE_REEL_INTENT,
-    COLLECTION_REEL_INTENT
+    COLLECTION_REEL_INTENT,
+    NOTIFICATION_COMMENT_SHEET
 }
 
 /**
@@ -32,7 +33,8 @@ internal object InstagramBalancedReelIngressPolicy {
         actionBarBackVisible: Boolean,
         directIntentPending: Boolean,
         collectionReelIntentWindowId: Int = -1,
-        collectionReelIntentPending: Boolean = false
+        collectionReelIntentPending: Boolean = false,
+        notificationItemWatching: Boolean = false
     ): InstagramBalancedReelIngress {
         if (mode != ProtectionMode.BALANCED || reelsTabTapLatched || mainTabBarVisible) {
             return InstagramBalancedReelIngress.NONE
@@ -65,6 +67,13 @@ internal object InstagramBalancedReelIngressPolicy {
             collectionReelIntentPending && collectionReelIntentWindowId >= 0 &&
             viewerWindowId == collectionReelIntentWindowId) {
             return InstagramBalancedReelIngress.COLLECTION_REEL_INTENT
+        }
+        // A comment notification opens its comment sheet over the Reel it
+        // belongs to. Closing the sheet reveals that same Reel in the same
+        // window: the notification's one destination, not a feed.
+        if (previousScreen == InstagramScreen.COMMENTS_OR_DETAIL && notificationItemWatching &&
+            originWindowId >= 0 && viewerWindowId == originWindowId) {
+            return InstagramBalancedReelIngress.NOTIFICATION_COMMENT_SHEET
         }
         return InstagramBalancedReelIngress.NONE
     }

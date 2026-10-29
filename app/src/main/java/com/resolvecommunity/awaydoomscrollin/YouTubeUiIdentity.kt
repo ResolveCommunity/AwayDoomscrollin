@@ -1,8 +1,10 @@
 package com.resolvecommunity.awaydoomscrollin
 
-import java.util.Locale
-
-/** Stable, exact identities observed in YouTube's accessibility tree. */
+/**
+ * Stable, exact identities observed in YouTube's accessibility tree. Every
+ * decision uses resource ids, classes and geometry; localized labels are
+ * never compared, so all UI languages behave alike.
+ */
 internal object YouTubeUiIdentity {
     private val searchSurfaceIds = setOf(
         "search_query",
@@ -131,8 +133,15 @@ internal object YouTubeUiIdentity {
             headerTop < windowTop + (windowBottom - windowTop) / 2
     }
 
-    fun isAllowedSecondaryToolbarTitle(
-        rawText: String?,
+    /**
+     * The title of a secondary page (Notifications, History, a playlist,
+     * Comments...) is the toolbar's non-clickable TextView next to Back. Home
+     * and Subscriptions show the logo there instead. Only the shape is read,
+     * never the localized words, and callers pass nodes from `toolbar` only.
+     */
+    fun isToolbarTitle(
+        className: CharSequence?,
+        text: CharSequence?,
         isClickable: Boolean,
         top: Int,
         windowHeight: Int,
@@ -141,27 +150,21 @@ internal object YouTubeUiIdentity {
         windowLeft: Int,
         windowRight: Int
     ): Boolean {
-        if (isClickable || windowHeight <= 0 || top >= windowHeight / 4 ||
+        if (isClickable || text.isNullOrBlank() || className?.contains("TextView") != true ||
+            windowHeight <= 0 || top >= windowHeight / 4 ||
             !isHorizontallyOnScreen(left, right, windowLeft, windowRight)
         ) {
             return false
         }
         val windowWidth = windowRight - windowLeft
-        if (windowWidth > 0 && (left > windowLeft + windowWidth / 3 || right > windowRight + (windowWidth / 20))) {
-            return false
-        }
-        val text = rawText.orEmpty().trim().lowercase(Locale.ROOT)
-        return text.startsWith("notifications") ||
-            text.startsWith("bildirim") ||
-            text == "history" || text == "geçmiş" || text == "gecmis" ||
-            text == "playlists" || text == "oynatma listeleri" ||
-            text == "comments" || text == "yorumlar" ||
-            text == "replies" || text == "yanıtlar" || text == "yanitlar" ||
-            text == "library" || text == "kitaplık" || text == "kitaplik"
+        return windowWidth <= 0 ||
+            (left <= windowLeft + windowWidth / 3 && right <= windowRight + windowWidth / 20)
     }
 
-    fun isSettledSecondaryToolbarTitle(
-        rawText: String?,
+    /** A title at its resting anchor right of Back, not one sliding in or out. */
+    fun isSettledToolbarTitle(
+        className: CharSequence?,
+        text: CharSequence?,
         isClickable: Boolean,
         top: Int,
         windowHeight: Int,
@@ -171,53 +174,70 @@ internal object YouTubeUiIdentity {
         windowRight: Int,
         tolerancePx: Int = 0
     ): Boolean {
-        if (!isAllowedSecondaryToolbarTitle(
-                rawText = rawText,
-                isClickable = isClickable,
-                top = top,
-                windowHeight = windowHeight,
-                left = left,
-                right = right,
-                windowLeft = windowLeft,
-                windowRight = windowRight
-            )
+        if (!isToolbarTitle(className, text, isClickable, top, windowHeight,
+                left, right, windowLeft, windowRight)
         ) {
             return false
         }
         val windowWidth = windowRight - windowLeft
         if (windowWidth <= 0) return false
         if (right > windowRight + tolerancePx) return false
-        val maxAllowedLeft = windowLeft + (windowWidth / 5) + (tolerancePx / 2)
-        return left <= maxAllowedLeft
+        return left <= windowLeft + (windowWidth / 5) + (tolerancePx / 2)
     }
 
-    fun isSettledLeadingBackControl(
-        rawDescription: String?,
-        rawText: String?,
+    /**
+     * Back ("Navigate up" in any language) is the toolbar's clickable
+     * ImageButton at the leading edge: [0,98][168,242] on a 1080px window, on
+     * Search, Notifications and every other secondary page.
+     */
+    fun isLeadingToolbarButton(
+        className: CharSequence?,
+        isClickable: Boolean,
         left: Int,
         right: Int,
         windowLeft: Int,
         windowRight: Int,
         tolerancePx: Int = 0
     ): Boolean {
-        if (!isBackNavigationLabel(rawDescription, rawText)) return false
+        if (!isClickable || className?.contains("ImageButton") != true || right <= left) return false
         val windowWidth = windowRight - windowLeft
         if (windowWidth <= 0) return false
         if (right > windowRight + tolerancePx) return false
-        return left <= windowLeft + tolerancePx
+        return left <= windowLeft + tolerancePx && right - left <= windowWidth / 5
     }
 
-    fun isExplicitlyAllowedLaunch(compactId: String, rawLabel: String?): Boolean {
-        if (compactId in exactAllowedSurfaceIds) return true
-        val label = rawLabel.orEmpty().trim().lowercase(Locale.ROOT)
-        return label.startsWith("search") || label.startsWith("ara") ||
-            label.startsWith("notifications") || label.startsWith("bildirim") ||
-            label == "youtube'da ara"
+    /**
+     * Toolbar launch buttons of the Home and Subscriptions feeds, by their
+     * `menu_item_N` position: Search is the last item and Notifications the
+     * one before it (an optional Cast button comes first). The You tab adds
+     * Settings after Search, so this is only valid on the two feed toolbars.
+     */
+    fun feedToolbarLaunchScreen(itemIndex: Int, lastItemIndex: Int): YouTubeCurtainScreen? = when {
+        itemIndex < 0 || lastItemIndex < 0 -> null
+        itemIndex == lastItemIndex -> YouTubeCurtainScreen.SEARCH
+        itemIndex == lastItemIndex - 1 -> YouTubeCurtainScreen.NOTIFICATIONS
+        else -> null
     }
 
-    fun isBackNavigationLabel(rawDescription: String?, rawText: String?): Boolean {
-        val label = (rawDescription.takeIf { !it.isNullOrBlank() } ?: rawText).orEmpty().trim().lowercase(Locale.ROOT)
-        return label == "navigate up" || label == "back" || label == "geri" ||
-            label == "yukarı git" || label == "yukari git" || label == "kapat" || label == "close"
-    }
+    /** The N of a `menu_item_N` toolbar slot, or -1. */
+    fun menuItemIndex(compactId: String): Int =
+        compactId.removePrefix("menu_item_").takeIf { it != compactId }?.toIntOrNull() ?: -1
+
+    /**
+     * A titled secondary page is Notifications when it was reached from a
+     * feed toolbar or stays within the Notifications visit; reached from the
+     * You tab (History, Playlists) it is another allowed page. Channel and
+     * watch pages are identified by their own ids before this applies.
+     */
+    fun isNotificationsPage(
+        titledPage: Boolean,
+        structurallyOtherAllowed: Boolean,
+        notificationsRequested: Boolean,
+        lastVerifiedScreen: YouTubeCurtainScreen,
+        withinNotificationsVisit: Boolean
+    ): Boolean = titledPage && !structurallyOtherAllowed && (
+        notificationsRequested || withinNotificationsVisit ||
+            lastVerifiedScreen == YouTubeCurtainScreen.HOME ||
+            lastVerifiedScreen == YouTubeCurtainScreen.SUBSCRIPTIONS
+        )
 }

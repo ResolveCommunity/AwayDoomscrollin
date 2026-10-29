@@ -1,15 +1,6 @@
 package com.resolvecommunity.awaydoomscrollin
 
 internal object InstagramHomeGeometry {
-    private val alternateFeedTitles = setOf(
-        "following", "favorites",
-        "takip", "takip edilenler", "favoriler",
-        "abonnements", "favoris",
-        "gefolgt", "favoriten",
-        "siguiendo", "favoritos",
-        "seguindo", "seguiti", "preferiti"
-    )
-
     fun canMeasureDuringNavigation(homeNavigationPending: Boolean, selectedHome: Boolean): Boolean =
         !homeNavigationPending || selectedHome
 
@@ -30,6 +21,9 @@ internal object InstagramHomeGeometry {
      * viewport leaves parts of a post exposed or strands a stale curtain in
      * the middle of an empty Favorites screen.
      */
+    // Titles do not decide: the feeds are named differently in every UI
+    // language, while their ids are the same everywhere.
+    @Suppress("UNUSED_PARAMETER")
     fun isAlternateFeed(
         ids: Set<String>,
         titles: Set<String>,
@@ -43,12 +37,13 @@ internal object InstagramHomeGeometry {
             "swipeable_nav_view_pager_inner_recycler_view", "list") }
         if (!hasListShell) return false
         val hasFeedRows = ids.any { it.startsWith("row_feed_") }
-        val hasSemanticTitle = titles.any { raw ->
-            val title = raw.trim().lowercase(java.util.Locale.ROOT)
-            title in alternateFeedTitles ||
-                alternateFeedTitles.any { token -> title.contains("$token feed") }
-        }
-        return hasFeedRows || hasSemanticTitle
+        // An empty Following/Favorites feed shows Instagram's empty-state view
+        // inside the feed list (gap binder or empty-state root, depending on
+        // the build): ids, valid in every language. Search lists are excluded.
+        val emptyFeed = "igds_empty_state_image" in ids &&
+            ("gap_binder_group" in ids || "empty_state_view_root" in ids) &&
+            ids.none { it.contains("search") }
+        return hasFeedRows || emptyFeed
     }
 
     fun alternateFeedTop(

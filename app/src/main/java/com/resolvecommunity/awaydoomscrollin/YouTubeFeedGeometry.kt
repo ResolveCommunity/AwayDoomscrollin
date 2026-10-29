@@ -11,6 +11,43 @@ import android.graphics.Rect
 internal object YouTubeFeedGeometry {
 
     /**
+     * A drag that starts under the logo scrolls the toolbar away with the feed.
+     * While the logo is half off screen the frame cannot be verified as Home,
+     * and the viewport falls back to its default top (status bar + 56dp) even
+     * though the toolbar above already moved up: the curtain then dropped and
+     * exposed a strip of the feed. Only a verified feed frame may move the
+     * mounted curtain's top down; an unverified one keeps it where it is.
+     */
+    fun retainCurtainTop(proposed: Rect?, mounted: Rect?, frameVerified: Boolean): Rect? {
+        if (proposed == null || mounted == null || frameVerified || mounted.top >= proposed.top) {
+            return proposed
+        }
+        return Rect(proposed).apply { top = mounted.top }
+    }
+
+    /**
+     * Whether the feed's toolbar scrolled away with the feed. A drag that
+     * starts on the bottom bar hides the toolbar and the bottom tabs together;
+     * no tab reports itself selected then, so a missing bottom bar counts as
+     * much as a selected feed tab.
+     */
+    fun toolbarScrolledAway(
+        toolbarVisible: Boolean,
+        bottomBarVisible: Boolean,
+        destination: YouTubeNavigationDestination
+    ): Boolean = !toolbarVisible && (!bottomBarVisible ||
+        destination == YouTubeNavigationDestination.HOME ||
+        destination == YouTubeNavigationDestination.SUBSCRIPTIONS)
+
+    /**
+     * Whether the bottom tabs scrolled away with the feed. The feed then
+     * reaches the window's bottom. The toolbar is not consulted: on repeated
+     * flings it can still be in the tree, sliding out, while the tabs are
+     * already gone, and waiting for both left the bottom strip open.
+     */
+    fun bottomBarScrolledAway(bottomBarVisible: Boolean): Boolean = !bottomBarVisible
+
+    /**
      * Calculates the top coordinate of the YouTube protected feed viewport.
      */
     fun calculateTop(
@@ -20,7 +57,8 @@ internal object YouTubeFeedGeometry {
         toolbarContainerBottom: Int?,
         dp56: Int,
         dp16: Int,
-        landscape: Boolean = false
+        landscape: Boolean = false,
+        toolbarScrolledAway: Boolean = false
     ): Int {
         // In landscape YouTube's subscriptions layout is a two-pane feed. The
         // portrait status-bar inset is not a usable boundary there, so use the
@@ -35,6 +73,12 @@ internal object YouTubeFeedGeometry {
         // Insets and node bounds are screen coordinates. A root starting inside the status
         // bar must add only the remaining inset, not the entire inset a second time.
         val contentTop = maxOf(windowTop, statusBarInset.coerceAtLeast(0))
+        // Scrolling the feed collapses the toolbar out of the tree entirely and
+        // the results list then starts under the status bar ([0,0][1080,2340]).
+        // The default toolbar height would leave that strip of the feed open.
+        if (toolbarBottom == null && toolbarContainerBottom == null && toolbarScrolledAway) {
+            return contentTop
+        }
         val stableToolbarBottom = contentTop + dp56.coerceAtLeast(0)
         val maxAllowedTop = stableToolbarBottom + dp16.coerceAtLeast(0)
         fun verifiedToolbarBottom(candidate: Int?): Int? = candidate?.takeIf {
@@ -56,14 +100,20 @@ internal object YouTubeFeedGeometry {
         windowBottom: Int,
         bottomBarTop: Int?,
         dp56: Int,
-        dp48: Int
+        dp48: Int,
+        bottomBarScrolledAway: Boolean = false,
+        tappableBottomInset: Int = dp48
     ): Int {
         if (windowBottom <= windowTop) return windowTop
         val minimumBarTop = windowTop + dp56.coerceAtLeast(0) * 2
         val verifiedBarTop = bottomBarTop?.takeIf {
             it >= minimumBarTop && it < windowBottom
         }
-        return verifiedBarTop ?: (windowBottom - dp48.coerceAtLeast(0))
+        // With the bottom tabs gone the default 48dp margin left a strip of
+        // the feed open. Stop only above tappable system buttons (three-button
+        // navigation); the gesture bar stays usable under an overlay.
+        val fallbackMargin = if (bottomBarScrolledAway) tappableBottomInset else dp48
+        return verifiedBarTop ?: (windowBottom - fallbackMargin.coerceAtLeast(0))
             .coerceIn(windowTop, windowBottom)
     }
 
@@ -78,7 +128,10 @@ internal object YouTubeFeedGeometry {
         bottomBarTop: Int?,
         dp56: Int,
         dp48: Int,
-        dp16: Int
+        dp16: Int,
+        toolbarScrolledAway: Boolean = false,
+        bottomBarScrolledAway: Boolean = false,
+        tappableBottomInset: Int = dp48
     ): Rect? {
         if (rootBounds.width() <= 0 || rootBounds.height() <= 0) return null
 
@@ -89,7 +142,8 @@ internal object YouTubeFeedGeometry {
             toolbarContainerBottom = toolbarContainerBottom,
             dp56 = dp56,
             dp16 = dp16,
-            landscape = rootBounds.width() > rootBounds.height()
+            landscape = rootBounds.width() > rootBounds.height(),
+            toolbarScrolledAway = toolbarScrolledAway
         ).coerceIn(rootBounds.top, rootBounds.bottom)
 
         val bottom = calculateBottom(
@@ -97,7 +151,9 @@ internal object YouTubeFeedGeometry {
             windowBottom = rootBounds.bottom,
             bottomBarTop = bottomBarTop,
             dp56 = dp56,
-            dp48 = dp48
+            dp48 = dp48,
+            bottomBarScrolledAway = bottomBarScrolledAway,
+            tappableBottomInset = tappableBottomInset
         ).coerceIn(rootBounds.top, rootBounds.bottom)
 
         return if (bottom > top) Rect(rootBounds.left, top, rootBounds.right, bottom) else null

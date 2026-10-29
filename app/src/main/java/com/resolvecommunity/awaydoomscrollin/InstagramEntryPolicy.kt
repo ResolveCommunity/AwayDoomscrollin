@@ -24,15 +24,10 @@ internal object InstagramEntryPolicy {
                 "message_content_generic_xma_container"
             ) || hasReelFooter)
 
-    fun isExploreTabIntent(ids: Set<String>, labels: Set<String>): Boolean =
-        "search_tab" in ids || ("tab_bar" in ids && labels.any {
-            it in setOf("search", "ara", "search and explore", "ara ve keşfet")
-        })
+    // Tab ids only; a tab's localized description is never read.
+    fun isExploreTabIntent(ids: Set<String>): Boolean = "search_tab" in ids
 
-    fun isHomeTabIntent(ids: Set<String>, labels: Set<String>): Boolean =
-        "feed_tab" in ids || ("tab_bar" in ids && labels.any {
-            it in setOf("home", "ana sayfa", "feed", "akış")
-        })
+    fun isHomeTabIntent(ids: Set<String>): Boolean = "feed_tab" in ids
 
     /**
      * A horizontal main-pager swipe does not emit the click intent used by the
@@ -55,8 +50,9 @@ internal object InstagramEntryPolicy {
         ancestryIds.any { id ->
             id.contains("reel", ignoreCase = true) || id.contains("clip", ignoreCase = true)
         } || ancestryLabels.any { label ->
-            label.contains("reel", ignoreCase = true) ||
-                label.contains("instagram.com/reel", ignoreCase = true)
+            // A Reel link is a URL, identical in every UI language; the
+            // localized word "Reel" is not read.
+            label.contains("instagram.com/reel", ignoreCase = true)
         }
 
     private val reelLink = Regex("https?://(?:www\\.)?instagram\\.com/reels?/[A-Za-z0-9_-]+/?(?:[?#]\\S*)?", RegexOption.IGNORE_CASE)

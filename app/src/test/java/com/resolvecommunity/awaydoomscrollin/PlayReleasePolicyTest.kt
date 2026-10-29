@@ -52,6 +52,9 @@ class PlayReleasePolicyTest {
             assertTrue("$locale title is longer than 30 characters", title.length <= 30)
             assertTrue("$locale short description is longer than 80 characters", shortDescription.length <= 80)
             assertTrue("$locale release notes are longer than 500 characters", releaseNotes.length <= 500)
+            val fullDescription = repoFile("fastlane/metadata/android/$locale/full_description.txt")
+                .readText().replace("\r", "").trim()
+            assertTrue("$locale full description is longer than 4000 characters", fullDescription.length <= 4000)
         }
     }
 
@@ -239,7 +242,10 @@ class PlayReleasePolicyTest {
         assertTrue(source.contains("todayInstagramBlocks"))
         assertTrue(source.contains("todayTiktokBlocks"))
         assertTrue(source.contains("todayYoutubeBlocks"))
-        assertTrue(source.contains("Instagram koruma süresi"))
+        // Curtain time is shown in the Instagram and YouTube tiles only, and
+        // labelled as measured curtain time, never as a block count.
+        assertTrue(source.contains("curtainMs = periodInstaMs"))
+        assertTrue(source.contains("Ölçülen perde süresi"))
         assertTrue(source.contains("Haftalık grafik nasıl çalışır?"))
         assertTrue(source.contains("Başarımlar ve seri"))
     }

@@ -1,15 +1,13 @@
 package com.resolvecommunity.awaydoomscrollin
 
-import java.util.Locale
-
 internal enum class InstagramNotificationTap { WAIT, BLOCK, PROFILE, ALLOW }
 
 internal object InstagramNotificationEntryPolicy {
     /**
-     * Strict only. A row which shows a media thumbnail, or whose action is about
-     * a post, Reel, Story or comment, opens that media when tapped; Strict never
-     * opens it. Connection rows (follows, requests) and the row's own verified
-     * profile picture stay usable.
+     * Strict only. A row which shows a media thumbnail opens that media when
+     * tapped; Strict never opens it. Connection rows (follows, requests) and
+     * the row's own verified profile picture stay usable. The row's localized
+     * summary text is never matched: it worked for Turkish/English only.
      */
     fun routeTap(
         summaries: List<String>,
@@ -17,50 +15,37 @@ internal object InstagramNotificationEntryPolicy {
         hasMediaThumbnail: Boolean = false
     ): InstagramNotificationTap {
         if (verifiedProfile) return InstagramNotificationTap.PROFILE
-        if (hasMediaThumbnail || summaries.any(::isBlockedMediaSummary)) return InstagramNotificationTap.BLOCK
+        if (hasMediaThumbnail) return InstagramNotificationTap.BLOCK
+        // A row whose text has not been published yet may still gain a thumbnail.
         if (summaries.none(String::isNotBlank)) return InstagramNotificationTap.WAIT
         return InstagramNotificationTap.ALLOW
     }
-    private val whitespace = Regex("\\s+")
-    private val englishCommentLike = Regex("\\bliked your comment\\b")
-    private val turkishCommentLike = Regex("\\byorumunu beğend(?:i|iler)\\b")
-    private val commentReply = Regex("\\breplied to your (?:comment|reply)\\b|\\byorumuna (?:yanıt|cevap) verdi\\b")
+
     fun blocksCommentLikes(mode: ProtectionMode): Boolean = mode == ProtectionMode.STRICT
 
-    fun isCommentLikeSummary(label: String): Boolean {
-        // Ignore the quoted comment after the notification's action summary.
-        val summary = label.substringBefore(':').replace('İ', 'I').lowercase(Locale.ROOT)
-            .replace(whitespace, " ")
-        return englishCommentLike.containsMatchIn(summary) || turkishCommentLike.containsMatchIn(summary)
-    }
-
-    // Actions whose notification opens a post, Reel, Story or comment thread.
-    private val englishMediaActivity = Regex(
-        "\\bliked your (?:reel|photo|post|video|story|carousel|thread)\\b|" +
-            "\\bcommented(?: on your| on)?\\b|\\bmentioned you\\b|\\btagged you\\b|" +
-            "\\bshared (?:a|your) (?:reel|post|video|photo)\\b|\\bposted (?:a )?(?:reel|photo|video|post)\\b|" +
-            "\\bremixed your\\b|\\bused your (?:audio|sound)\\b")
-    // Turkish words end in letters such as "ı" that "\b" does not treat as word
-    // characters, and Android's ICU engine rejects the "(?U)" flag (it crashed
-    // the service on the device). Explicit letter lookarounds work on both.
-    private const val TR_START = "(?<![\\p{L}\\p{N}])"
-    private const val TR_END = "(?![\\p{L}\\p{N}])"
-    private val turkishMediaActivity = Regex(
-        TR_START + "(?:reel(?:'?in)?i|gönderini|gönderilerini|fotoğrafını|videonu|hikayeni|hikâyeni|" +
-            "paylaşımını)\\s+beğend(?:i|iler)" + TR_END + "|" +
-            TR_START + "(?:bahsetti|etiketledi|yorum yaptı|yorumda|remix|sesini kullandı|" +
-            "(?:reel|gönderi|fotoğraf|video) paylaştı)" + TR_END)
-
-    fun isMediaActivitySummary(label: String): Boolean {
-        val summary = label.substringBefore(':').replace('İ', 'I').lowercase(Locale.ROOT)
-            .replace(whitespace, " ")
-        return englishMediaActivity.containsMatchIn(summary) || turkishMediaActivity.containsMatchIn(summary)
-    }
-
-    fun isBlockedMediaSummary(label: String): Boolean {
-        val summary = label.substringBefore(':').replace('İ', 'I').lowercase(Locale.ROOT).replace(whitespace, " ")
-        return isCommentLikeSummary(label) || commentReply.containsMatchIn(summary) ||
-            isMediaActivitySummary(label)
+    /**
+     * A row's trailing media preview: a text-less, non-button view in the
+     * row's right third. Follow/Message buttons carry a caption; avatars sit
+     * on the left. Language-independent by construction.
+     */
+    fun isMediaThumbnail(
+        id: String,
+        className: String,
+        hasText: Boolean,
+        bounds: InstagramGeometrySample,
+        row: InstagramGeometrySample,
+        minSidePx: Int
+    ): Boolean {
+        if (hasText || id in setOf("igds_button", "ig_text") ||
+            className.contains("Button") || className.contains("TextView")) return false
+        val width = bounds.right - bounds.left
+        val height = bounds.bottom - bounds.top
+        val rowWidth = row.right - row.left
+        if (width < minSidePx || height < minSidePx || width * 2 > rowWidth) return false
+        val centerX = bounds.left + width / 2
+        val centerY = bounds.top + height / 2
+        return centerX in row.left until row.right && centerY in row.top until row.bottom &&
+            bounds.left >= row.left + rowWidth * 2 / 3
     }
 
     /** Cover the row's media action but leave a verified, independent profile button usable. */

@@ -1,0 +1,6 @@
+• Protection now works in every language on Instagram, TikTok and YouTube.
+• TikTok: the first swipe exits reliably; every top tab except For You switches back.
+• Instagram: no curtain flashing while writing a Story; profile posts and Reels open in Balanced.
+• No curtain left on the recent apps screen.
+• Fairer streak: every protected day counts.
+• Clearer Analytics with Today, Week, Month and All time.

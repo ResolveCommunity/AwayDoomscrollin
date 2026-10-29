@@ -1,7 +1,5 @@
 package com.resolvecommunity.awaydoomscrollin
 
-import java.util.Locale
-
 internal enum class YouTubeNavigationDestination {
     HOME,
     SHORTS,
@@ -42,29 +40,20 @@ internal object YouTubeSurfacePolicy {
         YouTubeCurtainScreen.OTHER_ALLOWED
     )
 
-    fun navigationDestination(rawDescription: String?): YouTubeNavigationDestination {
-        val description = rawDescription.orEmpty()
-            .substringBefore(':')
-            .substringBefore(',')
-            .trim()
-            .lowercase(Locale.ROOT)
-        return when {
-            description == "home" || description == "ana sayfa" ->
-                YouTubeNavigationDestination.HOME
-            description == "shorts" -> YouTubeNavigationDestination.SHORTS
-            description == "subscriptions" || description.startsWith("subscriptions") ||
-                description == "abonelikler" || description.startsWith("abonelikler") ->
-                YouTubeNavigationDestination.SUBSCRIPTIONS
-            description == "you" || description.startsWith("you") ||
-                description == "siz" || description.startsWith("siz") ||
-                description == "kitaplık" || description.startsWith("kitaplık") ||
-                description == "kitaplik" || description.startsWith("kitaplik") ||
-                description == "library" || description.startsWith("library") ||
-                description == "account" || description == "hesap" ||
-                description == "profil" || description == "profile" ->
-                YouTubeNavigationDestination.YOU
-            else -> YouTubeNavigationDestination.UNKNOWN
-        }
+    /**
+     * The bottom navigation (`pivot_bar`) keeps one order in every language:
+     * Home, Shorts, Create, Subscriptions, You. Its labels are localized
+     * ("Accueil", "Abonnements : De nouveaux contenus...", "Vous"), its order
+     * is not, and child order does not mirror in right-to-left layouts. A bar
+     * without Create (four items) keeps the same ends.
+     */
+    fun navigationDestinationAt(index: Int, count: Int): YouTubeNavigationDestination = when {
+        count < 4 || index !in 0 until count -> YouTubeNavigationDestination.UNKNOWN
+        index == 0 -> YouTubeNavigationDestination.HOME
+        index == 1 -> YouTubeNavigationDestination.SHORTS
+        index == count - 1 -> YouTubeNavigationDestination.YOU
+        index == count - 2 -> YouTubeNavigationDestination.SUBSCRIPTIONS
+        else -> YouTubeNavigationDestination.UNKNOWN
     }
 
     fun strictProtectedSurface(

@@ -14,7 +14,9 @@ class InstagramInboxPolicyTest {
     }
     @Test fun directNavigationIsRecognizedWithoutTreatingMediaAsNavigation() {
         assertTrue(InstagramInboxPolicy.isDirectNavigation("direct_tab", ""))
-        assertTrue(InstagramInboxPolicy.isDirectNavigation("action_bar_button_action", "Direct"))
+        // A localized description never decides (it matched TR/EN only).
+        assertFalse(InstagramInboxPolicy.isDirectNavigation("action_bar_button_action", "Direct"))
+        assertFalse(InstagramInboxPolicy.isDirectNavigation("action_bar_button_action", "Mesajlar"))
         assertFalse(InstagramInboxPolicy.isDirectNavigation("media_container", "Direct"))
         assertFalse(InstagramInboxPolicy.isDirectNavigation("action_bar_button_action", "Notifications"))
         assertFalse(InstagramInboxPolicy.isDirectNavigation("profile_tab", "Messages"))

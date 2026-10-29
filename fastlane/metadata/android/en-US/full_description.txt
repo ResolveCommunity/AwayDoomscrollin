@@ -1,14 +1,14 @@
 Break the scrolling loop without losing touch. AwayDoomscrollin' is an open-source Android accessibility app from Resolve Community that limits feeds and short-video scrolling on Instagram, TikTok and YouTube while keeping purposeful use available.
 
 Protection and compatibility:
-• Protection uses accessibility information provided by other apps. App, Android or device software changes can delay detection or cause missed or incorrect detections. Protection is not guaranteed to work perfectly on every device.
+• Protection uses accessibility information provided by other apps. It reads the structure of the screen rather than its text, so it works the same in any language. App, Android or device software changes can delay detection or cause missed or incorrect detections. Protection is not guaranteed to work perfectly on every device.
 
 Features:
-• Instagram: Both modes cover Home and Explore and block the Reels feed tab. Messages and search remain available. Balanced keeps profiles and profile posts open, allows one selected Reel and its comments, and closes the viewer when you move to another video. Stories and Highlights also remain available in Balanced. Strict additionally covers profile posts and blocks Reels, Stories and Highlights. Shared media galleries in message details may also be covered.
-• YouTube: Both modes cover Home and Subscriptions and block the Shorts feed tab. Search results, channels, the You tab and long videos remain available. Strict blocks all Shorts. Balanced allows one specific Short opened from search or a link; moving to another video closes the viewer. Scrolling comments does not count as changing videos.
-• TikTok: Protection interrupts video-feed scrolling rather than blocking the entire app. TikTok currently uses one protection setting, not Strict and Balanced modes.
+• Instagram: Both modes cover Home and Explore and block the Reels tab. Messages and search remain available. Balanced keeps profiles and profile posts open and lets you watch one Reel you open with its comments; swiping to the next one takes you back. Stories and Highlights also remain available in Balanced. Strict additionally covers profile posts and blocks Reels, Stories and Highlights. Shared media galleries in message details may also be covered.
+• YouTube: Both modes cover Home and Subscriptions and block the Shorts tab. Search results, channels, playlists, the You tab and long videos remain available. Strict blocks all Shorts. Balanced lets you watch one Short opened from search, a channel or a link; swiping to the next one takes you back. Scrolling comments does not count as changing videos.
+• TikTok: Opening and browsing TikTok is allowed. The first swipe to the next video in a video feed takes you back, and on Home every top tab other than For You switches back to For You. TikTok has one protection setting, without Strict and Balanced modes.
 • User control: Protection can be disabled from the app or Android accessibility settings; the app does not monitor settings or prevent service deactivation.
-• Analytics: View block counts, daily protection streaks and measured Instagram and YouTube curtain durations. Curtain time is not an estimate of time saved.
+• Analytics: View block counts for today, this week, this month and all time, the hour with the most attempts, measured Instagram and YouTube curtain durations and a daily streak that counts every day protection is on. Curtain time is not an estimate of time saved.
 
 Privacy and network transparency:
 • The Android manifest declares INTERNET permission. Screen-content analysis and blocking run on-device, but the app is not fully offline.

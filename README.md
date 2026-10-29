@@ -43,12 +43,17 @@ Instagram and YouTube have two modes. TikTok has a single protection setting.
 | YouTube | Home and Subscriptions are covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos stay open. | One Short opened from search, a channel or a link can be watched with its comments; moving to the next video closes it. | All Shorts are blocked, wherever they are opened. |
 
 TikTok: browsing, messages, profiles, search and comments stay open. The first
-vertical swipe in the For You or Friends feed takes you back, and switching to
-the Following or Community tabs is undone.
+swipe to the next video in a video feed takes you back, including a video
+opened from search or a profile. On Home, every top tab other than For You
+switches back to For You.
 
-The app also keeps local statistics: blocks per app, the busiest hour of the
-day, measured Instagram and YouTube curtain time, a daily streak and
-achievements. These stay on the device.
+Detection reads the structure of the screen rather than its text, so
+protection works the same whatever language your phone or these apps use.
+
+The app also keeps local statistics: blocks per app, the hour with the most
+attempts, measured Instagram and YouTube curtain time, a daily streak and
+achievements. Every day with protection on counts toward the streak, whether
+or not anything was blocked. These stay on the device.
 
 ## Installation
 
@@ -124,7 +129,7 @@ Release builds need a signing key. A release APK built without one is unsigned
 and only useful as a build check.
 
 Changes in the current version are listed in the
-[v1.3.0 release notes](RELEASE_NOTES.md).
+[v1.4.0 release notes](RELEASE_NOTES.md).
 
 ## Contributing and security
 

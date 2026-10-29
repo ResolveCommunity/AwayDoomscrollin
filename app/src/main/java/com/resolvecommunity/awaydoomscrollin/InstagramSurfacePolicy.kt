@@ -6,6 +6,50 @@ internal object InstagramSurfacePolicy {
     fun skipInboxRows(id: String): Boolean =
         id == "inbox_refreshable_thread_list_recyclerview"
 
+    // Only Instagram's own search editors carry a "search" id. Story text,
+    // captions and the Bloks settings search (no id at all) are plain editable
+    // fields; treating them as search mounted the Explore precover per key.
+    fun isFocusedSearchField(id: String, className: String, focused: Boolean): Boolean =
+        focused && className.contains("EditText", ignoreCase = true) && id.contains("search")
+
+    // Explore's search editor (action_bar_search_edit_text) proves the search
+    // leaves onto Explore. Close friends/settings searches use other editors.
+    // A fresh search visit starts unproven; results scrolled past the editor
+    // keep the proof of the same visit.
+    fun isExploreSearchSession(
+        hasExploreSearchEditor: Boolean,
+        continuingSearch: Boolean,
+        previouslySeen: Boolean
+    ): Boolean = hasExploreSearchEditor || (continuingSearch && previouslySeen)
+
+    /** Instagram's own modal dialog (promo/what's-new) is foreground; ids only. */
+    fun isInstagramDialog(dialogContainerVisible: Boolean, promoHeadlineVisible: Boolean): Boolean =
+        dialogContainerVisible || promoHeadlineVisible
+
+    /**
+     * A notification's single post collapses its action bar (and Back) once
+     * scrolled, leaving only feed-row ids: the classifier then reads Home.
+     * Balanced keeps the notification item while the same window shows no
+     * tab bar, no Home header and at most one post; a second post is a feed.
+     */
+    fun keepsNotificationItem(
+        mode: ProtectionMode,
+        classified: InstagramScreen,
+        notificationItemActive: Boolean,
+        sameWindow: Boolean,
+        tabBarVisible: Boolean,
+        homeHeaderVisible: Boolean,
+        visiblePosts: Int
+    ): Boolean = mode == ProtectionMode.BALANCED && classified == InstagramScreen.HOME_FEED &&
+        notificationItemActive && sameWindow && !tabBarVisible && !homeHeaderVisible &&
+        visiblePosts <= 1
+
+    // An unclassified tree is re-checked quickly while a transition may still
+    // be publishing; once it has persisted it is a real (unknown) surface and
+    // an 80 ms rescan loop would only occupy the main looper.
+    fun unknownRescanDelayMs(unknownForMs: Long): Long =
+        if (unknownForMs < 1_500L) 80L else 400L
+
     fun yieldFeedSnapshot(elapsedMs: Long, previousYields: Int): Boolean =
         elapsedMs >= 100L && previousYields < 2
 

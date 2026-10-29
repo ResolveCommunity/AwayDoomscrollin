@@ -64,12 +64,16 @@ class InstagramSurfacePolicyTest {
             assertFalse(InstagramSurfacePolicy.needsCurtain(screen))
         }
     }
-    @Test fun openedProfilePostWithSharedFeedShellIsNotAllowed() {
-        val screen = InstagramProtectionEngine.classify(InstagramUiSignals(
-            ids = setOf("profile_action_bar", "refreshable_container", "sticky_header_list", "feed_tab"),
-            titles = setOf("Gönderiler"), selectedTabs = setOf(InstagramTab.PROFILE), hasBackNavigation = true))
-        assertEquals(InstagramScreen.COMMENTS_OR_DETAIL, screen)
-        assertTrue(InstagramSurfacePolicy.needsExit(screen))
+    @Test fun openedProfilePostWithSharedFeedShellIsProtectedInEveryLanguage() {
+        val screens = listOf(setOf("Gönderiler"), setOf("Posts"), setOf("Публикации"), emptySet()).map {
+            InstagramProtectionEngine.classify(InstagramUiSignals(
+                ids = setOf("profile_action_bar", "refreshable_container", "sticky_header_list", "feed_tab"),
+                titles = it, selectedTabs = setOf(InstagramTab.PROFILE), hasBackNavigation = true))
+        }.toSet()
+        assertEquals(1, screens.size)
+        val screen = screens.single()
+        // Strict covers or exits it (Balanced deliberately allows profile posts).
+        assertTrue(InstagramSurfacePolicy.needsExit(screen) || InstagramSurfacePolicy.needsCurtain(screen))
     }
     @Test fun profileGridAndStoriesStayAllowed() {
         assertFalse(InstagramSurfacePolicy.needsExit(InstagramProtectionEngine.classify(
@@ -120,5 +124,32 @@ class InstagramSurfacePolicyTest {
             homeCurtainVisible = true,
             sameWindow = false,
             hasFreshUserInput = false))
+    }
+
+    // Pinned-comment notification post scrolled until its action bar collapsed.
+    private fun keeps(
+        mode: ProtectionMode = ProtectionMode.BALANCED,
+        classified: InstagramScreen = InstagramScreen.HOME_FEED,
+        active: Boolean = true,
+        sameWindow: Boolean = true,
+        tabBar: Boolean = false,
+        homeHeader: Boolean = false,
+        posts: Int = 1
+    ) = InstagramSurfacePolicy.keepsNotificationItem(
+        mode, classified, active, sameWindow, tabBar, homeHeader, posts)
+
+    @Test fun scrolledNotificationPostIsNotHome() {
+        assertTrue(keeps())
+        assertTrue(keeps(posts = 0))
+    }
+
+    @Test fun notificationItemNeverCoversARealFeed() {
+        assertFalse(keeps(posts = 2))
+        assertFalse(keeps(tabBar = true))
+        assertFalse(keeps(homeHeader = true))
+        assertFalse(keeps(sameWindow = false))
+        assertFalse(keeps(active = false))
+        assertFalse(keeps(mode = ProtectionMode.STRICT))
+        assertFalse(keeps(classified = InstagramScreen.EXPLORE))
     }
 }

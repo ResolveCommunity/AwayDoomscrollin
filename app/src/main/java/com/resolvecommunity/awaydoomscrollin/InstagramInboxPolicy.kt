@@ -5,13 +5,10 @@ internal object InstagramInboxPolicy {
     fun canReleaseFeedForDirectIntent(screen: InstagramScreen?, freshClick: Boolean): Boolean =
         freshClick && (screen == InstagramScreen.HOME_FEED || screen == InstagramScreen.EXPLORE)
 
-    fun isDirectNavigation(id: String, description: String): Boolean {
-        if (id.contains("direct_tab") || id == "direct_tab_icon_view") return true
-        val text = description.trim().lowercase()
-        return (id == "action_bar_button_action" &&
-            (text == "direct" || text.startsWith("direct,") ||
-                text == "mesajlar" || text == "messages" || text.startsWith("mesajlar,")))
-    }
+    // Ids only: the button's localized description is never read.
+    @Suppress("UNUSED_PARAMETER")
+    fun isDirectNavigation(id: String, description: String): Boolean =
+        id.contains("direct_tab") || id == "direct_tab_icon_view"
 
     fun isInbox(listVisible: Boolean, headerVisible: Boolean, reelVisible: Boolean): Boolean =
         listVisible && headerVisible && !reelVisible

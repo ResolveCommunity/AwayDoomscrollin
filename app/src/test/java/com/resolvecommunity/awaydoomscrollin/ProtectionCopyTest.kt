@@ -59,6 +59,9 @@ class ProtectionCopyTest {
 
     @Test fun tiktokDoesNotPromiseModesThatItDoesNotHave() {
         assertTrue(ProtectionCopy.tiktok(true).contains("one protection setting"))
-        assertTrue(ProtectionCopy.tiktok(false).contains("tek koruma seçeneği"))
+        assertTrue(ProtectionCopy.tiktok(false).contains("tek koruma ayarı"))
+        // Every top tab except For You snaps back, not only Following/Community.
+        assertTrue(ProtectionCopy.tiktok(true).contains("every top tab other than For You"))
+        assertTrue(ProtectionCopy.tiktok(false).contains("Sizin İçin dışındaki her üst sekme"))
     }
 }

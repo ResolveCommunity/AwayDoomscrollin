@@ -245,6 +245,104 @@ class YouTubeFeedGeometryTest {
     private fun area(rect: Rect) = rect.width().toLong() * rect.height()
     private fun curtainArea() = area(curtain)
 
+    @Test
+    fun `an unverified frame never lowers the curtain under a collapsing toolbar`() {
+        // Device log: toolbar collapsed, curtain at top 129; the next frame
+        // lost the half-hidden logo and proposed the default top 266.
+        val mounted = Rect(0, 129, 1080, 2151)
+        val proposed = Rect(0, 266, 1080, 2151)
+        assertEquals(Rect(0, 129, 1080, 2151),
+            YouTubeFeedGeometry.retainCurtainTop(proposed, mounted, frameVerified = false))
+    }
+
+    @Test
+    fun `a feed whose toolbar scrolled away is covered from the status bar`() {
+        // Device dump: no toolbar node at all, results [0,0][1080,2340].
+        val root = Rect(0, windowTop, 1080, windowBottom)
+        val collapsed = YouTubeFeedGeometry.calculateFeedViewport(
+            root, statusBarInset, null, null, 2151, dp56, dp48, dp16, toolbarScrolledAway = true)
+        assertEquals(statusBarInset, collapsed?.top)
+        // A toolbar that is only loading keeps the default toolbar height.
+        assertEquals(statusBarInset + dp56, viewport(root, bottomBar = 2151)?.top)
+        // A visible toolbar always wins.
+        val visible = YouTubeFeedGeometry.calculateFeedViewport(
+            root, statusBarInset, 242, null, 2151, dp56, dp48, dp16, toolbarScrolledAway = true)
+        assertEquals(242, visible?.top)
+    }
+
+    @Test
+    fun `a verified feed frame and an upward move apply as proposed`() {
+        val mounted = Rect(0, 129, 1080, 2151)
+        // The toolbar came back: a verified Home frame lowers the curtain.
+        assertEquals(Rect(0, 242, 1080, 2151), YouTubeFeedGeometry.retainCurtainTop(
+            Rect(0, 242, 1080, 2151), mounted, frameVerified = true))
+        // Raising the curtain never exposes anything.
+        assertEquals(Rect(0, 98, 1080, 2151), YouTubeFeedGeometry.retainCurtainTop(
+            Rect(0, 98, 1080, 2151), mounted, frameVerified = false))
+        assertEquals(Rect(0, 266, 1080, 2151), YouTubeFeedGeometry.retainCurtainTop(
+            Rect(0, 266, 1080, 2151), null, frameVerified = false))
+        assertNull(YouTubeFeedGeometry.retainCurtainTop(null, mounted, frameVerified = false))
+    }
+
+    @Test
+    fun dragFromBottomBarHidingBothBarsCoversTheWholeFeed() {
+        // S23 Home after a drag that started on the bottom tabs: no toolbar,
+        // no bottom bar, no selected tab. The curtain stopped at 242 and 2196
+        // and the feed showed through both strips.
+        val toolbarGone = YouTubeFeedGeometry.toolbarScrolledAway(
+            toolbarVisible = false, bottomBarVisible = false,
+            destination = YouTubeNavigationDestination.UNKNOWN)
+        val barGone = YouTubeFeedGeometry.bottomBarScrolledAway(
+            bottomBarVisible = false)
+        assertTrue(toolbarGone)
+        assertTrue(barGone)
+        val curtain = YouTubeFeedGeometry.calculateFeedViewport(
+            Rect(0, 0, 1080, 2340), statusBarInset, null, null, null, dp56, dp48, dp16,
+            toolbarScrolledAway = toolbarGone, bottomBarScrolledAway = barGone,
+            tappableBottomInset = 0
+        )
+        assertEquals(Rect(0, statusBarInset, 1080, 2340), curtain)
+    }
+
+    @Test
+    fun hiddenBottomBarStillLeavesThreeButtonNavigationUsable() {
+        val curtain = YouTubeFeedGeometry.calculateFeedViewport(
+            Rect(0, 0, 1080, 2340), statusBarInset, null, null, null, dp56, dp48, dp16,
+            toolbarScrolledAway = true, bottomBarScrolledAway = true,
+            tappableBottomInset = 126
+        )
+        assertEquals(2340 - 126, curtain?.bottom)
+    }
+
+    @Test
+    fun tabsGoneWhileToolbarSlidesOutStillCoverTheBottom() {
+        // Polish S23, repeated flings: the toolbar was still in the tree while
+        // the tabs were gone, and the curtain stopped 48dp short at 2196.
+        val curtain = YouTubeFeedGeometry.calculateFeedViewport(
+            Rect(0, 0, 1080, 2340), statusBarInset, 242, null, null, dp56, dp48, dp16,
+            bottomBarScrolledAway = YouTubeFeedGeometry.bottomBarScrolledAway(bottomBarVisible = false),
+            tappableBottomInset = 0
+        )
+        assertEquals(2340, curtain?.bottom)
+    }
+
+    @Test
+    fun visibleBottomBarIsNeverTreatedAsScrolledAway() {
+        // The toolbar alone collapses on an ordinary feed scroll; the bottom
+        // tabs stay and the curtain keeps stopping at them.
+        assertFalse(YouTubeFeedGeometry.bottomBarScrolledAway(
+            bottomBarVisible = true))
+        assertFalse(YouTubeFeedGeometry.toolbarScrolledAway(
+            toolbarVisible = false, bottomBarVisible = true,
+            destination = YouTubeNavigationDestination.YOU))
+        assertTrue(YouTubeFeedGeometry.toolbarScrolledAway(
+            toolbarVisible = false, bottomBarVisible = true,
+            destination = YouTubeNavigationDestination.HOME))
+        assertFalse(YouTubeFeedGeometry.toolbarScrolledAway(
+            toolbarVisible = true, bottomBarVisible = false,
+            destination = YouTubeNavigationDestination.UNKNOWN))
+    }
+
     private fun viewport(root: Rect, toolbar: Int? = null, bottomBar: Int? = null) =
         YouTubeFeedGeometry.calculateFeedViewport(
             root, statusBarInset, toolbar, null, bottomBar, dp56, dp48, dp16

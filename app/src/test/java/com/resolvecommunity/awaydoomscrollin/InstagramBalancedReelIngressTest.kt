@@ -14,11 +14,35 @@ class InstagramBalancedReelIngressTest {
         reelsTabTapLatched: Boolean = false,
         mainTabBarVisible: Boolean = false,
         actionBarBackVisible: Boolean = false,
-        directIntentPending: Boolean = false
+        directIntentPending: Boolean = false,
+        notificationItemWatching: Boolean = false
     ) = InstagramBalancedReelIngressPolicy.resolve(
         mode, previousScreen, originWindowId, viewerWindowId,
         profileReelIntentWindowId, profileReelIntentPending, reelsTabTapLatched,
-        mainTabBarVisible, actionBarBackVisible, directIntentPending)
+        mainTabBarVisible, actionBarBackVisible, directIntentPending,
+        notificationItemWatching = notificationItemWatching)
+
+    // Pinned-comment notification: comment sheet over a Reel, closed by hand.
+    @Test fun closingNotificationCommentSheetAdmitsItsOwnReel() {
+        assertEquals(InstagramBalancedReelIngress.NOTIFICATION_COMMENT_SHEET,
+            resolve(previousScreen = InstagramScreen.COMMENTS_OR_DETAIL, originWindowId = 2088,
+                viewerWindowId = 2088, notificationItemWatching = true))
+    }
+
+    @Test fun commentSheetWithoutNotificationOriginGrantsNoReel() {
+        assertEquals(InstagramBalancedReelIngress.NONE,
+            resolve(previousScreen = InstagramScreen.COMMENTS_OR_DETAIL, originWindowId = 2088,
+                viewerWindowId = 2088))
+        assertEquals(InstagramBalancedReelIngress.NONE,
+            resolve(previousScreen = InstagramScreen.COMMENTS_OR_DETAIL, originWindowId = 2088,
+                viewerWindowId = 2090, notificationItemWatching = true))
+        assertEquals(InstagramBalancedReelIngress.NONE,
+            resolve(mode = ProtectionMode.STRICT, previousScreen = InstagramScreen.COMMENTS_OR_DETAIL,
+                originWindowId = 2088, viewerWindowId = 2088, notificationItemWatching = true))
+        assertEquals(InstagramBalancedReelIngress.NONE,
+            resolve(previousScreen = InstagramScreen.COMMENTS_OR_DETAIL, originWindowId = 2088,
+                viewerWindowId = 2088, notificationItemWatching = true, mainTabBarVisible = true))
+    }
 
     @Test fun changedDmViewerWindowAllowsFirstReelBeforeItsBackButtonAppears() {
         assertEquals(InstagramBalancedReelIngress.DIRECT_VIEWER_WINDOW,

@@ -6,17 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstagramStoryIdentityTest {
-    @Test fun storyAvatarLabelsAreLaunchesButCreationIsNot() {
-        assertTrue(InstagramStoryIdentity.isStoryLaunchLabel("nasa_es'in görülen hikayesi"))
-        assertTrue(InstagramStoryIdentity.isStoryLaunchLabel("Deniz'in hikâyesi"))
-        assertTrue(InstagramStoryIdentity.isStoryLaunchLabel("nasa's story, unseen"))
-        assertTrue(InstagramStoryIdentity.isStoryLaunchLabel("Story by nasa"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel("Hikayene ekle"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel("Hikayen"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel("Your story"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel("Add to story"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel("Profil fotoğrafı"))
-        assertFalse(InstagramStoryIdentity.isStoryLaunchLabel(null))
+    @Test fun storyLaunchIsTheAvatarIdNotItsLocalizedLabel() {
+        assertTrue(InstagramStoryIdentity.isStoryLaunchSource("row_profile_header_imageview_frame_layout"))
+        assertTrue(InstagramStoryIdentity.isStoryLaunchSource("row_profile_header_imageview"))
+        assertTrue(InstagramStoryIdentity.isStoryLaunchSource("row_search_avatar_in_ring"))
+        assertFalse(InstagramStoryIdentity.isStoryLaunchSource("row_search_user_container"))
+        assertFalse(InstagramStoryIdentity.isStoryLaunchSource(""))
     }
 
     @Test fun storyViewerOpensInModalActivity() {

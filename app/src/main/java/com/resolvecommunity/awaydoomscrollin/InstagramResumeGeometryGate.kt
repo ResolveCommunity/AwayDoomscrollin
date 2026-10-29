@@ -71,6 +71,13 @@ internal class InstagramResumeGeometryGate(
         return false
     }
 
+    /**
+     * accept() only runs for a classified screen. On a surface the engine does
+     * not know (e.g. a Story editor) it never runs, so the 48 ms resume rescan
+     * would keep the main looper busy forever without this bound.
+     */
+    fun expired(now: Long): Boolean = screen != null && now - startedAt >= maximumHoldMs
+
     fun clear() {
         screen = null
         windowId = -1

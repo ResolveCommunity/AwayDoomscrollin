@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
@@ -12,8 +13,10 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
+import android.text.TextUtils
 import android.util.Log
 import android.util.DisplayMetrics
+import android.view.View
 import android.view.WindowManager
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityEvent
@@ -21,7 +24,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
@@ -52,6 +54,7 @@ class AntiScrollService : AccessibilityService() {
         private const val DIRECT_CONVERSATION_SURFACE_GUARD_TIMEOUT_MS = 650L
         private const val DIRECT_NAVIGATION_GRACE_MS = 2_500L
         private const val DIRECT_RECOVER_COVER_MS = 500L
+        private const val DIRECT_RECOVER_DIALOG_RECHECK_MS = 250L
         private const val INSTAGRAM_RESUME_RESCAN_MS = 48L
         private const val INSTAGRAM_USER_LAUNCH_GRACE_MS = 1_200L
         private const val INSTAGRAM_PROTECTED_NAVIGATION_HOLD_MS = 2_000L
@@ -69,6 +72,7 @@ class AntiScrollService : AccessibilityService() {
         private const val YOUTUBE_CLICK_INTENT_MS = 1_500L
 private const val YOUTUBE_SHORTS_TAB_CLICK_LATCH_MS = 2_000L
 private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
+private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         private const val YOUTUBE_QUICK_IDENTITY_MAX_NODES = 80
         private const val OVERLAY_FOREGROUND_CHECK_MS = 250L
         private const val MAX_TREE_NODES = 240
@@ -170,6 +174,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private var youtubeObservedScreen = YouTubeCurtainScreen.UNKNOWN
     private var youtubeLastVerifiedScreen = YouTubeCurtainScreen.UNKNOWN
     private var youtubeAllowedFlipSince = 0L
+    private var youtubeBarsRestoredAt = 0L
     private var lastYouTubeCurtainStateSignature = ""
     private var lastYouTubeSignalsSignature = ""
     private var youtubeNotificationChildOpen = false
@@ -245,7 +250,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         queueInstagramScan(PRECOVER_DRAW_HOLD_MS)
     }
     private var instagramBalancedNotificationPostWatching = false
+    private var instagramUnknownSince = 0L
+    private var instagramExploreSearchSeen = false
     private val instagramReelsSession = InstagramReelsSession()
+    private val instagramReelShadeHold = InstagramReelShadeHold()
     private val instagramStoryExitReadiness = InstagramStoryExitReadiness()
     private val instagramReelsPagerMotion = InstagramReelsPagerMotion()
     private var instagramReelsMotionGeneration = -1L
@@ -586,6 +594,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private var youtubeLastScanFinishedAt = 0L
     private var youtubeLastClickAt = 0L
     private var youtubeLastSelectedDestination = YouTubeNavigationDestination.UNKNOWN
+    /** Notifications and the pages opened from it, until a tab or Search is verified. */
+    private var youtubeNotificationsVisit = false
 
     private fun runYouTubeScan(source: String) {
         val started = SystemClock.uptimeMillis()
@@ -623,7 +633,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         toolbar.bounds?.let { bounds ->
             if (youtubeAllowedReturnSurface != null) {
                 youtubeOverlay.updateAllowedBackGuard(
-                    Rect(window.left, bounds.top, window.left + dp(56), bounds.bottom), isEnglish()
+                    leftToRight(Rect(window.left, bounds.top, window.left + dp(56), bounds.bottom),
+                        window, YOUTUBE_PACKAGE), isEnglish()
                 )
             }
         }
@@ -858,6 +869,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             // The existing foreground loop also pauses/resumes measurement at screen off/on.
             measureYouTubeCurtainVisibility(youtubeOverlay.isCurtainVisible)
             val foreground = focusedNonOverlayPackage()
+            if (foreground == YOUTUBE_PACKAGE && youtubeOverlay.hasVisibleWindows &&
+                isTaskSwitcherShowing(rootInActiveWindow)) {
+                enterTaskSwitcher(YOUTUBE_PACKAGE)
+                return
+            }
             if (foreground != null && foreground != YOUTUBE_PACKAGE) {
                 // Accessibility overlays are above the shade on Samsung. Suspend their visual
                 // windows, not the navigation state/geometry, and restore the existing windows
@@ -902,7 +918,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             overlayForegroundCheckScheduled = false
             if (!instagramOverlay.hasVisibleWindows) return
 
-            val activePkg = rootInActiveWindow?.packageName?.toString()
+            val activeRoot = rootInActiveWindow
+            val activePkg = activeRoot?.packageName?.toString()
+            if (activePkg == INSTAGRAM_PACKAGE && isTaskSwitcherShowing(activeRoot)) {
+                enterTaskSwitcher(INSTAGRAM_PACKAGE)
+                return
+            }
             if (activePkg != null && activePkg != INSTAGRAM_PACKAGE) {
                 if (retainInstagramCurtainUnderNotificationShade(activePkg, rootInActiveWindow)) return
                 // Window IPC above can span the shade's entire closing frame.
@@ -916,7 +937,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     scheduleOverlayForegroundCheck()
                     return
                 }
-                suspendInstagramProtection()
+                suspendInstagramProtection(activePkg)
                 trackPackageTransition("")
                 return
             }
@@ -1024,6 +1045,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         maybeRecordHeartbeat()
 
         val reportedPackage = event.packageName?.toString()
+        if (reportedPackage != null && event.windowId >= 0) {
+            windowPackages[event.windowId] = reportedPackage
+        }
+        // A live Recents card keeps publishing the app's own events; they must
+        // not re-mount curtains over the switcher. The return check resumes.
+        if (taskSwitcherOwner != null &&
+            (reportedPackage == INSTAGRAM_PACKAGE || reportedPackage == YOUTUBE_PACKAGE)) return
         if (ProtectionFlightRecorder.ENABLED && reportedPackage in setOf(
                 INSTAGRAM_PACKAGE, YOUTUBE_PACKAGE, TIKTOK_PACKAGE, "com.android.systemui")) {
             val traceNow = SystemClock.uptimeMillis()
@@ -1106,7 +1134,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             !instagramProfileIngress.pending && !instagramProfileIngress.awaitingCurtainDraw &&
             instagramOverlay.visibleCurtain() == null) {
             when (lastInstagramScreen) {
-                InstagramScreen.SEARCH_RESULTS -> {
+                // Only a search opened from Explore leaves onto Explore. Other
+                // search lists (Close friends, settings) return to safe pages.
+                InstagramScreen.SEARCH_RESULTS -> if (instagramExploreSearchSeen) {
                     val searchRoot = rootInActiveWindow
                     // The editor check comes first: it is visible for every
                     // event while the user stays on search, so one lookup ends
@@ -1204,7 +1234,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         // main looper and delayed every other app's protection.
         if (packageName != INSTAGRAM_PACKAGE && packageName != this.packageName &&
             (lastPackage == INSTAGRAM_PACKAGE || instagramOverlay.hasVisibleWindows)) {
-            suspendInstagramProtection()
+            suspendInstagramProtection(packageName)
         }
         // The focused-window probe is two remote calls. It only matters while
         // YouTube protection still has state to reset or the event did not
@@ -1256,6 +1286,29 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private var lastFlightContentEventAt = 0L
     private var lastFlightScanAt = 0L
     private var lastFlightScanSignature = ""
+    private var lastFlightSignalsSignature = ""
+
+    // Debug only: the visible ids/titles behind each distinct classification,
+    // so a screen in any UI language can be identified from the flight log.
+    private fun recordInstagramSignals(signals: InstagramUiSignals) {
+        val screen = InstagramProtectionEngine.classify(
+            signals.copy(sourceIds = emptySet(), sourceLabels = emptySet(), sourceTab = null))
+        val signature = "$screen|${signals.ids.sorted().joinToString(",")}|${signals.titles.sorted()}"
+        if (signature == lastFlightSignalsSignature) return
+        lastFlightSignalsSignature = signature
+        ProtectionFlightRecorder.record(this, "instagram.signals",
+            "screen=$screen tabs=${signals.selectedTabs} back=${signals.hasBackNavigation} " +
+                "search=${signals.searchFieldFocused} tiles=${signals.idlessMediaTiles} titles=${signals.titles}")
+        signals.ids.sorted().joinToString(",").chunked(800).forEach { part ->
+            ProtectionFlightRecorder.record(this, "instagram.signals.ids", part)
+        }
+        // Language audit: the only titles still read are Saved's untranslated
+        // filter labels; flag any decision that would differ without them.
+        val neutral = InstagramProtectionEngine.classify(signals.copy(titles = emptySet(),
+            sourceIds = emptySet(), sourceLabels = emptySet(), sourceTab = null))
+        if (neutral != screen) ProtectionFlightRecorder.record(this, "instagram.textdep",
+            "screen=$screen withoutTitles=$neutral titles=${signals.titles}")
+    }
 
     /**
      * One scan asks the same view id up to a dozen times across the fast
@@ -1323,11 +1376,25 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
      * verified feed rectangle back on screen so a mistap cannot leave a
      * protected feed exposed while Instagram finishes its tree swap.
      */
-    private val instagramDirectRecoverCover = Runnable {
-        if (directNavigationSourceWindowId == -1) return@Runnable
+    private val instagramDirectRecoverCover = object : Runnable { override fun run() = recoverDirectCover(this) }
+
+    private fun recoverDirectCover(self: Runnable) {
+        if (directNavigationSourceWindowId == -1) return
         val root = rootInActiveWindow
-        if (root == null || root.packageName?.toString() != INSTAGRAM_PACKAGE) return@Runnable
-        if (SystemClock.uptimeMillis() >= directNavigationUntil) return@Runnable
+        if (root == null || root.packageName?.toString() != INSTAGRAM_PACKAGE) return
+        if (SystemClock.uptimeMillis() >= directNavigationUntil) return
+        // Instagram can open a one-time promo dialog over the new inbox. It
+        // hides the inbox ids, so the inbox cannot be verified yet; covering
+        // now put "Feed is protected" over DM and the dialog (seen on device).
+        // Wait while the dialog is up: it only appears over the DM
+        // destination, and the regular scan still covers a real feed.
+        if (InstagramSurfacePolicy.isInstagramDialog(
+                igVisible(root, "dialog_container"), igVisible(root, "igds_promo_dialog_headline"))) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                this@AntiScrollService, "instagram.recover.cover", "deferred=dialog")
+            mainHandler.postDelayed(self, DIRECT_RECOVER_DIALOG_RECHECK_MS)
+            return
+        }
         val retained = lastVerifiedInstagramCurtain
             ?.takeIf { (screen, _) ->
                 InstagramSurfacePolicy.needsCurtain(screen) &&
@@ -1389,6 +1456,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private val instagramResumeRescan = object : Runnable {
         override fun run() {
             if (!instagramResumeGeometryGate.isActive) return
+            if (instagramResumeGeometryGate.expired(SystemClock.uptimeMillis())) {
+                // The retained curtain stays; event-driven scans continue.
+                clearInstagramResumeProtection()
+                return
+            }
             queueInstagramScan(0L)
             if (instagramResumeGeometryGate.isActive) {
                 mainHandler.postDelayed(this, INSTAGRAM_RESUME_RESCAN_MS)
@@ -2382,7 +2454,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE) {
             if (retainInstagramCurtainUnderNotificationShade(root.packageName?.toString())) return
-            suspendInstagramProtection()
+            suspendInstagramProtection(root.packageName?.toString())
             // This path is reached when a delayed Instagram event is handled
             // after Recents/SystemUI has already become the active root. Mark
             // the foreground departure just like overlayForegroundCheck does,
@@ -2709,7 +2781,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             return
         }
         val windowBounds = initialWindowBounds
-        if (hasFastSinglePostViewer(root)) {
+        if (hasFastSinglePostViewer(root, chosenFromProfile = instagramProfilePostChosen(scanNow))) {
             if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) ==
                 ProtectionMode.BALANCED && instagramBalancedNotificationPostWatching) {
                 hideInstagramContentOverlay()
@@ -2859,15 +2931,6 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         if (refreshDirectDetailsSurface(root, windowBounds)) return
         if (refreshFastMainProtectedSurface(root, windowBounds)) return
 
-        // The full-screen highlight story picker replaces the profile surface entirely.
-        // It classifies as UNKNOWN (no profile ids, no feed ids), which would otherwise
-        // leave the profile curtain mounted over it; release it directly by title.
-        if (isHighlightPickerForeground(root)) {
-            profileAllowedDepartureUntil = 0L
-            releaseAllowedProfileSurface()
-            return
-        }
-
         // The profile grid is a small set of direct ID lookups. Draw its curtain
         // before inbox/conversation probes and the bounded general tree walk so
         // thumbnails do not wait for the slow classification path.
@@ -2933,13 +2996,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             return
         }
         instagramFeedSnapshotYields = 0
+        if (ProtectionFlightRecorder.ENABLED) recordInstagramSignals(signals)
         val retainedCurtain = instagramOverlay.visibleCurtain()
         val profileSideSurface = InstagramProfileSurfacePolicy.hasAllowedLayer(
             signals.ids, signals.titles)
         if (retainedCurtain != null &&
             retainedCurtain.first in setOf(InstagramScreen.EXPLORE, InstagramScreen.HOME_FEED) &&
-            (profileSideSurface ||
-                InstagramProfileSurfacePolicy.isSettingsSurfaceTitle(signals.titles))) {
+            profileSideSurface) {
             // Saved/Likes/Reposts can return to the profile menu. That menu is
             // not a feed, so an older Explore/Home curtain must not survive on
             // top of its settings rows while the classifier is UNKNOWN.
@@ -2955,8 +3018,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         // Balanced treats them as a user-curated library; Strict keeps the existing
         // one-shot Back behavior. The title check is intentionally independent of
         // profileContext because Instagram can briefly report UNKNOWN during entry.
-        if (InstagramProfileSurfacePolicy.isUserCollectionTitle(signals.titles)) {
-            if (refreshBalancedInstagramCollection(root, signals.titles)) return
+        if (InstagramProfileSurfacePolicy.isUserCollection(signals.ids, signals.idlessMediaTiles)) {
+            if (refreshBalancedInstagramCollection(root, collectionIds = true)) return
             val collectionOrigin = lastInstagramScreen
             // Saved/Likes/Reposts opened from the profile menu return to that
             // allowed menu, so an older Explore/Home curtain must not survive
@@ -2991,6 +3054,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         // the destination; a click may arm a shield, but cannot trigger BACK itself.
         val classifiedScreen = InstagramProtectionEngine.classify(
             signals.copy(sourceIds = emptySet(), sourceLabels = emptySet(), sourceTab = null))
+        if (classifiedScreen == InstagramScreen.SEARCH_RESULTS) {
+            instagramExploreSearchSeen = InstagramSurfacePolicy.isExploreSearchSession(
+                hasExploreSearchEditor = "action_bar_search_edit_text" in signals.ids,
+                continuingSearch = lastInstagramScreen == InstagramScreen.SEARCH_RESULTS,
+                previouslySeen = instagramExploreSearchSeen)
+        }
         val standardHeaderAttached = attachedInstagramBounds(
             root, windowBounds, "main_feed_action_bar", requireWide = true) != null
         val standardStoriesAttached = findAttachedHomeStoriesBounds(root, windowBounds) != null
@@ -3017,6 +3086,17 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val screen = when {
             savedCollectionReelSurface -> InstagramScreen.REELS
             returnedToStandardHome -> InstagramScreen.HOME_FEED
+            keepsBalancedNotificationItem(root, classifiedScreen, signals) -> {
+                // A thumbnail tap opens the post page directly (no comment
+                // sheet first): that page is the notification's one item.
+                val kept = if (lastInstagramScreen == InstagramScreen.NOTIFICATIONS) {
+                    instagramBalancedNotificationPostWatching = true
+                    InstagramScreen.COMMENTS_OR_DETAIL
+                } else lastInstagramScreen
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                    "instagram.notification.item", "kept=$kept from=$lastInstagramScreen classified=$classifiedScreen")
+                kept
+            }
             classifiedScreen == InstagramScreen.REELS && keepVerifiedHome -> {
                 Log.d(TAG, "IG_HOME_PLAYER_MUTATION_IGNORED window=${root.windowId}")
                 InstagramScreen.HOME_FEED
@@ -3056,6 +3136,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 // that a previous viewer encounter ended.
                 verifiedConversationReturn = screen == InstagramScreen.DIRECT_MESSAGES
             )) queueInstagramScan(450L)
+        // A Reel deliberately opened from a profile, DM or collection is
+        // admitted against the screen it was opened from. Observing REELS
+        // first would erase that origin (seen with a profile repost, whose
+        // localized title is the only difference from any other Reel).
+        if (screen == InstagramScreen.REELS && allowBalancedInstagramReel(root)) return
         val stateDecision = observeInstagramScreen(screen, root.windowId)
         if (stateDecision.action == InstagramProtectionAction.EXIT) {
             exitBlockedViewer(root, windowBounds, screen)
@@ -3076,7 +3161,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             // guards here created an 86 ms first-tap opening in the captured DM
             // Reel trace.
             if (instagramOverlay.hasVisibleWindows) {
-                queueInstagramScan(80L)
+                if (instagramUnknownSince == 0L) instagramUnknownSince = now
+                queueInstagramScan(InstagramSurfacePolicy.unknownRescanDelayMs(now - instagramUnknownSince))
             }
             return
         }
@@ -3092,6 +3178,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                         mediaEntriesBlocked)
             }.map { it.first }.distinct()
         } else emptyList(), isEnglish())
+        if (instagramOverlay.hasVisibleWindows) scheduleOverlayForegroundCheck()
         cancelInstagramExit()
         when (stateDecision.action) {
             InstagramProtectionAction.SHOW_CURTAIN -> when (screen) {
@@ -3245,15 +3332,6 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             igVisible(root, id)
         }
 
-    // The picker screen is cheap to identify: one id lookup plus a title match, so the
-    // release decision never depends on the bounded snapshot walk reaching the title.
-    private fun isHighlightPickerForeground(root: AccessibilityNodeInfo): Boolean =
-        root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/action_bar_title").any { node ->
-            val title = listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
-                .joinToString(" ")
-            InstagramProfileSurfacePolicy.isHighlightPicker(setOf(title))
-        }
-
     private var expandedPicCheckedAt = 0L
     private var expandedPicVisible = false
 
@@ -3325,18 +3403,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         }
         // Detailed classification: every allowed profile-side layer (share
         // card, edit profile, native sheets, menu, About) is recognised by its
-        // exact visible ids and action-bar titles so the user's intentional
-        // surfaces are never curtained.
+        // exact visible ids so the user's intentional surfaces are never
+        // curtained (localized titles are not read).
         val visibleMarkers = InstagramProfileSurfacePolicy.allowedSurfaceMarkerIds
             .filterTo(mutableSetOf()) { igVisible(titleRoot, it) }
-        val titles = cachedNodeLookup(titleRoot, "$INSTAGRAM_PACKAGE:id/action_bar_title")
-            .filter { it.isVisibleToUser }
-            .mapNotNull { node -> node.text?.toString() ?: node.contentDescription?.toString() }
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .toSet()
-        profileYieldVisible = InstagramProfileSurfacePolicy.isAllowedProfileSurface(
-            visibleMarkers, titles)
+        profileYieldVisible = InstagramProfileSurfacePolicy.isAllowedProfileSurface(visibleMarkers)
         return profileYieldVisible
     }
 
@@ -3615,7 +3686,15 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             "$INSTAGRAM_PACKAGE:id/$id").any { it.isVisibleToUser }
         fun selected(id: String): Boolean = cachedNodeLookup(root,
             "$INSTAGRAM_PACKAGE:id/$id").any { it.isVisibleToUser && isSelectedRecursive(it, 2) }
+        fun tabBounds(id: String): Rect? = cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/$id")
+            .firstOrNull { it.isVisibleToUser }?.let { Rect().also(it::getBoundsInScreen) }
 
+        // Home is the leading tab and Profile the trailing one.
+        tabBounds("feed_tab")?.let { home ->
+            tabBounds("profile_tab")?.let { profile ->
+                noteLayoutDirection(INSTAGRAM_PACKAGE, home, profile)
+            }
+        }
         val screen = InstagramFastSurfacePolicy.classify(
             homeSelected = selected("feed_tab"),
             searchSelected = selected("search_tab"),
@@ -3864,10 +3943,14 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         if (!instagramStoriesBlocked()) return false
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
-                val label = (event.text.joinToString(" ") + " " +
-                    (event.contentDescription ?: "")).trim()
-                instagramStoryLaunchUntil = if (now - event.eventTime in 0L..1_500L &&
-                    InstagramStoryIdentity.isStoryLaunchLabel(label)) {
+                val fresh = now - event.eventTime in 0L..1_500L
+                // The avatar's own id is the evidence (one source read, the
+                // same click-time read the account-entry path already does);
+                // its localized label ("X's story") is never read.
+                val storySource = fresh &&
+                    lastInstagramScreen in setOf(InstagramScreen.PROFILE, InstagramScreen.SEARCH_RESULTS) &&
+                    InstagramStoryIdentity.isStoryLaunchSource(compactId(event.source?.viewIdResourceName))
+                instagramStoryLaunchUntil = if (storySource) {
                     now + INSTAGRAM_STORY_LAUNCH_WINDOW_MS
                 } else 0L
                 instagramStoryLaunchEventDeadline = if (instagramStoryLaunchUntil != 0L) {
@@ -4014,8 +4097,14 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         }
         if (screen == InstagramScreen.REELS) {
             if (instagramReelsSession.exiting) return false
+            val wasWatching = instagramReelsSession.watching
             if (instagramReelsSession.observe(ProtectionMode.BALANCED, viewerVisible = true) ==
                 InstagramReelsDecision.EXIT) return false
+            // Same as every other single-Reel entry: the next-video scroll
+            // gate only accepts pager events after this verification time.
+            // Without it every swipe was treated as foreign and the user
+            // could scroll a notification Reel endlessly.
+            if (!wasWatching) instagramReelsVerifiedAt = SystemClock.uptimeMillis()
             instagramBalancedReelOrigin = InstagramScreen.NOTIFICATIONS
         } else {
             instagramBalancedNotificationPostWatching = true
@@ -4044,13 +4133,23 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         // its pager-motion gate remains responsible for exiting on video two.
         if (InstagramBalancedReelIngressPolicy.keepsVerifiedSession(
                 mode, instagramReelsSession.watching, instagramReelsSession.exiting)) return true
-        if (!instagramReelsSession.watching &&
+        val shadeOrigin = if (instagramReelShadeHold.isHeld && mode == ProtectionMode.BALANCED) {
+            instagramReelShadeHold.take(root.windowId, SystemClock.uptimeMillis())
+        } else {
+            instagramReelShadeHold.clear()
+            null
+        }
+        if (shadeOrigin == null && !instagramReelsSession.watching &&
             InstagramNotificationShadePolicy.isProtectedFeedOrigin(lastInstagramScreen)) {
             instagramReelsSession.observe(mode,
                 viewerVisible = true, feedEntry = true)
             return false
         }
-        if (instagramStoriesBlocked() || hasFastMainReelsTabDestination(root)) return false
+        if (instagramStoriesBlocked() || hasFastMainReelsTabDestination(root)) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel", "denied=main-reels-tab last=$lastInstagramScreen")
+            return false
+        }
         val now = SystemClock.uptimeMillis()
         val originWindowId = if (lastInstagramScreen == InstagramScreen.DIRECT_MESSAGES) {
             directConversationSurfaceWindowId.takeIf { it >= 0 }
@@ -4058,7 +4157,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         } else {
             instagramStateMachine.currentWindowId
         }
-        val ingress = InstagramBalancedReelIngressPolicy.resolve(
+        val ingress = if (shadeOrigin != null) null else InstagramBalancedReelIngressPolicy.resolve(
             mode = mode,
             previousScreen = lastInstagramScreen,
             originWindowId = originWindowId,
@@ -4070,14 +4169,25 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             reelsTabTapLatched = now < instagramReelsTabTapUntil,
             mainTabBarVisible = igVisible(root, "tab_bar"),
             actionBarBackVisible = hasFastActionBarBack(root),
-            directIntentPending = now < directReelLaunchPendingUntil
+            directIntentPending = now < directReelLaunchPendingUntil,
+            notificationItemWatching = instagramBalancedNotificationPostWatching
         )
-        if (ingress == InstagramBalancedReelIngress.NONE) return false
+        if (ingress == InstagramBalancedReelIngress.NONE) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel", "denied=no-ingress last=$lastInstagramScreen " +
+                    "tabBar=${igVisible(root, "tab_bar")} back=${hasFastActionBarBack(root)} " +
+                    "viewer=${root.windowId} intent=$instagramBalancedProfileReelIntentWindowId")
+            return false
+        }
         val wasWatching = instagramReelsSession.watching
         if (instagramReelsSession.observe(mode, viewerVisible = true) ==
             InstagramReelsDecision.EXIT) return false
         if (!wasWatching) instagramReelsVerifiedAt = now
-        instagramBalancedReelOrigin = lastInstagramScreen
+        instagramBalancedReelOrigin = when {
+            shadeOrigin != null -> shadeOrigin
+            ingress == InstagramBalancedReelIngress.NOTIFICATION_COMMENT_SHEET -> InstagramScreen.NOTIFICATIONS
+            else -> lastInstagramScreen
+        }
         clearDirectConversationEntryGuard()
         clearDirectDetailsScrollGuard()
         lastDirectConversationGuards.clear()
@@ -4090,13 +4200,19 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         instagramBalancedProfileReelIntentUntil = 0L
         instagramBalancedCollectionReelIntentWindowId = -1
         instagramBalancedCollectionReelIntentUntil = 0L
-        Log.d(TAG, "IG_BALANCED_REEL_ALLOWED ingress=$ingress")
+        Log.d(TAG, "IG_BALANCED_REEL_ALLOWED ingress=${ingress ?: "shade-return"}")
+        if (shadeOrigin != null && ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+            this, "instagram.balanced.reel", "restored=shade-return origin=$shadeOrigin")
         observeInstagramScreen(InstagramScreen.REELS, root.windowId)
         return true
     }
 
     private fun handleBalancedInstagramReelScroll(event: AccessibilityEvent): Boolean {
-        if (instagramStoriesBlocked() || !instagramReelsSession.watching) return false
+        if (instagramStoriesBlocked() || !instagramReelsSession.watching) {
+            if (ProtectionFlightRecorder.ENABLED && !instagramStoriesBlocked()) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel.scroll", "skipped=no-session last=$lastInstagramScreen")
+            return false
+        }
         val started = SystemClock.uptimeMillis()
         val root = rootInActiveWindow ?: return false
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE ||
@@ -4104,7 +4220,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 !(instagramBalancedReelOrigin == InstagramScreen.SAVED_COLLECTION &&
                     instagramReelsSession.watching && hasFastSavedCollectionReelList(root))) ||
             !InstagramReelsIdentity.isCurrentSessionEvent(instagramStateMachine.currentWindowId,
-                event.windowId, root.windowId, event.eventTime, instagramReelsVerifiedAt, started)) return false
+                event.windowId, root.windowId, event.eventTime, instagramReelsVerifiedAt, started)) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel.scroll", "skipped=session-mismatch last=$lastInstagramScreen " +
+                    "state=${instagramStateMachine.currentWindowId} event=${event.windowId} root=${root.windowId} " +
+                    "eventAt=${event.eventTime} verifiedAt=$instagramReelsVerifiedAt")
+            return false
+        }
         val ids = linkedSetOf<String>()
         var node = event.source
         var depth = 0
@@ -4122,7 +4244,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             InstagramScreen.SAVED_COLLECTION &&
             (InstagramReelsIdentity.isSavedCollectionListPath(ids) ||
                 hasFastSavedCollectionReelList(root))
-        if (!savedCollectionListScroll && !InstagramReelsIdentity.isVideoPagerPath(ids)) return false
+        if (!savedCollectionListScroll && !InstagramReelsIdentity.isVideoPagerPath(ids)) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel.scroll", "skipped=not-pager origin=$instagramBalancedReelOrigin " +
+                    "class=${event.className} ids=${ids.joinToString(",")}")
+            return false
+        }
         if (instagramReelsMotionGeneration != instagramReelsSession.generation) {
             instagramReelsPagerMotion.reset()
             instagramReelsMotionGeneration = instagramReelsSession.generation
@@ -4163,14 +4290,33 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             "follow_requests_header"
         ).any { id -> igVisible(root, id) }
 
-    private fun hasFastSinglePostViewer(root: AccessibilityNodeInfo): Boolean {
-        val titles = cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/action_bar_title")
-            .filter { it.isVisibleToUser }.mapNotNull { it.text?.toString() }.toSet()
-        if (titles.none(InstagramPostIdentity::isPostTitle)) return false
-        if (!igVisible(root, "action_bar_button_back") || igVisible(root, "main_feed_action_bar")) return false
-        if (!igVisible(root, "row_feed_profile_header")) return false
-        return igVisible(root, "row_feed_photo_imageview") || igVisible(root, "media_group") ||
-            igVisible(root, "row_feed_view_group_buttons")
+    private fun hasFastSinglePostViewer(
+        root: AccessibilityNodeInfo,
+        chosenFromProfile: Boolean = false
+    ): Boolean {
+        // Without a deliberate origin a post list cannot be told from the
+        // Following feed in a language-free way; skip the remote lookups.
+        if (!chosenFromProfile) return false
+        return InstagramPostIdentity.isFastViewer(
+            chosen = true,
+            hasBack = igVisible(root, "action_bar_button_back"),
+            hasHomeHeader = igVisible(root, "main_feed_action_bar"),
+            hasPostHeader = igVisible(root, "row_feed_profile_header"),
+            hasPostMedia = igVisible(root, "row_feed_photo_imageview") || igVisible(root, "media_group") ||
+                igVisible(root, "row_feed_view_group_buttons"))
+    }
+
+    /**
+     * Balanced only: the user chose a thumbnail on a verified profile or
+     * collection (or the profile -> post fallback applies), or opened a post
+     * from a notification. This is how a localized post page is told apart
+     * from the Following/Favorites feeds without reading its title.
+     */
+    private fun instagramProfilePostChosen(now: Long): Boolean {
+        val mode = ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM)
+        if (mode != ProtectionMode.BALANCED) return false
+        return instagramBalancedProfilePost.isChosen(now) || instagramBalancedNotificationPostWatching ||
+            InstagramProfileInteractionPolicy.allowsProfilePostFallback(mode, lastInstagramScreen)
     }
 
     private fun hasFastCommentSheet(root: AccessibilityNodeInfo): Boolean {
@@ -4195,23 +4341,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 "comments_recycler_view", "comments_recycler", "comment_thread",
                 "layout_comment_thread", "comment_list"
             ).any { id -> igVisible(candidate, id) }) return true
-        val labels = runCatching {
-            cachedNodeLookup(candidate, "$INSTAGRAM_PACKAGE:id/row_feed_comment_textview_layout")
-                .mapNotNull { it.text?.toString() }
-        }.getOrDefault(emptyList())
-        if (labels.any { text ->
-                text.contains("replying to", ignoreCase = true) ||
-                    text.contains("yanıtlanıyor", ignoreCase = true) ||
-                    text.contains("add a reply", ignoreCase = true) ||
-                    text.contains("yanıt ekle", ignoreCase = true)
-            }) return true
-        return listOf("Replying to", "Add a reply", "Yanıtlanıyor", "Yanıt ekle")
-            .any { label ->
-                runCatching {
-                    candidate.findAccessibilityNodeInfosByText(label)
-                        .any { it.isVisibleToUser }
-                }.getOrDefault(false)
-            }
+        // Comment ids only; the reply composer's localized hint ("Replying to")
+        // matched Turkish/English alone.
+        return false
     }
 
     private fun findInstagramNotificationViewerRoot(
@@ -4439,7 +4571,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             .filter { it.isVisibleToUser }
             .map { node -> node to Rect().also(node::getBoundsInScreen) }
             .filter { (_, bounds) -> !bounds.isEmpty }
-            .sortedBy { (_, bounds) -> bounds.left }
+            // In reading order: from the right when the app is mirrored.
+            .sortedBy { (_, bounds) ->
+                if (isRightToLeft(INSTAGRAM_PACKAGE)) -bounds.right else bounds.left
+            }
         val selectedIndex = tabs.indexOfFirst { (node, _) ->
             node.isSelected || hasSelectedAncestor(node, 2)
         }
@@ -4467,7 +4602,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val sourceBounds = Rect().also(node::getBoundsInScreen)
         if (sourceBounds.isEmpty || !tabLayout.contains(sourceBounds.centerX(), sourceBounds.centerY())) return
 
-        val relativeX = sourceBounds.centerX() - tabLayout.left
+        val relativeX = leftToRight(sourceBounds, tabLayout, INSTAGRAM_PACKAGE).centerX() - tabLayout.left
         val tabIndex = (relativeX * 3 / tabLayout.width().coerceAtLeast(1)).coerceIn(0, 2)
         val window = instagramWindowBounds(root)
         if (!pager.intersect(window)) return
@@ -4501,13 +4636,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             "about_this_account_container", "account_transparency_container",
             "account_transparency_root", "about_account_fragment"
         )
-        if (explicitIds.any { id -> igVisible(root, id) }) return true
-        return listOf("Bu hesap hakkında", "About this account").any { title ->
-            root.findAccessibilityNodeInfosByText(title).any { node ->
-                node.isVisibleToUser && node.text?.toString()?.trim()
-                    ?.equals(title, ignoreCase = true) == true
-            }
-        }
+        // Ids only: the page's localized title matched Turkish/English alone.
+        // The page has no profile header, so the profile curtain is never
+        // applied over it in any language.
+        return explicitIds.any { id -> igVisible(root, id) }
     }
 
     /** Null means this is not an allowed departure; Boolean says whether it is About Account. */
@@ -4568,31 +4700,71 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         repeat(10) {
             val node = current ?: return false
             val id = compactId(node.viewIdResourceName)
-            val label = listOf(node.text, node.contentDescription)
-                .joinToString(" ") { it?.toString().orEmpty() }
-                .lowercase(Locale.ROOT)
-            if (id.contains("clip") || id.contains("reel") ||
-                label.contains("reel") || label.contains("reels") ||
-                label.contains("klip")) return true
+            if (id.contains("clip") || id.contains("reel")) return true
             current = node.parent
         }
         return false
     }
 
-    private fun instagramCollectionTitles(root: AccessibilityNodeInfo): Set<String> =
-        listOf("action_bar_title", "profile_action_bar_title")
-            .flatMap { id ->
-                root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/$id")
-                    .filter { it.isVisibleToUser }
-                    .mapNotNull { it.text?.toString()?.trim() }
-            }.toSet()
+    // One exact lookup: Saved's pager is mounted for every Saved tab.
+    private fun hasVisibleUserCollectionIds(root: AccessibilityNodeInfo): Boolean =
+        igVisible(root, "saved_view_pager")
 
+    /**
+     * The post list a collection item opens (Saved "All posts", a liked post)
+     * has the ids of any feed list; its localized title differs per language.
+     * Context identifies it everywhere: it follows a verified collection or a
+     * collection thumbnail tap, and shows a single post's chrome with Back.
+     */
+    private fun isBalancedCollectionPostList(root: AccessibilityNodeInfo, now: Long): Boolean {
+        if (lastInstagramScreen != InstagramScreen.SAVED_COLLECTION &&
+            !instagramBalancedProfilePost.isChosenFromCollection(now)) return false
+        return igVisible(root, "action_bar_button_back") && !igVisible(root, "main_feed_action_bar") &&
+            igVisible(root, "row_feed_profile_header")
+    }
+
+    /** The notification's own post or Reel is still the open item (Balanced). */
+    private fun keepsBalancedNotificationItem(
+        root: AccessibilityNodeInfo,
+        classified: InstagramScreen,
+        signals: InstagramUiSignals
+    ): Boolean {
+        if (classified != InstagramScreen.HOME_FEED) return false
+        val itemActive = (lastInstagramScreen == InstagramScreen.COMMENTS_OR_DETAIL &&
+            instagramBalancedNotificationPostWatching) ||
+            // Opened straight from a notification: a single post page with
+            // its own Back (Home never shows Back without a tab bar).
+            (lastInstagramScreen == InstagramScreen.NOTIFICATIONS && signals.hasBackNavigation &&
+                "row_feed_profile_header" in signals.ids) ||
+            (lastInstagramScreen == InstagramScreen.REELS &&
+                instagramBalancedReelOrigin == InstagramScreen.NOTIFICATIONS &&
+                instagramReelsSession.watching && !instagramReelsSession.exiting)
+        if (!itemActive) return false
+        val mode = ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM)
+        val tabBarVisible = signals.selectedTabs.isNotEmpty() || igVisible(root, "tab_bar")
+        val visiblePosts = maxOf(
+            cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/row_feed_view_group_buttons")
+                .count { it.isVisibleToUser },
+            cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/media_group")
+                .count { it.isVisibleToUser })
+        return InstagramSurfacePolicy.keepsNotificationItem(
+            mode = mode,
+            classified = classified,
+            notificationItemActive = true,
+            sameWindow = root.windowId == instagramStateMachine.currentWindowId,
+            tabBarVisible = tabBarVisible,
+            homeHeaderVisible = "main_feed_action_bar" in signals.ids,
+            visiblePosts = visiblePosts)
+    }
+
+    /** Balanced only: a user collection (Saved, Likes, archive) or its post list stays open. */
     private fun refreshBalancedInstagramCollection(
         root: AccessibilityNodeInfo,
-        observedTitles: Set<String> = instagramCollectionTitles(root)
+        collectionIds: Boolean? = null
     ): Boolean {
-        if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) != ProtectionMode.BALANCED ||
-            !InstagramProfileSurfacePolicy.isUserCollectionTitle(observedTitles)) return false
+        if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) != ProtectionMode.BALANCED) return false
+        val isCollection = collectionIds ?: hasVisibleUserCollectionIds(root)
+        if (!isCollection && !isBalancedCollectionPostList(root, SystemClock.uptimeMillis())) return false
         clearDirectConversationEntryGuard()
         clearDirectDetailsScrollGuard()
         clearInstagramResumeProtection()
@@ -4606,7 +4778,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         instagramOverlay.hide()
         cancelInstagramExit()
         observeInstagramScreen(InstagramScreen.SAVED_COLLECTION, root.windowId)
-        Log.d(TAG, "IG_BALANCED_COLLECTION_ALLOWED titles=${observedTitles.joinToString("|")}")
+        Log.d(TAG, "IG_BALANCED_COLLECTION_ALLOWED list=${!isCollection}")
         return true
     }
 
@@ -4742,23 +4914,23 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
         var visited = 0
-        // A Back control sits in the top-left third of the upper half. Subtrees
-        // that are invisible or never touch that region cannot contain it;
-        // expanding them spent one remote call per child on every scan.
-        val region = Rect(window.left, window.top, window.left + window.width() / 3, window.centerY())
+        // A Back control sits in the leading third of the upper half (top-left,
+        // or top-right when mirrored). Subtrees that are invisible or never
+        // touch that region cannot contain it; expanding them spent one remote
+        // call per child on every scan.
+        val region = leftToRight(Rect(window.left, window.top, window.left + window.width() / 3,
+            window.centerY()), window, INSTAGRAM_PACKAGE)
         while (pending.isNotEmpty() && visited++ < 140) {
             val node = pending.removeFirst()
             val bounds = Rect().also(node::getBoundsInScreen)
             if (node !== root && (!node.isVisibleToUser || !Rect.intersects(bounds, region))) continue
             val id = compactId(node.viewIdResourceName)
-            val label = listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
-                .joinToString(" ").trim().lowercase(Locale.US)
-            val semanticBack = id == "action_bar_button_back" ||
-                label == "back" || label == "geri"
+            val semanticBack = id == "action_bar_button_back"
             if (semanticBack && node.isVisibleToUser && node.isClickable && !bounds.isEmpty &&
                 bounds.top >= window.top && bounds.bottom < window.centerY() &&
-                bounds.left >= window.left &&
-                bounds.right <= window.left + window.width() / 3) return node
+                leftToRight(bounds, window, INSTAGRAM_PACKAGE).let {
+                    it.left >= window.left && it.right <= window.left + window.width() / 3
+                }) return node
             for (index in 0 until minOf(node.childCount, 24)) {
                 node.getChild(index)?.let(pending::addLast)
             }
@@ -5500,6 +5672,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         var hasCameraAction = false
         var hasClipsInteractionBar = false
         var hasFullscreenReelsViewer = false
+        var idlessMediaTiles = 0
         val rootBounds = instagramWindowBounds(root)
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
@@ -5527,6 +5700,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 val desc = node.contentDescription?.toString()?.trim()?.lowercase(Locale.US).orEmpty()
 
                 val bounds = Rect().also(node::getBoundsInScreen)
+                if (id.isEmpty() && InstagramProfileSurfacePolicy.isIdlessMediaTile(
+                        className = node.className?.toString().orEmpty(),
+                        width = bounds.width(), height = bounds.height(),
+                        windowWidth = rootBounds.width())) idlessMediaTiles++
                 val entry = if (instagramEntryTargets.size < 32) {
                     resolveReelsEntry(node, id, text, desc)
                 } else null
@@ -5560,18 +5737,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     id.contains("back_button") ||
                     id.contains("navigation_back") ||
                     (id.contains("back") && !id.contains("background") && !id.contains("backdrop"))
-                val isExplicitBackDesc = desc == "back" || desc == "geri" || desc == "navigate up" ||
-                    desc == "yukarı git" || desc == "geriye git" ||
-                    desc.startsWith("back ") || desc.startsWith("geri ")
-                if (isExplicitBackId || isExplicitBackDesc) {
+                // Ids only: a localized "Back" description matched TR/EN alone.
+                if (isExplicitBackId) {
                     hasBackNav = true
                 }
 
                 // 2. Camera action icon in header
-                if (isTopHeaderArea && (
-                    id.contains("camera") ||
-                    desc == "camera" || desc == "kamera" || desc == "create" || desc == "oluştur"
-                )) {
+                if (isTopHeaderArea && id.contains("camera")) {
                     hasCameraAction = true
                 }
 
@@ -5584,31 +5756,18 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     if (text.isNotEmpty()) titles.add(text)
                     if (desc.isNotEmpty()) titles.add(desc)
                 }
-                // The empty Favorites screen exposes its identity on the
-                // illustration rather than a feed row. Keep only this exact,
-                // bounded semantic node; never collect arbitrary post text.
-                if (id == "igds_empty_state_image" && desc.isNotEmpty()) {
-                    titles.add(desc)
-                }
-
                 // 4. Clips / Reels interaction bar buttons
                 if (id.contains("clips_ufi") || id.contains("clips_viewer_action_bar")) {
                     hasClipsInteractionBar = true
                 }
 
                 if (node.isSelected || (tabForId(id) != null && isSelectedRecursive(node, 2))) {
-                    val explicitTab = tabForId(id)
-                    explicitTab?.let(selectedTabs::add)
-                    if (explicitTab == null && sourcePathContains(node, "tab_bar")) {
-                        tabForLabel(node.contentDescription?.toString())?.let(selectedTabs::add)
-                    }
+                    // Tab ids only; a tab's localized description is never read.
+                    tabForId(id)?.let(selectedTabs::add)
                 }
 
                 val className = node.className?.toString().orEmpty()
-                if (node.isFocused &&
-                    className.contains("EditText", ignoreCase = true) &&
-                    (id.contains("search") || node.isEditable)
-                ) {
+                if (InstagramSurfacePolicy.isFocusedSearchField(id, className, node.isFocused)) {
                     searchFieldFocused = true
                 }
 
@@ -5656,11 +5815,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             current = current.parent
             depth++
         }
-        val sourceTab = explicitSourceTab ?: if (sourceIds.any { it.contains("tab_bar") }) {
-            sourceLabels.firstNotNullOfOrNull(::tabForLabel)
-        } else {
-            null
-        }
+        val sourceTab = explicitSourceTab
 
         val signals = InstagramUiSignals(
             ids = ids,
@@ -5673,12 +5828,25 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             hasBackNavigation = hasBackNav,
             hasCameraAction = hasCameraAction,
             hasClipsInteractionBar = hasClipsInteractionBar,
-            hasFullscreenReelsViewer = hasFullscreenReelsViewer
+            hasFullscreenReelsViewer = hasFullscreenReelsViewer,
+            idlessMediaTiles = idlessMediaTiles
         )
         return signals
     }
 
     private fun handleTikTok(event: AccessibilityEvent) {
+        if (ProtectionFlightRecorder.ENABLED && event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            val path = sourcePathIds(event.source, 6).joinToString(">")
+            val bounds = Rect().also { event.source?.getBoundsInScreen(it) }
+            // Scroll deltas exist from Android 9; minSdk is 8.0.
+            val deltas = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                "dx=${event.scrollDeltaX} dy=${event.scrollDeltaY}"
+            } else "dx=? dy=?"
+            ProtectionFlightRecorder.record(this, "tiktok.scroll",
+                "class=${event.className} path=$path bounds=$bounds $deltas " +
+                    "from=${event.fromIndex} to=${event.toIndex} " +
+                    "count=${event.itemCount} vertical=${isVerticalScroll(event)}")
+        }
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> maybeSnapBackFromBlockedTopTab(force = true)
             AccessibilityEvent.TYPE_VIEW_SCROLLED ->
@@ -5692,23 +5860,30 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
 
     private fun handleTikTokScroll(event: AccessibilityEvent) {
         val protectionEnabled = ProtectionPreferences.isEnabled(this, ProtectedApp.TIKTOK)
-        val root = rootInActiveWindow
-        val packageInForeground = root?.packageName?.toString() == TIKTOK_PACKAGE
-        if (!protectionEnabled || !packageInForeground) return
-        if (sourcePathContains(event.source, "comment", "message", "inbox", "profile")) return
-        // Comment sheets and other bottom-anchored lists keep the video action rail in the
-        // tree behind them; their scroll sources start low on screen, unlike the fullscreen
-        // feed pager, so geometry distinguishes the two.
-        if (isBottomAnchoredSource(event.source)) return
-
-        val signals = collectTikTokSignals(root)
-        val isSafeSurface = TikTokSurfacePolicy.classify(signals) != TikTokSurface.FEED
+        if (!protectionEnabled) return
+        // The scrolled container itself identifies a feed swipe; no label or
+        // obfuscated id is read, so this works in every UI language.
+        val source = event.source ?: return
+        val bounds = Rect().also(source::getBoundsInScreen)
+        val screen = currentDisplayBounds()
+        val feedSwipe = TikTokSurfacePolicy.isFeedSwipe(
+            className = event.className,
+            idFragment = compactId(source.viewIdResourceName),
+            isVerticalScroll = true,
+            top = bounds.top,
+            width = bounds.width(),
+            height = bounds.height(),
+            screenWidth = screen.width(),
+            screenHeight = screen.height()
+        )
+        if (!feedSwipe) return
+        val packageInForeground = rootInActiveWindow?.packageName?.toString() == TIKTOK_PACKAGE
         if (!TikTokInterventionPolicy.shouldExit(
                 protectionEnabled = protectionEnabled,
                 isScrollEvent = true,
                 packageInForeground = packageInForeground,
                 isVerticalScroll = true,
-                isSafeSurface = isSafeSurface
+                isSafeSurface = false
             )
         ) {
             return
@@ -5735,16 +5910,17 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
 
     // TikTok may swallow the first Back as an "exit app" confirmation; verify the feed is
     // still foregrounded and press Back once more so the first scroll deterministically exits.
+    // A video opened from a profile or search returns there after the first Back instead.
     private val tikTokFeedExitRetry = Runnable {
         val root = rootInActiveWindow ?: return@Runnable
         if (root.packageName?.toString() != TIKTOK_PACKAGE) return@Runnable
-        if (TikTokSurfacePolicy.classify(collectTikTokSignals(root)) == TikTokSurface.FEED) {
+        if (scanTikTokLayout(root).feedPagerVisible) {
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
     }
 
-    // Takipte/Topluluk must not be enterable. Clicks and surface changes are checked with a
-    // small throttle; when one of those top tabs ends up selected, tap Sizin İçin to undo.
+    // Only For You may be browsed among the Home top tabs. Clicks and surface changes are
+    // checked with a small throttle; when another top tab ends up selected, select For You.
     private fun maybeSnapBackFromBlockedTopTab(force: Boolean = false) {
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != TIKTOK_PACKAGE) return
@@ -5755,66 +5931,44 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         }
         lastTikTokTopTabCheckMs = now
 
-        val signals = collectTikTokSignals(root)
-        if (signals.selectedTopTab != TikTokSurfacePolicy.TOP_TAB_BLOCKED) return
-        if (snapBackToForYouTab(root)) {
-            Log.d(TAG, "TIKTOK_TOP_TAB_SNAP_BACK accepted")
-        }
-    }
-
-    private fun snapBackToForYouTab(root: AccessibilityNodeInfo): Boolean {
-        val pending = ArrayDeque<AccessibilityNodeInfo>()
-        pending.add(root)
-        var visited = 0
-
-        while (pending.isNotEmpty() && visited < MAX_TREE_NODES) {
-            val node = pending.removeFirst()
-            visited++
-
-            if (node.isVisibleToUser &&
-                (TikTokSurfacePolicy.isHomeTopTabLabel(node.text?.toString()) ||
-                    TikTokSurfacePolicy.isHomeTopTabLabel(node.contentDescription?.toString()))
-            ) {
-                var current: AccessibilityNodeInfo? = node
-                repeat(4) {
-                    val candidate = current ?: return@repeat
-                    if (candidate.isClickable) {
-                        val accepted = candidate.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        if (accepted) {
-                            recordIntervention(TIKTOK_PACKAGE, System.currentTimeMillis())
-                        }
-                        return accepted
-                    }
-                    current = candidate.parent
+        val layout = scanTikTokLayout(root)
+        val target = TikTokSurfacePolicy.snapBackTarget(
+            layout.selectedTopTab, layout.topTabs.size, layout.homeTabSelected) ?: return
+        var current: AccessibilityNodeInfo? = layout.topTabs[target]
+        repeat(3) {
+            val candidate = current ?: return
+            if (candidate.isClickable) {
+                if (candidate.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                    recordIntervention(TIKTOK_PACKAGE, System.currentTimeMillis())
+                    Log.d(TAG, "TIKTOK_TOP_TAB_SNAP_BACK from=${layout.selectedTopTab} to=$target")
                 }
+                return
             }
-
-            for (index in 0 until node.childCount) {
-                node.getChild(index)?.let(pending::addLast)
-            }
+            current = candidate.parent
         }
-
-        return false
     }
 
-    private fun isBottomAnchoredSource(source: AccessibilityNodeInfo?): Boolean {
-        val node = source ?: return false
+    private class TikTokLayout(
+        val feedPagerVisible: Boolean,
+        val homeTabSelected: Boolean,
+        val topTabs: List<AccessibilityNodeInfo>,
+        val selectedTopTab: Int
+    )
+
+    /**
+     * One bounded walk for the structure both checks need: whether a fullscreen
+     * short-video pager is visible, whether the bottom bar's first item (Home)
+     * is selected, and the top feed tab strip (the horizontal scroller near the
+     * top of the screen) with its selected position.
+     */
+    private fun scanTikTokLayout(root: AccessibilityNodeInfo): TikTokLayout {
+        val screen = currentDisplayBounds()
         val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-        val screenHeight = resources.displayMetrics.heightPixels
-        if (screenHeight <= 0) return false
-        return bounds.top >= screenHeight / 4
-    }
-
-    // Bounded scan mirroring isYouTubeShorts: feed captions can contain arbitrary words, so
-    // classification only collects structural signals (tabs, composers, pager, action rail).
-    private fun collectTikTokSignals(root: AccessibilityNodeInfo): TikTokUiSignals {
-        var selectedTab: String? = null
-        var selectedTopTab: String? = null
-        var composer = TikTokComposer.NONE
-        var hasProfileSignals = false
-        var hasFeedPager = false
-        val railCategories = linkedSetOf<String>()
+        var feedPagerVisible = false
+        var homeTabSelected = false
+        var bottomBarSeen = false
+        var tabs: List<AccessibilityNodeInfo> = emptyList()
+        var selected = -1
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
         var visited = 0
@@ -5822,61 +5976,50 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         while (pending.isNotEmpty() && visited < MAX_TREE_NODES) {
             val node = pending.removeFirst()
             visited++
-
-            if (node.isVisibleToUser) {
-                val id = compactId(node.viewIdResourceName)
-                if (node.isSelected) {
-                    TikTokSurfacePolicy.resolveSelectedTab(
-                        idFragment = id,
-                        text = node.text?.toString(),
-                        description = node.contentDescription?.toString()
-                    )?.let { if (selectedTab == null) selectedTab = it }
-                    if (selectedTopTab == null) {
-                        TikTokSurfacePolicy.resolveSelectedTopTab(
-                            text = node.text?.toString(),
-                            description = node.contentDescription?.toString()
-                        )?.let { selectedTopTab = it }
-                    }
-                }
-                if (node.isEditable) {
-                    val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        node.hintText?.toString()
-                    } else null
-                    val fieldComposer = TikTokSurfacePolicy.classifyComposer(
-                        hint = hint,
-                        text = node.text?.toString(),
-                        description = node.contentDescription?.toString(),
-                        idFragment = id
-                    )
-                    if (fieldComposer != TikTokComposer.NONE && composer == TikTokComposer.NONE) {
-                        composer = fieldComposer
-                    }
-                }
-                if (!hasProfileSignals &&
-                    (TikTokSurfacePolicy.isProfileLabel(node.text?.toString()) ||
-                        TikTokSurfacePolicy.isProfileLabel(node.contentDescription?.toString()))
+            if (!node.isVisibleToUser) continue
+            node.getBoundsInScreen(bounds)
+            if (!bottomBarSeen && node.childCount in 4..6 &&
+                bounds.top >= screen.height() * 0.85
+            ) {
+                val items = (0 until node.childCount).mapNotNull(node::getChild)
+                if (TikTokSurfacePolicy.isBottomBar(bounds.top, bounds.width(),
+                        items.count { it.isClickable }, screen.width(), screen.height())
                 ) {
-                    hasProfileSignals = true
+                    bottomBarSeen = true
+                    homeTabSelected = items.firstOrNull()?.let(::isTikTokTabSelected) == true
                 }
-                if (id.contains("view_pager") || id.contains("viewpager")) hasFeedPager = true
-                node.contentDescription?.toString()
-                    ?.let(TikTokSurfacePolicy::railActionCategory)
-                    ?.let(railCategories::add)
             }
-
+            // Class only: the horizontal tab pagers share the readable
+            // `viewpager` id but report an obfuscated class.
+            if (!feedPagerVisible && node.isScrollable &&
+                TikTokSurfacePolicy.isPagerClass(node.className) &&
+                TikTokSurfacePolicy.isFeedPagerBounds(
+                    bounds.top, bounds.width(), bounds.height(), screen.width(), screen.height())
+            ) {
+                feedPagerVisible = true
+            }
+            if (tabs.isEmpty() && node.className?.toString()?.contains("HorizontalScrollView") == true &&
+                TikTokSurfacePolicy.isTopTabStrip(bounds.top, screen.height())
+            ) {
+                val row = if (node.childCount == 1) node.getChild(0) else node
+                if (row != null) {
+                    tabs = (0 until row.childCount).mapNotNull(row::getChild)
+                    selected = tabs.indexOfFirst(::isTikTokTabSelected)
+                }
+            }
             for (index in 0 until node.childCount) {
                 node.getChild(index)?.let(pending::addLast)
             }
         }
+        return TikTokLayout(feedPagerVisible, homeTabSelected, tabs, selected)
+    }
 
-        return TikTokUiSignals(
-            selectedTab,
-            selectedTopTab,
-            composer,
-            hasProfileSignals,
-            hasFeedPager,
-            railCategories
-        )
+    private fun isTikTokTabSelected(tab: AccessibilityNodeInfo): Boolean {
+        if (tab.isSelected) return true
+        for (index in 0 until tab.childCount) {
+            if (tab.getChild(index)?.isSelected == true) return true
+        }
+        return false
     }
 
     private fun handleYouTube(event: AccessibilityEvent) {
@@ -5931,9 +6074,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 // field; treating that as a new launch replaced HOME with the
                 // search page's null surface and dropped the Back guard.
                 youtubeCurtainState.currentSurface != null &&
-                isYouTubeExplicitlyAllowedNavigationSource(source)) {
+                isYouTubeExplicitlyAllowedNavigationSource(source, root)) {
                 youtubeAllowedReturnSurface = youtubeCurtainState.currentSurface
-                youtubeCurtainState.request(youtubeAllowedLaunchScreen(source), now)
+                youtubeCurtainState.request(youtubeAllowedLaunchScreen(source, root), now)
             }
             // A click must classify against the tree that produced it.
             refreshYouTubeSurfaceProtection(root)
@@ -6032,7 +6175,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val screen: YouTubeCurtainScreen = YouTubeCurtainScreen.UNKNOWN,
         val windowBounds: Rect? = null,
         val allowedLaunchBounds: Map<YouTubeCurtainScreen, Rect> = emptyMap(),
-        val miniplayerBounds: Rect? = null
+        val miniplayerBounds: Rect? = null,
+        /** The toolbar and the bottom tabs both scrolled away with the feed. */
+        val barsScrolledAway: Boolean = false
     )
 
     private fun collectYouTubeSignals(root: AccessibilityNodeInfo): YouTubeUiSignals {
@@ -6064,9 +6209,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         var searchSurfaceVisible = false
         var allowedSecondarySurfaceVisible = false
         var allowedBackCandidate: Rect? = null
-        var selectedDestination = navigation.selectedDestination
+        val selectedDestination = navigation.selectedDestination
+        // The selected Shorts tab is the fullscreen Shorts player.
+        if (selectedDestination == YouTubeNavigationDestination.SHORTS) shortsVisible = true
         var bottomBarTop: Int? = navigation.bottomBarTop
-        var shortsTabCandidate: Rect? = navigation.shortsTabBounds
+        val shortsTabCandidate: Rect? = navigation.shortsTabBounds
         val rootBounds = Rect().also(root::getBoundsInScreen)
         val toolbarBounds = findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/toolbar")
         val toolbarContainerBounds = findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/toolbar_container")
@@ -6102,18 +6249,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     definiteBrowseSurface = true
                 }
                 if (isSearchSurfaceNode) searchSurfaceVisible = true
-                if ((YouTubeUiIdentity.isAllowedSecondarySurfaceId(id) &&
-                        YouTubeUiIdentity.isHorizontallyOnScreen(
-                            left = bounds.left,
-                            right = bounds.right,
-                            windowLeft = rootBounds.left,
-                            windowRight = rootBounds.right
-                        )) ||
-                    YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                        rawText = node.text?.toString(),
-                        isClickable = node.isClickable,
-                        top = bounds.top,
-                        windowHeight = rootBounds.height(),
+                if (YouTubeUiIdentity.isAllowedSecondarySurfaceId(id) &&
+                    YouTubeUiIdentity.isHorizontallyOnScreen(
                         left = bounds.left,
                         right = bounds.right,
                         windowLeft = rootBounds.left,
@@ -6122,12 +6259,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 ) {
                     allowedSecondarySurfaceVisible = true
                 }
-                if (node.isClickable &&
-                    YouTubeUiIdentity.isBackNavigationLabel(
-                        node.contentDescription?.toString(),
-                        node.text?.toString()
-                    ) &&
-                    bounds.width() > 0 && bounds.height() > 0 &&
+                val leading = leftToRight(bounds, rootBounds, YOUTUBE_PACKAGE)
+                if (YouTubeUiIdentity.isLeadingToolbarButton(
+                        node.className, node.isClickable, leading.left, leading.right,
+                        rootBounds.left, rootBounds.right, dp(8)) &&
+                    bounds.height() > 0 &&
                     bounds.top < rootBounds.top + rootBounds.height() / 4
                 ) {
                     allowedBackCandidate = Rect(bounds)
@@ -6136,27 +6272,6 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 if (id.contains("close_button")) sheetCloseControlVisible = true
                 if (id.contains("bottom_bar_container") && bounds.height() > 0) {
                     bottomBarTop = bottomBarTop?.coerceAtMost(bounds.top) ?: bounds.top
-                }
-
-
-                val description = node.contentDescription?.toString()
-                val destination = YouTubeSurfacePolicy.navigationDestination(description)
-                if (node.isClickable && node.isSelected &&
-                    destination != YouTubeNavigationDestination.UNKNOWN
-                ) {
-                    selectedDestination = destination
-                }
-                if (node.isClickable && destination == YouTubeNavigationDestination.SHORTS &&
-                    bounds.width() > 0 && bounds.height() > 0 &&
-                    (shortsTabCandidate?.let { bounds.top > it.top } != false)
-                ) {
-                    shortsTabCandidate = Rect(bounds)
-                }
-
-                if (node.isSelected &&
-                    node.contentDescription?.toString()?.trim()?.equals("Shorts", ignoreCase = true) == true
-                ) {
-                    shortsVisible = true
                 }
             }
 
@@ -6207,7 +6322,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             bottomBarTop = bottomBarTop,
             dp56 = dp(56),
             dp48 = dp(48),
-            dp16 = dp(16)
+            dp16 = dp(16),
+            toolbarScrolledAway = YouTubeFeedGeometry.toolbarScrolledAway(
+                toolbarBounds != null || toolbarContainerBounds != null,
+                bottomBarTop != null, selectedDestination),
+            bottomBarScrolledAway = YouTubeFeedGeometry.bottomBarScrolledAway(
+                bottomBarTop != null),
+            tappableBottomInset = tappableBottomInset()
         )
         val shortsTabBounds = shortsTabCandidate?.takeIf { tab ->
             // YouTube may retain a hidden reel tree briefly after leaving Shorts. The live
@@ -6246,11 +6367,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private fun collectYouTubeNavigationSignals(
         root: AccessibilityNodeInfo
     ): YouTubeNavigationSignals {
-        val bars = cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/bottom_bar_container")
-            .filter { it.isVisibleToUser }.ifEmpty {
-                cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/pivot_bar")
-                    .filter { it.isVisibleToUser }
-            }
+        val bars = visibleYouTubeNavigationBars(root)
         var selectedDestination = YouTubeNavigationDestination.UNKNOWN
         var bottomBarTop: Int? = null
         var shortsTabBounds: Rect? = null
@@ -6263,55 +6380,21 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             if (barBounds.width() <= 0 || barBounds.height() <= 0) continue
             bottomBarTop = bottomBarTop?.coerceAtMost(barBounds.top) ?: barBounds.top
 
-            val pending = ArrayDeque<AccessibilityNodeInfo>()
-            pending.add(bar)
-            var visited = 0
-            while (pending.isNotEmpty() && visited < 60) {
-                val node = pending.removeFirst()
-                visited++
-                if (node.isVisibleToUser) {
-                    val destination = YouTubeSurfacePolicy.navigationDestination(
-                        node.contentDescription?.toString()
-                    )
-                    if (node.isClickable && node.isSelected &&
-                        destination != YouTubeNavigationDestination.UNKNOWN
-                    ) {
-                        selectedDestination = destination
-                    }
-                    if (node.isClickable && destination == YouTubeNavigationDestination.SHORTS) {
-                        val bounds = Rect().also(node::getBoundsInScreen)
-                        if (bounds.width() > 0 && bounds.height() > 0) {
-                            shortsTabBounds = Rect(bounds)
-                        }
-                    }
-                    if (node.isClickable &&
-                        destination == YouTubeNavigationDestination.HOME
-                    ) {
-                        val bounds = Rect().also(node::getBoundsInScreen)
-                        if (bounds.width() > 0 && bounds.height() > 0) {
-                            homeTabBounds = Rect(bounds)
-                        }
-                    }
-                    if (node.isClickable &&
-                        destination == YouTubeNavigationDestination.SUBSCRIPTIONS
-                    ) {
-                        val bounds = Rect().also(node::getBoundsInScreen)
-                        if (bounds.width() > 0 && bounds.height() > 0) {
-                            subscriptionsTabBounds = Rect(bounds)
-                        }
-                    }
-                    if (node.isClickable &&
-                        destination == YouTubeNavigationDestination.YOU
-                    ) {
-                        val bounds = Rect().also(node::getBoundsInScreen)
-                        if (bounds.width() > 0 && bounds.height() > 0) {
-                            youTabBounds = Rect(bounds)
-                        }
-                    }
-                    // An invisible node cannot own a visible descendant.
-                    for (index in 0 until node.childCount) {
-                        node.getChild(index)?.let(pending::addLast)
-                    }
+            val items = youtubeNavigationItems(bar, barBounds)
+            if (items.size >= 2) noteLayoutDirection(YOUTUBE_PACKAGE,
+                Rect().also(items.first()::getBoundsInScreen), Rect().also(items.last()::getBoundsInScreen))
+            items.forEachIndexed { index, node ->
+                val destination = YouTubeSurfacePolicy.navigationDestinationAt(index, items.size)
+                if (destination == YouTubeNavigationDestination.UNKNOWN) return@forEachIndexed
+                if (isSelectedItem(node)) selectedDestination = destination
+                val bounds = Rect().also(node::getBoundsInScreen)
+                if (bounds.width() <= 0 || bounds.height() <= 0) return@forEachIndexed
+                when (destination) {
+                    YouTubeNavigationDestination.SHORTS -> shortsTabBounds = bounds
+                    YouTubeNavigationDestination.HOME -> homeTabBounds = bounds
+                    YouTubeNavigationDestination.SUBSCRIPTIONS -> subscriptionsTabBounds = bounds
+                    YouTubeNavigationDestination.YOU -> youTabBounds = bounds
+                    YouTubeNavigationDestination.UNKNOWN -> Unit
                 }
             }
         }
@@ -6330,66 +6413,76 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         root: AccessibilityNodeInfo,
         destination: YouTubeNavigationDestination
     ): AccessibilityNodeInfo? {
-        val bars = cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/bottom_bar_container")
+        for (bar in visibleYouTubeNavigationBars(root)) {
+            val items = youtubeNavigationItems(bar, Rect().also(bar::getBoundsInScreen))
+            items.forEachIndexed { index, node ->
+                if (YouTubeSurfacePolicy.navigationDestinationAt(index, items.size) == destination) {
+                    return node
+                }
+            }
+        }
+        return null
+    }
+
+    private fun visibleYouTubeNavigationBars(root: AccessibilityNodeInfo): List<AccessibilityNodeInfo> =
+        cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/bottom_bar_container")
             .filter { it.isVisibleToUser }.ifEmpty {
                 cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/pivot_bar")
                     .filter { it.isVisibleToUser }
             }
-        for (bar in bars) {
-            val barBounds = Rect().also(bar::getBoundsInScreen)
-            val pending = ArrayDeque<AccessibilityNodeInfo>()
-            pending.add(bar)
-            var visited = 0
-            while (pending.isNotEmpty() && visited < 60) {
-                val node = pending.removeFirst()
-                visited++
-                val bounds = Rect().also(node::getBoundsInScreen)
-                if (node.isVisibleToUser && node.isClickable && !bounds.isEmpty &&
-                    barBounds.contains(bounds.centerX(), bounds.centerY()) &&
-                    YouTubeSurfacePolicy.navigationDestination(
-                        node.contentDescription?.toString()
-                    ) == destination
-                ) {
-                    return node
-                }
-                for (index in 0 until node.childCount) {
-                    node.getChild(index)?.let(pending::addLast)
-                }
-            }
-        }
-        val rootBounds = Rect().also(root::getBoundsInScreen)
-        val bottomRegionTop = rootBounds.bottom - dp(100)
+
+    /**
+     * The bottom navigation's tab buttons in layout order: the first visible
+     * clickable nodes inside the bar that span most of its height. Their
+     * position, not their localized label, names the destination.
+     */
+    private fun youtubeNavigationItems(
+        bar: AccessibilityNodeInfo,
+        barBounds: Rect
+    ): List<AccessibilityNodeInfo> {
+        val items = ArrayList<AccessibilityNodeInfo>(5)
         val pending = ArrayDeque<AccessibilityNodeInfo>()
-        pending.add(root)
+        pending.add(bar)
         var visited = 0
-        while (pending.isNotEmpty() && visited < 100) {
+        val bounds = Rect()
+        while (pending.isNotEmpty() && visited < 60) {
             val node = pending.removeFirst()
             visited++
-            val bounds = Rect().also(node::getBoundsInScreen)
-            if (node.isVisibleToUser && node.isClickable && !bounds.isEmpty &&
-                rootBounds.contains(bounds.centerX(), bounds.centerY()) &&
-                bounds.top >= bottomRegionTop &&
-                YouTubeSurfacePolicy.navigationDestination(
-                    node.contentDescription?.toString()
-                ) == destination
-            ) {
-                return node
+            // An invisible node cannot own a visible descendant.
+            if (!node.isVisibleToUser) continue
+            if (node !== bar && node.isClickable) {
+                node.getBoundsInScreen(bounds)
+                if (bounds.width() > 0 && bounds.height() * 2 >= barBounds.height() &&
+                    barBounds.contains(bounds.centerX(), bounds.centerY())
+                ) {
+                    items += node
+                    continue
+                }
             }
             for (index in 0 until node.childCount) {
                 node.getChild(index)?.let(pending::addLast)
             }
         }
-        return null
+        return items
+    }
+
+    private fun isSelectedItem(node: AccessibilityNodeInfo): Boolean {
+        if (node.isSelected) return true
+        for (index in 0 until node.childCount) {
+            if (node.getChild(index)?.isSelected == true) return true
+        }
+        return false
     }
 
     private data class YouTubeToolbarSnapshot(
         val bounds: Rect?,
         val homeLogo: Boolean,
         val search: Boolean,
-        val notifications: Boolean,
-        val allowedTitle: Boolean,
+        /** A settled title next to Back: Notifications or another secondary page. */
+        val titled: Boolean,
         val backNode: AccessibilityNodeInfo?,
         val loadingBackPresent: Boolean,
+        /** Search/Notifications buttons by slot; only meaningful on a feed toolbar. */
         val launchNodes: Map<YouTubeCurtainScreen, AccessibilityNodeInfo>
     )
 
@@ -6399,75 +6492,67 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val toolbarBounds = toolbar?.let { Rect().also(it::getBoundsInScreen) }
         var home = false
         var search = false
-        var notifications = false
-        var allowedTitle = false
+        var titled = false
         var back: AccessibilityNodeInfo? = null
         var loadingBackPresent = false
-        val launchNodes = mutableMapOf<YouTubeCurtainScreen, AccessibilityNodeInfo>()
+        val menuSlots = sortedMapOf<Int, AccessibilityNodeInfo>()
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         toolbar?.let(pending::addLast)
         var visited = 0
         while (pending.isNotEmpty() && visited++ < 40) {
             val node = pending.removeFirst()
-            if (node.isClickable && YouTubeUiIdentity.isBackNavigationLabel(
-                    node.contentDescription?.toString(), node.text?.toString()
-                )) loadingBackPresent = true
+            val bounds = Rect().also(node::getBoundsInScreen)
+            // Back can still be sliding in (or not yet visible) while the page
+            // loads; its class and size identify it before its position settles.
+            if (node.isClickable && node.className?.contains("ImageButton") == true &&
+                bounds.width() in 1..window.width() / 5
+            ) loadingBackPresent = true
             if (node.isVisibleToUser) {
-                val bounds = Rect().also(node::getBoundsInScreen)
                 val id = compactId(node.viewIdResourceName)
-                if (node.isClickable && id == "menu_item_view") {
-                    val label = node.contentDescription?.toString().orEmpty().lowercase(Locale.ROOT)
-                    when {
-                        label.startsWith("notifications") || label.startsWith("bildirim") ->
-                            launchNodes[YouTubeCurtainScreen.NOTIFICATIONS] = node
-                        label == "search" || label == "ara" ->
-                            launchNodes[YouTubeCurtainScreen.SEARCH] = node
-                    }
-                }
+                val slot = YouTubeUiIdentity.menuItemIndex(id)
+                if (slot >= 0) menuSlots[slot] = node
+                val leading = leftToRight(bounds, window, YOUTUBE_PACKAGE)
                 if (id == "youtube_logo" &&
                     YouTubeUiIdentity.isHomeToolbarLogo(
-                        bounds.left, bounds.right, window.left, window.right, dp(72)
+                        leading.left, leading.right, window.left, window.right, dp(72)
                     )
                 ) {
                     home = true
                 }
                 if (YouTubeUiIdentity.isSearchSurfaceId(id) &&
                     YouTubeUiIdentity.isSettledSearchSurface(
-                        id, bounds.left, bounds.right, window.left, window.right, dp(8)
+                        id, leading.left, leading.right, window.left, window.right, dp(8)
                     )
                 ) search = true
-                if (YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                        node.text?.toString(), node.isClickable, bounds.top - window.top,
-                        window.height(), bounds.left, bounds.right, window.left, window.right, dp(8)
+                if (YouTubeUiIdentity.isSettledToolbarTitle(
+                        node.className, node.text, node.isClickable, bounds.top - window.top,
+                        window.height(), leading.left, leading.right, window.left, window.right, dp(8)
                     )
-                ) {
-                    val title = node.text?.toString().orEmpty().lowercase(Locale.ROOT)
-                    if (title.startsWith("notification") || title.startsWith("bildirim")) {
-                        notifications = true
-                    } else allowedTitle = true
-                } else if (ProtectionFlightRecorder.ENABLED) {
-                    // Diagnostic: a title that exists but fails the settled test
-                    // delays the notifications/search classification.
-                    val raw = node.text?.toString()
-                    val lower = raw.orEmpty().trim().lowercase(Locale.ROOT)
-                    if (lower.startsWith("notifications") || lower.startsWith("bildirim")) {
-                        ProtectionFlightRecorder.record(this, "youtube.notif.candidate",
-                            "text=${raw.orEmpty().take(20)} clickable=${node.isClickable} " +
-                                "top=${bounds.top - window.top} left=${bounds.left} " +
-                                "right=${bounds.right} winTop=${window.top} winH=${window.height()}")
-                    }
-                }
-                if (node.isClickable && YouTubeUiIdentity.isSettledLeadingBackControl(
-                        node.contentDescription?.toString(), node.text?.toString(),
-                        bounds.left, bounds.right, window.left, window.right, dp(8)
+                ) titled = true
+                if (YouTubeUiIdentity.isLeadingToolbarButton(
+                        node.className, node.isClickable, leading.left, leading.right,
+                        window.left, window.right, dp(8)
                     )
                 ) back = node
                 // An invisible toolbar node cannot own a visible descendant.
                 for (index in 0 until node.childCount) node.getChild(index)?.let(pending::addLast)
             }
         }
-        return YouTubeToolbarSnapshot(toolbarBounds, home, search, notifications, allowedTitle, back,
-            loadingBackPresent, launchNodes)
+        val launchNodes = mutableMapOf<YouTubeCurtainScreen, AccessibilityNodeInfo>()
+        val lastSlot = menuSlots.keys.lastOrNull() ?: -1
+        for ((slot, container) in menuSlots) {
+            val target = YouTubeUiIdentity.feedToolbarLaunchScreen(slot, lastSlot) ?: continue
+            // The slot is a FrameLayout around the clickable menu_item_view.
+            val button = if (container.isClickable) container else
+                (0 until container.childCount).firstNotNullOfOrNull { index ->
+                    container.getChild(index)?.takeIf { it.isClickable && it.isVisibleToUser }
+                }
+            button?.let { launchNodes[target] = it }
+        }
+        // A secondary page's title only counts beside its Back control; the
+        // Home and Subscriptions toolbars show the logo there.
+        return YouTubeToolbarSnapshot(toolbarBounds, home, search, titled && back != null && !home,
+            back, loadingBackPresent, launchNodes)
     }
 
     private fun collectYouTubeCurtainSignals(root: AccessibilityNodeInfo): YouTubeUiSignals {
@@ -6476,7 +6561,6 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val toolbarSnapshot = collectYouTubeToolbar(root, window)
         val homeToolbar = toolbarSnapshot.homeLogo
         val search = toolbarSnapshot.search
-        val notifications = toolbarSnapshot.notifications
         // Every exact-ID lookup is a full remote traversal that waits for
         // YouTube's UI thread, which is busiest exactly during transitions.
         // Evaluate them lazily in classifier order: a settled Home toolbar or
@@ -6491,7 +6575,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 ) && it.height() >= window.height() / 2
             } == true
         }
-        val needsSecondaryProbe = !homeToolbar && !shorts && !search && !notifications
+        val needsSecondaryProbe = !homeToolbar && !shorts && !search
         val profileVisible = needsSecondaryProbe &&
             navigation.selectedDestination == YouTubeNavigationDestination.YOU &&
             findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/collapsing_header_container")?.let {
@@ -6501,13 +6585,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     window.left, window.top, window.right, window.bottom
                 )
             } == true
-        val otherAllowed = needsSecondaryProbe && !profileVisible && (
-            toolbarSnapshot.allowedTitle ||
+        val structurallyOtherAllowed = needsSecondaryProbe && !profileVisible && (
                 // Channel and playlist pages share a collapsing header under a
-                // toolbar titled with the channel or playlist name, which no
-                // title list can know. Home and Subscriptions have no such
-                // header. A channel's tab strip (Home/Videos/Shorts/...) stays
-                // pinned if the header ever scrolls out of view.
+                // toolbar titled with the channel or playlist name. Home and
+                // Subscriptions have no such header. A channel's tab strip
+                // (Home/Videos/Shorts/...) stays pinned if the header ever
+                // scrolls out of view.
                 listOf("collapsing_header_container", "tabs_bar_view").any { id ->
                     findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/$id")?.let {
                         YouTubeUiIdentity.hasMeaningfulHorizontalPresence(
@@ -6535,6 +6618,19 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     "creation_modes_container", "editor_tool_button_icon"
                 ).any { findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/$it") != null })
             )
+        // A titled page is told apart by how it was reached, never by its
+        // localized title: Notifications opens from a feed toolbar.
+        val notifications = needsSecondaryProbe && !profileVisible &&
+            YouTubeUiIdentity.isNotificationsPage(
+                titledPage = toolbarSnapshot.titled,
+                structurallyOtherAllowed = structurallyOtherAllowed,
+                notificationsRequested =
+                    youtubeCurtainState.pendingDestination == YouTubeCurtainScreen.NOTIFICATIONS,
+                lastVerifiedScreen = youtubeLastVerifiedScreen,
+                withinNotificationsVisit = youtubeNotificationsVisit
+            )
+        val otherAllowed = needsSecondaryProbe && !profileVisible && !notifications &&
+            (toolbarSnapshot.titled || structurallyOtherAllowed)
         // A minimized long video stays usable above a covered feed: the user
         // must be able to expand, pause or close what they chose to watch.
         val miniplayer = if (homeToolbar) {
@@ -6561,7 +6657,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val toolbar = toolbarSnapshot.bounds
         val viewport = YouTubeFeedGeometry.calculateFeedViewport(
             window, statusBarInset(), toolbar?.bottom, null,
-            navigation.bottomBarTop, dp(56), dp(48), dp(16)
+            navigation.bottomBarTop, dp(56), dp(48), dp(16),
+            toolbarScrolledAway = YouTubeFeedGeometry.toolbarScrolledAway(
+                toolbar != null, navigation.bottomBarTop != null, navigation.selectedDestination),
+            bottomBarScrolledAway = YouTubeFeedGeometry.bottomBarScrolledAway(
+                navigation.bottomBarTop != null),
+            tappableBottomInset = tappableBottomInset()
         )
         val backBounds = if (screen == YouTubeCurtainScreen.SEARCH ||
             screen == YouTubeCurtainScreen.NOTIFICATIONS ||
@@ -6570,13 +6671,16 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             Rect().also(it::getBoundsInScreen)
         } ?: toolbar?.takeIf {
             screen == YouTubeCurtainScreen.UNKNOWN && !homeToolbar && toolbarSnapshot.loadingBackPresent
-        }?.let { Rect(window.left, it.top, window.left + dp(56), it.bottom) }
+        }?.let { leftToRight(Rect(window.left, it.top, window.left + dp(56), it.bottom), window, YOUTUBE_PACKAGE) }
             // The search-suggestions page (before a query is submitted) draws
             // its Back arrow outside the "toolbar" view; without this its
             // touch-first return guard was never mounted.
             ?: if (screen == YouTubeCurtainScreen.SEARCH) {
                 findYouTubeBackNavigationNode(root)?.let { Rect().also(it::getBoundsInScreen) }
-                    ?.takeIf { it.left <= window.left + dp(8) && it.width() <= dp(96) }
+                    ?.takeIf {
+                        leftToRight(it, window, YOUTUBE_PACKAGE).left <= window.left + dp(8) &&
+                            it.width() <= dp(96)
+                    }
             } else null
         else null
         return YouTubeUiSignals(
@@ -6610,7 +6714,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             allowedSecondarySurfaceVisible = notifications || otherAllowed,
             screen = screen,
             windowBounds = window,
-            miniplayerBounds = miniplayer
+            miniplayerBounds = miniplayer,
+            barsScrolledAway = YouTubeFeedGeometry.bottomBarScrolledAway(
+                navigation.bottomBarTop != null)
         )
     }
 
@@ -6748,6 +6854,12 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         }
         if (signals.screen != YouTubeCurtainScreen.UNKNOWN) youtubeLastVerifiedScreen = signals.screen
         when (signals.screen) {
+            YouTubeCurtainScreen.NOTIFICATIONS -> youtubeNotificationsVisit = true
+            YouTubeCurtainScreen.HOME, YouTubeCurtainScreen.SUBSCRIPTIONS, YouTubeCurtainScreen.YOU,
+            YouTubeCurtainScreen.SEARCH, YouTubeCurtainScreen.SHORTS -> youtubeNotificationsVisit = false
+            else -> Unit
+        }
+        when (signals.screen) {
             YouTubeCurtainScreen.HOME, YouTubeCurtainScreen.SUBSCRIPTIONS -> {
                 youtubeLastStableDestination = signals.selectedDestination
                 youtubeAllowedReturnBounds = signals.feedViewportBounds?.let(::Rect)
@@ -6817,10 +6929,29 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         } else if (blockedShorts) {
             youtubeOverlay.updateMiniplayerCutout(null)
         }
+        // Dragging from under the logo collapses the toolbar; while the logo is
+        // half off screen the frame is unverified and the viewport falls back
+        // to its default top, which uncovered a strip of the feed below the
+        // collapsed toolbar. An unverified frame may never lower the curtain.
+        val feedVerified = signals.screen == YouTubeCurtainScreen.HOME ||
+            signals.screen == YouTubeCurtainScreen.SUBSCRIPTIONS
+        val curtainBounds = YouTubeFeedGeometry.retainCurtainTop(
+            proposed = signals.feedViewportBounds,
+            mounted = youtubeOverlay.currentCurtainBounds.takeIf {
+                showSurface != null && showSurface == youtubeOverlay.currentCurtainSurface
+            },
+            frameVerified = feedVerified
+        )
         youtubeOverlay.showCurtain(
-            signals.feedViewportBounds, showSurface, isEnglish(),
+            curtainBounds, showSurface, isEnglish(),
             preserveBounds = youtubeCurtainState.isPending
         )
+        // A drag that starts on the bottom tabs hides them and the toolbar.
+        // They only return on a scroll toward the top, which the curtain now
+        // stops, so the covered feed lost its way to the other tabs.
+        if (signals.barsScrolledAway && showSurface != null && !blockedShorts &&
+            signals.screen != YouTubeCurtainScreen.SHORTS && youtubeOverlay.isCurtainVisible
+        ) restoreYouTubeBars(now)
         val inFlight = youtubeTabGestureDestination.takeIf {
             youtubeTabGestureGeneration == youtubeCurtainState.generation
         }
@@ -6875,6 +7006,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         youtubeOverlayForegroundCheckAt = 0L
         youtubeObservedScreen = YouTubeCurtainScreen.UNKNOWN
         youtubeLastVerifiedScreen = YouTubeCurtainScreen.UNKNOWN
+        youtubeNotificationsVisit = false
         youtubeAllowedFlipSince = 0L
         youtubeNotificationChildOpen = false
         youtubeLastStableDestination = YouTubeNavigationDestination.UNKNOWN
@@ -6889,6 +7021,22 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
 
     private fun clearYouTubePendingProtectedNavigation() {
         youtubeCurtainState.clear()
+    }
+
+    /**
+     * Scrolls the covered feed back one step so YouTube shows its toolbar and
+     * bottom tabs again. The feed stays under the curtain; only the bars return.
+     */
+    private fun restoreYouTubeBars(now: Long) {
+        if (now - youtubeBarsRestoredAt < YOUTUBE_BARS_RESTORE_INTERVAL_MS) return
+        val root = currentYouTubeRoot() ?: return
+        val feed = cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/results")
+            .firstOrNull { it.isVisibleToUser && it.isScrollable } ?: return
+        youtubeBarsRestoredAt = now
+        val restored = feed.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+        if (ProtectionFlightRecorder.ENABLED) {
+            ProtectionFlightRecorder.record(this, "youtube.bars.restore", "accepted=$restored")
+        }
     }
 
     private fun currentYouTubeRoot(): AccessibilityNodeInfo? {
@@ -7034,6 +7182,98 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         return null
     }
 
+    /**
+     * Window id -> package of windows that published events. Lets the task
+     * switcher probe skip the protected apps' own windows: their remote root
+     * query can block for seconds while Instagram opens a Story or modal.
+     */
+    private val windowPackages = object : LinkedHashMap<Int, String>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?) = size > 32
+    }
+
+    private val taskSwitcherPackages: Set<String> by lazy {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        TaskSwitcherPolicy.switcherPackages(
+            packageManager.queryIntentActivities(home, android.content.pm.PackageManager.MATCH_ALL)
+                .mapNotNull { it.activityInfo?.packageName })
+    }
+
+    /** The protected app whose curtains were removed for the task switcher. */
+    private var taskSwitcherOwner: String? = null
+
+    private fun isTaskSwitcherShowing(activeRoot: AccessibilityNodeInfo?): Boolean {
+        val switchers = taskSwitcherPackages
+        if (switchers.isEmpty() || activeRoot == null) return false
+        val display = currentDisplayBounds()
+        val active = Rect().also(activeRoot::getBoundsInScreen)
+        val fullscreen = TaskSwitcherPolicy.isFullscreen(
+            active.width(), active.height(), display.width(), display.height())
+        if (!fullscreen) return false
+        val packages = windows.filter {
+            it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.id != activeRoot.windowId
+        }.map { window ->
+            windowPackages[window.id] ?: window.root?.packageName?.toString()
+                ?.also { windowPackages[window.id] = it }
+        }
+        return TaskSwitcherPolicy.isShowing(fullscreen, packages, switchers)
+    }
+
+    private fun enterTaskSwitcher(owner: String) {
+        if (ProtectionFlightRecorder.ENABLED) {
+            ProtectionFlightRecorder.record(this, "task.switcher", "enter owner=$owner")
+        }
+        taskSwitcherOwner = owner
+        when (owner) {
+            INSTAGRAM_PACKAGE -> {
+                suspendInstagramProtection()
+                mainHandler.removeCallbacks(instagramShadeRecovery)
+            }
+            YOUTUBE_PACKAGE -> resetYouTubeProtection()
+        }
+        trackPackageTransition("")
+        mainHandler.removeCallbacks(taskSwitcherReturnCheck)
+        mainHandler.postDelayed(taskSwitcherReturnCheck, OVERLAY_FOREGROUND_CHECK_MS)
+    }
+
+    /**
+     * Polls only while the switcher hides a live protected app. Returning to
+     * the live card may publish no event at all, so resume is started here.
+     */
+    private val taskSwitcherReturnCheck: Runnable = object : Runnable {
+        override fun run() {
+            val owner = taskSwitcherOwner ?: return
+            val root = rootInActiveWindow
+            val activePkg = root?.packageName?.toString()
+            if (activePkg == owner && isTaskSwitcherShowing(root)) {
+                mainHandler.postDelayed(this, OVERLAY_FOREGROUND_CHECK_MS)
+                return
+            }
+            if (activePkg == null) {
+                mainHandler.postDelayed(this, OVERLAY_FOREGROUND_CHECK_MS)
+                return
+            }
+            taskSwitcherOwner = null
+            if (ProtectionFlightRecorder.ENABLED) {
+                ProtectionFlightRecorder.record(this@AntiScrollService, "task.switcher",
+                    "leave owner=$owner active=$activePkg")
+            }
+            // Another app: its own events route normally from here.
+            if (activePkg != owner) return
+            trackPackageTransition(owner)
+            when (owner) {
+                INSTAGRAM_PACKAGE -> {
+                    instagramResumePending = true
+                    beginInstagramResumeProtection(root)
+                    queueInstagramScan(0L)
+                }
+                YOUTUBE_PACKAGE -> if (ProtectionPreferences.isEnabled(
+                        this@AntiScrollService, ProtectedApp.YOUTUBE)) {
+                    scheduleYouTubeOverlayForegroundCheck()
+                }
+            }
+        }
+    }
+
     private fun queueYouTubeSurfaceScan(delayMs: Long = YOUTUBE_SURFACE_SCAN_DELAY_MS) {
         val now = SystemClock.uptimeMillis()
         val requestedAt = now + delayMs
@@ -7085,8 +7325,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val logo = findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/youtube_logo")
             ?: return false
         val window = Rect().also(root::getBoundsInScreen)
+        val leading = leftToRight(logo, window, YOUTUBE_PACKAGE)
         return YouTubeUiIdentity.isHomeToolbarLogo(
-            logo.left, logo.right, window.left, window.right, dp(16)
+            leading.left, leading.right, window.left, window.right, dp(16)
         )
     }
 
@@ -7101,7 +7342,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     .orEmpty()
                     .any nodeLoop@ { node ->
                         if (!node.isVisibleToUser) return@nodeLoop false
-                        val bounds = Rect().also(node::getBoundsInScreen)
+                        val bounds = leftToRight(Rect().also(node::getBoundsInScreen), rootBounds, YOUTUBE_PACKAGE)
                         val maxLeft = if (compactId == "search_layout") rootBounds.left + tolerance else searchFieldMaxLeft
                         if (bounds.left > maxLeft || bounds.right > rootBounds.right + tolerance) {
                             return@nodeLoop false
@@ -7118,41 +7359,13 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             }
     }
 
+    /** A settled secondary page: a title beside Back in the toolbar, no Home logo. */
     private fun hasQuickYouTubeNotificationsSurface(root: AccessibilityNodeInfo): Boolean {
         if (hasQuickYouTubeHomeToolbar(root)) {
             return false
         }
-        // Note: the notifications page itself publishes a filter_bar (the
-        // All / Comments / Mentions chips). Rejecting the page whenever that
-        // bar exists made this quick path permanently false on real
-        // notifications screens and delayed the curtain lift.
-        val rootBounds = Rect().also(root::getBoundsInScreen)
-        val pending = ArrayDeque<AccessibilityNodeInfo>()
-        pending.add(root)
-        var visited = 0
-        while (pending.isNotEmpty() && visited < YOUTUBE_QUICK_IDENTITY_MAX_NODES) {
-            val node = pending.removeFirst()
-            visited++
-            if (node.isVisibleToUser) {
-                val bounds = Rect().also(node::getBoundsInScreen)
-                if (YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                        rawText = node.text?.toString(),
-                        isClickable = node.isClickable,
-                        top = bounds.top - rootBounds.top,
-                        windowHeight = rootBounds.height(),
-                        left = bounds.left,
-                        right = bounds.right,
-                        windowLeft = rootBounds.left,
-                        windowRight = rootBounds.right,
-                        tolerancePx = dp(16)
-                    )
-                ) return true
-            }
-            for (index in 0 until node.childCount) {
-                node.getChild(index)?.let(pending::addLast)
-            }
-        }
-        return false
+        val window = Rect().also(root::getBoundsInScreen)
+        return collectYouTubeToolbar(root, window).titled
     }
 
     private fun findYouTubeBackNavigationNode(
@@ -7163,24 +7376,19 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
         var visited = 0
+        val bounds = Rect()
         while (pending.isNotEmpty() && visited < YOUTUBE_QUICK_IDENTITY_MAX_NODES) {
             val node = pending.removeFirst()
             visited++
-            if (node.isVisibleToUser && node.isClickable &&
-                YouTubeUiIdentity.isBackNavigationLabel(
-                    node.contentDescription?.toString(),
-                    node.text?.toString()
-                )
-            ) {
-                val bounds = Rect().also(node::getBoundsInScreen)
-                if (bounds.width() > 0 && bounds.height() > 0 &&
-                    bounds.top < topLimit &&
-                    YouTubeUiIdentity.isHorizontallyOnScreen(
-                        bounds.left,
-                        bounds.right,
-                        rootBounds.left,
-                        rootBounds.right
-                    )
+            if (node.isVisibleToUser) {
+                node.getBoundsInScreen(bounds)
+                // Search's suggestions page draws Back outside "toolbar"; the
+                // leading ImageButton is Back on every page, in any language.
+                val leading = leftToRight(bounds, rootBounds, YOUTUBE_PACKAGE)
+                if (bounds.height() > 0 && bounds.top < topLimit &&
+                    YouTubeUiIdentity.isLeadingToolbarButton(
+                        node.className, node.isClickable, leading.left, leading.right,
+                        rootBounds.left, rootBounds.right, dp(8))
                 ) {
                     return node
                 }
@@ -7195,50 +7403,59 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private fun youtubeNavigationIntent(
         source: AccessibilityNodeInfo?
     ): YouTubeNavigationDestination {
+        val sourceBounds = Rect().also { source?.getBoundsInScreen(it) }
+        if (sourceBounds.isEmpty) return YouTubeNavigationDestination.UNKNOWN
         var current = source
-        var candidate = YouTubeNavigationDestination.UNKNOWN
         var depth = 0
         while (current != null && depth < YOUTUBE_SOURCE_PATH_DEPTH) {
-            if (candidate == YouTubeNavigationDestination.UNKNOWN) {
-                candidate = YouTubeSurfacePolicy.navigationDestination(
-                    current.contentDescription?.toString()
-                )
-            }
             val id = compactId(current.viewIdResourceName)
-            if (id == "bottom_bar_container" || id == "pivot_bar") return candidate
+            if (id == "bottom_bar_container" || id == "pivot_bar") {
+                val items = youtubeNavigationItems(current, Rect().also(current::getBoundsInScreen))
+                val index = items.indexOfFirst { item ->
+                    Rect().also(item::getBoundsInScreen)
+                        .contains(sourceBounds.centerX(), sourceBounds.centerY())
+                }
+                return YouTubeSurfacePolicy.navigationDestinationAt(index, items.size)
+            }
             current = current.parent
             depth++
         }
         return YouTubeNavigationDestination.UNKNOWN
     }
 
+    /** The feed toolbar's Search or Notifications button the click came from, if any. */
+    private fun youtubeToolbarLaunchTarget(
+        source: AccessibilityNodeInfo?,
+        root: AccessibilityNodeInfo
+    ): YouTubeCurtainScreen? {
+        val sourceBounds = Rect().also { source?.getBoundsInScreen(it) }
+        if (sourceBounds.isEmpty) return null
+        val window = Rect().also(root::getBoundsInScreen)
+        return collectYouTubeToolbar(root, window).launchNodes.entries.firstOrNull { (_, node) ->
+            Rect().also(node::getBoundsInScreen).contains(sourceBounds.centerX(), sourceBounds.centerY())
+        }?.key
+    }
+
     private fun isYouTubeExplicitlyAllowedNavigationSource(
-        source: AccessibilityNodeInfo?
+        source: AccessibilityNodeInfo?,
+        root: AccessibilityNodeInfo
     ): Boolean {
         var current = source
         var depth = 0
         while (current != null && depth++ < 8) {
-            val id = compactId(current.viewIdResourceName)
-            val label = current.contentDescription?.toString() ?: current.text?.toString()
-            if (YouTubeUiIdentity.isExplicitlyAllowedLaunch(id, label)) return true
-            current = current.parent
-        }
-        return false
-    }
-
-    private fun youtubeAllowedLaunchScreen(source: AccessibilityNodeInfo?): YouTubeCurtainScreen {
-        var current = source
-        var depth = 0
-        while (current != null && depth++ < 8) {
-            val label = (current.contentDescription?.toString() ?: current.text?.toString())
-                .orEmpty().lowercase(Locale.ROOT)
-            if (label.startsWith("notification") || label.startsWith("bildirim")) {
-                return YouTubeCurtainScreen.NOTIFICATIONS
+            if (compactId(current.viewIdResourceName) in YouTubeUiIdentity.exactAllowedSurfaceIds) {
+                return true
             }
             current = current.parent
         }
-        return YouTubeCurtainScreen.SEARCH
+        return youtubeToolbarLaunchTarget(source, root) != null
     }
+
+    private fun youtubeAllowedLaunchScreen(
+        source: AccessibilityNodeInfo?,
+        root: AccessibilityNodeInfo
+    ): YouTubeCurtainScreen =
+        youtubeToolbarLaunchTarget(source, root) ?: YouTubeCurtainScreen.SEARCH
 
     private fun isYouTubeShortsLaunchSource(source: AccessibilityNodeInfo?): Boolean {
         var current = source
@@ -7333,14 +7550,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         repeat(6) {
             val node = current ?: return false
             val id = compactId(node.viewIdResourceName)
-            val label = listOf(node.text, node.contentDescription)
-                .joinToString(" ") { it?.toString().orEmpty() }
-                .trim().lowercase(Locale.US)
             if (id == "action_bar_button_back" || id.contains("action_bar_back") ||
-                id == "back_button" || id.contains("navigation_back") ||
-                label == "back" || label == "geri" ||
-                label == "navigate up" || label == "yukarı git" ||
-                label.startsWith("back ") || label.startsWith("geri ")) return true
+                id == "back_button" || id.contains("navigation_back")) return true
             current = node.parent
         }
         return false
@@ -7351,48 +7562,28 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         repeat(8) {
             val node = current ?: return false
             val id = compactId(node.viewIdResourceName)
-            val label = listOf(node.text, node.contentDescription)
-                .joinToString(" ") { it?.toString().orEmpty() }
-                .lowercase(Locale.US)
-            if (id.contains("notification") || id.contains("activity_feed") ||
-                label.contains("bildirim") || label.contains("notification") ||
-                label.contains("hareket")) return true
+            if (id.contains("notification") || id.contains("activity_feed")) return true
             current = node.parent
         }
         return false
     }
 
-    private fun isExploreNavigationIntent(source: AccessibilityNodeInfo?): Boolean {
+    private fun sourceAncestorIds(source: AccessibilityNodeInfo?): Set<String> {
         val ids = linkedSetOf<String>()
-        val labels = linkedSetOf<String>()
         var current = source
         repeat(8) {
             val node = current ?: return@repeat
             compactId(node.viewIdResourceName).takeIf(String::isNotEmpty)?.let(ids::add)
-            node.text?.toString()?.trim()?.lowercase(Locale.US)
-                ?.takeIf(String::isNotEmpty)?.let(labels::add)
-            node.contentDescription?.toString()?.trim()?.lowercase(Locale.US)
-                ?.takeIf(String::isNotEmpty)?.let(labels::add)
             current = node.parent
         }
-        return InstagramEntryPolicy.isExploreTabIntent(ids, labels)
+        return ids
     }
 
-    private fun isHomeNavigationIntent(source: AccessibilityNodeInfo?): Boolean {
-        val ids = linkedSetOf<String>()
-        val labels = linkedSetOf<String>()
-        var current = source
-        repeat(8) {
-            val node = current ?: return@repeat
-            compactId(node.viewIdResourceName).takeIf(String::isNotEmpty)?.let(ids::add)
-            node.text?.toString()?.trim()?.lowercase(Locale.US)
-                ?.takeIf(String::isNotEmpty)?.let(labels::add)
-            node.contentDescription?.toString()?.trim()?.lowercase(Locale.US)
-                ?.takeIf(String::isNotEmpty)?.let(labels::add)
-            current = node.parent
-        }
-        return InstagramEntryPolicy.isHomeTabIntent(ids, labels)
-    }
+    private fun isExploreNavigationIntent(source: AccessibilityNodeInfo?): Boolean =
+        InstagramEntryPolicy.isExploreTabIntent(sourceAncestorIds(source))
+
+    private fun isHomeNavigationIntent(source: AccessibilityNodeInfo?): Boolean =
+        InstagramEntryPolicy.isHomeTabIntent(sourceAncestorIds(source))
 
     private fun releaseProfileCurtainToAccountSearch(root: AccessibilityNodeInfo, window: Rect): Boolean {
         if (instagramOverlay.visibleProfileBounds() == null) return false
@@ -7458,13 +7649,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             hasFastReelsViewer(root, directLaunchPending = now < directReelLaunchPendingUntil) ||
             hasFastReelPreview(root) || hasFastSinglePostViewer(root) ||
             hasFastNotificationsSurface(root)) return false
-        val titles = listOf("action_bar_title", "profile_action_bar_title").flatMap { id ->
-            root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/$id")
-                .filter { it.isVisibleToUser }
-                .mapNotNull { it.text?.toString()?.trim()?.lowercase(Locale.US) }
-        }.toSet()
-        if (InstagramProfileSurfacePolicy.hasAllowedLayer(emptySet(), titles) ||
-            InstagramProfileSurfacePolicy.isBlockedCollectionTitle(titles)) return false
+        if (hasVisibleUserCollectionIds(root)) return false
         profileWindowId = root.windowId
         profileScrollFloor = calculateProfileScrollFloor(root, window)
         bounds.top = profileScrollCover.measure(bounds.top, profileScrollFloor, now)
@@ -7514,7 +7699,7 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
             return false
         }
         if (!hasVisibleProfileHeaderMarkers(root) || hasVisibleProfileNativeSheet(root) ||
-            hasVisibleAboutAccountSurface(root) || isHighlightPickerForeground(root) ||
+            hasVisibleAboutAccountSurface(root) ||
             SystemClock.uptimeMillis() < profileAllowedDepartureUntil) return false
         if (instagramProfileIngress.requestCurtainDraw()) {
             val token = instagramProfileIngress.generation
@@ -7594,12 +7779,17 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 }?.let { targets[tab] = it }
         }
         instagramOverlay.updateNavigationGuards(targets)
+        // Visible nodes only: a Story camera/editor opened over the main
+        // activity keeps Home's header and heart in its tree, hidden. Guarding
+        // that heart put a touch window over the editor's text (Aa) button.
         val notificationBounds = if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) == ProtectionMode.STRICT &&
-            root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/main_feed_action_bar").isNotEmpty()) {
+            root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/main_feed_action_bar")
+                .any { it.isVisibleToUser }) {
             root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/notification")
                 .firstNotNullOfOrNull { node ->
                     Rect().also(node::getBoundsInScreen).takeIf {
-                        node.isClickable && !it.isEmpty && it.intersect(window) && it.bottom < window.centerY()
+                        node.isClickable && node.isVisibleToUser && !it.isEmpty && it.intersect(window) &&
+                            it.bottom < window.centerY()
                     }
                 }
         } else null
@@ -7903,9 +8093,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE) return
         if (root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/notification")
-            .none { it.isClickable }) return
+            .none { it.isClickable && it.isVisibleToUser }) return
         val header = root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/main_feed_action_bar")
-            .firstOrNull() ?: return
+            .firstOrNull { it.isVisibleToUser } ?: return
         val window = instagramWindowBounds(root)
         val headerBounds = Rect().also(header::getBoundsInScreen)
         if (headerBounds.bottom <= window.top || headerBounds.bottom >= window.bottom) return
@@ -7994,7 +8184,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val profile = avatar?.let { picture -> children.firstOrNull { child ->
             val bounds = Rect().also(child::getBoundsInScreen)
             child.isClickable && !bounds.isEmpty && rowBounds.contains(bounds) &&
-                bounds.right <= rowBounds.left + rowBounds.width() / 3 &&
+                leftToRight(bounds, rowBounds, INSTAGRAM_PACKAGE).right <=
+                    rowBounds.left + rowBounds.width() / 3 &&
                 picture.contains(bounds.centerX(), bounds.centerY()) && bounds.contains(x.toInt(), y.toInt())
         } }
         val summaries = children.filter {
@@ -8119,7 +8310,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                     Rect().also(node::getBoundsInScreen).takeIf {
                         node.isVisibleToUser && node.isClickable && !it.isEmpty &&
                             it.top >= window.top && it.bottom < window.centerY() &&
-                            it.left >= window.left && it.right <= window.left + window.width() / 3
+                            leftToRight(it, window, INSTAGRAM_PACKAGE).let { leading ->
+                                leading.left >= window.left &&
+                                    leading.right <= window.left + window.width() / 3
+                            }
                     }
                 }
         } else null
@@ -8170,6 +8364,11 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         instagramNotificationGestureReplayUntil = 0L
         instagramOverlay.updateEntryGuards(targets, isEnglish())
         instagramOverlay.hideTransientTouchGuard()
+        // The service receives no events from other apps; only this check
+        // retires the row guards when the user leaves Instagram. Without it
+        // they stayed above the next app (including AwayDoomscrollin itself)
+        // and swallowed its taps.
+        if (instagramOverlay.hasVisibleWindows) scheduleOverlayForegroundCheck()
         val token = notificationIngressToken
         if (instagramNotificationIngress.accepts(token, SystemClock.uptimeMillis())) {
             val populated = rows.isNotEmpty() && rows.all { row ->
@@ -8190,18 +8389,26 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         }
     }
 
-    /** The clickable media thumbnail at the end of a notification row, if any. */
+    /**
+     * The media thumbnail at the end of a notification row, if any. Current
+     * builds draw it as a non-clickable, text-less view (the whole row is the
+     * click target), so it is recognized by shape and position only: never by
+     * a button caption, which only matched Turkish/English UIs.
+     */
     private fun notificationRowMediaThumbnail(children: List<AccessibilityNodeInfo>, rowBounds: Rect): Rect? =
         children.asSequence()
             .map { child -> child to Rect().also(child::getBoundsInScreen) }
             .filter { (child, bounds) ->
-                val id = compactId(child.viewIdResourceName)
-                val label = child.text?.toString().orEmpty()
-                child.isVisibleToUser && child.isClickable && !bounds.isEmpty &&
-                    id !in setOf("igds_button", "ig_text") &&
-                    label !in setOf("Message", "Follow", "Following", "Mesaj", "Takip Et", "Takiptesin") &&
-                    rowBounds.contains(bounds.centerX(), bounds.centerY()) &&
-                    bounds.right >= rowBounds.left + rowBounds.width() * 2 / 3
+                // At the row's trailing end: its right edge, or its left when mirrored.
+                val trailing = leftToRight(bounds, rowBounds, INSTAGRAM_PACKAGE)
+                child.isVisibleToUser && !bounds.isEmpty &&
+                    InstagramNotificationEntryPolicy.isMediaThumbnail(
+                        id = compactId(child.viewIdResourceName),
+                        className = child.className?.toString().orEmpty(),
+                        hasText = !child.text.isNullOrBlank(),
+                        bounds = InstagramGeometrySample(trailing.left, trailing.top, trailing.right, trailing.bottom),
+                        row = InstagramGeometrySample(rowBounds.left, rowBounds.top, rowBounds.right, rowBounds.bottom),
+                        minSidePx = dp(32))
             }
             .maxByOrNull { (_, bounds) -> bounds.width().toLong() * bounds.height() }
             ?.second
@@ -8212,19 +8419,14 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                 val rowBounds = Rect().also(row::getBoundsInScreen)
                 if (rowBounds.isEmpty || !row.isVisibleToUser) return@mapNotNull null
                 val children = notificationRowChildren(row)
-                val hasBlockedMediaSummary = children.asSequence()
-                    .filter { it.className?.toString() == "android.widget.TextView" }
-                    .mapNotNull { it.text?.toString() }
-                    .any(InstagramNotificationEntryPolicy::isBlockedMediaSummary)
                 val candidate = notificationRowMediaThumbnail(children, rowBounds)
                 // Instagram makes the whole notification row clickable, even
                 // when the visible media thumbnail is the only affordance.
                 // Guarding only the thumbnail therefore lets a tap on the
                 // notification text launch the viewer. Once a row is known to
-                // contain media (or a blocked comment/reply summary), consume
-                // the row's tap region. The overlay replays vertical drags,
-                // so the list itself remains scrollable.
-                if (candidate == null && !hasBlockedMediaSummary) return@mapNotNull null
+                // contain media, consume the row's tap region. The overlay
+                // replays vertical drags, so the list itself remains scrollable.
+                if (candidate == null) return@mapNotNull null
                 rowBounds.takeIf { !it.isEmpty && it.width() >= dp(48) }
             }
             .distinctBy { "${it.left}:${it.top}:${it.right}:${it.bottom}" }
@@ -8387,47 +8589,34 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val currentDailyAppBlocks = prefs.getInt(dailyAppKey, 0)
         val currentXp = prefs.getLong("user_xp", 150L)
 
-        val lastActiveDay = prefs.getString("last_active_day", "").orEmpty()
-        var streakDays = prefs.getInt("streak_days", 0)
-        if (lastActiveDay != currentDate) {
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = now
-                add(Calendar.DAY_OF_MONTH, -1)
-            }
-            val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
-            streakDays = when {
-                lastActiveDay == yesterday -> streakDays + 1
-                lastActiveDay.isEmpty() -> 1
-                else -> 1
-            }
-        }
-
         val hour = SimpleDateFormat("HH", Locale.US).format(Date(now))
         val hourlyBlocksKey = "blocks_${currentDate}_hour_$hour"
         val currentHourlyBlocks = prefs.getInt(hourlyBlocksKey, 0)
 
         val time = SimpleDateFormat("HH:mm", Locale.US).format(Date(now))
         val appDailyCount = currentDailyAppBlocks + 1
-        val newLog = "$time|$appName|$appDailyCount"
+        // The 4th field (epoch ms) lets the list say which day; older
+        // three-field entries are still read and shown with the time only.
+        val newLog = "$time|$appName|$appDailyCount|$now"
         val previousLogs = prefs.getString("recent_shield_logs", "").orEmpty()
         val updatedLogs = buildList {
             add(newLog)
             if (previousLogs.isNotEmpty()) addAll(previousLogs.split(';'))
         }.take(10).joinToString(";")
 
-        prefs.edit()
+        val editor = prefs.edit()
             .putInt("total_blocks", currentBlocks + 1)
             .putLong("user_xp", currentXp + 3L)
             .putInt(dailyBlocksKey, currentDailyBlocks + 1)
             .putInt(appBlocksKey, currentAppBlocks + 1)
             .putInt(dailyAppKey, currentDailyAppBlocks + 1)
             .putInt(hourlyBlocksKey, currentHourlyBlocks + 1)
-            .putInt("streak_days", streakDays)
-            .putString("last_active_day", currentDate)
             .putString("recent_shield_logs", updatedLogs)
             .putLong(AccessibilityStreakPolicy.KEY_LAST_ACCESSIBILITY_HEARTBEAT_MS, now)
             .remove(AccessibilityStreakPolicy.KEY_ACCESSIBILITY_DISABLED_SINCE_MS)
-            .apply()
+        // Blocks no longer drive the streak; this only counts today if nothing else has yet.
+        AccessibilityStreakPolicy.putProtectedDay(prefs, editor, now)
+        editor.apply()
 
         // This remains a no-op unless the user explicitly enabled telemetry.
         TelemetryManager.sendTelemetryAsync(this)
@@ -9097,7 +9286,10 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
                         "revision=${decision.revision} action=${decision.action}")
             }
         }
-        if (screen != InstagramScreen.UNKNOWN) lastInstagramScreen = decision.screen
+        if (screen != InstagramScreen.UNKNOWN) {
+            lastInstagramScreen = decision.screen
+            instagramUnknownSince = 0L
+        }
         if (decision.screen == InstagramScreen.NOTIFICATIONS && previous != InstagramScreen.NOTIFICATIONS) {
             instagramNotificationEventLocked = false
             instagramNotificationLastEventExitAt = 0L
@@ -9274,6 +9466,8 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         clearDirectDetailsScrollGuard()
         clearInstagramResumeProtection()
         currentInstagramWindowId = -1
+        instagramUnknownSince = 0L
+        instagramExploreSearchSeen = false
         instagramExitTreeQuietUntil = 0L
         profileAllowedDepartureUntil = 0L
         directDetailsLaunchPendingUntil = 0L
@@ -9310,7 +9504,17 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         overlayForegroundCheckScheduled = false
     }
 
-    private fun suspendInstagramProtection() {
+    private fun suspendInstagramProtection(destination: String? = null) {
+        // SystemUI panels (shade, quick settings, volume) return to the same
+        // viewer; an allowed Balanced Reel must survive the visit.
+        if (destination == "com.android.systemui" && lastInstagramScreen == InstagramScreen.REELS &&
+            instagramReelsSession.watching && !instagramReelsSession.exiting &&
+            ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) == ProtectionMode.BALANCED) {
+            instagramReelShadeHold.hold(instagramStateMachine.currentWindowId,
+                instagramBalancedReelOrigin, SystemClock.uptimeMillis())
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel", "held=shade window=${instagramStateMachine.currentWindowId}")
+        }
         if (instagramOverlay.isNotificationShadeSuspended) {
             Log.d(TAG, "IG_SHADE_FULL_SUSPEND root=${rootInActiveWindow?.packageName} " +
                 "tracked=$lastPackage owner=${Throwable().stackTrace.drop(1).take(2).joinToString { it.methodName }}")
@@ -9337,13 +9541,14 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         val root = rootInActiveWindow ?: return@Runnable
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE ||
             !ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM) ||
-            instagramOverlay.visibleCurtain() != null) return@Runnable
+            instagramOverlay.visibleCurtain() != null || taskSwitcherOwner != null) return@Runnable
         instagramResumePending = true
         beginInstagramResumeProtection(root)
         scheduleOverlayForegroundCheck()
     }
 
     private fun hideInstagramProtection() {
+        instagramReelShadeHold.clear()
         instagramStoryExitReadiness.reset()
         resetInstagramProtectionState()
         instagramStateMachine.reset()
@@ -9376,6 +9581,35 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
+    /**
+     * Per package: whether the app was last seen laid out right to left. Read
+     * from its bottom tabs; until a bar has been seen, the system language
+     * decides (the apps follow it unless set otherwise in-app).
+     */
+    private val rightToLeftPackages = HashMap<String, Boolean>()
+
+    private fun noteLayoutDirection(packageName: String, firstItem: Rect, lastItem: Rect) {
+        if (firstItem.isEmpty || lastItem.isEmpty || firstItem.centerX() == lastItem.centerX()) return
+        rightToLeftPackages[packageName] =
+            LayoutMirror.isRightToLeft(firstItem.centerX(), lastItem.centerX())
+    }
+
+    private fun isRightToLeft(packageName: String): Boolean =
+        rightToLeftPackages[packageName] ?: (TextUtils.getLayoutDirectionFromLocale(
+            Resources.getSystem().configuration.locales[0]) == View.LAYOUT_DIRECTION_RTL)
+
+    /**
+     * [bounds] as it would sit in the left-to-right layout of [packageName]'s
+     * window. Leading-edge checks (Back, titles, the YouTube logo) read this;
+     * overlays keep using the real bounds. Mirroring is its own inverse, so
+     * this also turns a left-to-right guard rect into its real position.
+     */
+    private fun leftToRight(bounds: Rect, window: Rect, packageName: String): Rect =
+        if (!isRightToLeft(packageName)) bounds else Rect(
+            LayoutMirror.mirroredLeft(bounds.right, window.left, window.right), bounds.top,
+            LayoutMirror.mirroredRight(bounds.left, window.left, window.right), bounds.bottom
+        )
+
     @SuppressLint("InternalInsetResource", "DiscouragedApi")
     private fun statusBarInset(): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -9391,6 +9625,19 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         return if (id != 0) resources.getDimensionPixelSize(id) else dp(24)
     }
 
+    /** Height of tappable system buttons at the bottom: zero with gesture navigation. */
+    private fun tappableBottomInset(): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getSystemService(WindowManager::class.java)?.let { windowManager ->
+                return windowManager.currentWindowMetrics.windowInsets
+                    .getInsets(WindowInsets.Type.tappableElement())
+                    .bottom
+                    .coerceAtLeast(0)
+            }
+        }
+        return dp(48)
+    }
+
     private fun compactId(resourceId: String?): String =
         resourceId.orEmpty().substringAfterLast('/').lowercase(Locale.US)
 
@@ -9403,20 +9650,6 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
         else -> null
     }
 
-    private fun tabForLabel(label: String?): InstagramTab? {
-        val normalized = label.orEmpty()
-            .substringBefore(',')
-            .trim()
-            .lowercase(Locale.US)
-        return when (normalized) {
-            "home", "ana sayfa" -> InstagramTab.HOME
-            "reels" -> InstagramTab.REELS
-            "messages", "mesajlar", "direct" -> InstagramTab.DIRECT
-            "search and explore", "ara ve keşfet", "search", "ara" -> InstagramTab.SEARCH
-            "profile", "profil" -> InstagramTab.PROFILE
-            else -> null
-        }
-    }
 
     private fun isEnglish(): Boolean {
         val prefs = getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)

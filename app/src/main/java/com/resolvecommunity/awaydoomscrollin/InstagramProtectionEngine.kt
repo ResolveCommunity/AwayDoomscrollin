@@ -50,7 +50,9 @@ internal data class InstagramUiSignals(
     val hasBackNavigation: Boolean = false,
     val hasCameraAction: Boolean = false,
     val hasClipsInteractionBar: Boolean = false,
-    val hasFullscreenReelsViewer: Boolean = false
+    val hasFullscreenReelsViewer: Boolean = false,
+    /** Id-less grid image tiles (Bloks media grids such as Likes/Reposts/Tags). */
+    val idlessMediaTiles: Int = 0
 )
 
 internal data class InstagramInteraction(
@@ -151,19 +153,15 @@ internal object InstagramProtectionEngine {
         // Saved/Likes/Reposts are user-curated collections. Classify them
         // before generic Reels/title checks so Balanced can expose the library
         // without mistaking it for an algorithmic feed.
-        if (InstagramProfileSurfacePolicy.isUserCollectionTitle(signals.titles)) {
+        if (InstagramProfileSurfacePolicy.isUserCollection(ids, signals.idlessMediaTiles)) {
             return InstagramScreen.SAVED_COLLECTION
         }
 
+        // Localized titles never decide a screen: Instagram renders them in
+        // the user's language, so a title rule only ever works for the
+        // languages it lists. Every decision below uses view ids and layout.
         val hasBackNav = signals.hasBackNavigation || ids.hasBackNavigation()
-        val isExplicitReelsViewerTitle = signals.titles.hasAnyContaining(
-            "reel",
-            "reels",
-            "reposted",
-            "yeniden paylaşılanlar"
-        )
-        val hasExploreContext = signals.titles.hasAnyContaining("explore", "keşfet") ||
-            ids.hasAny("explore_action_bar")
+        val hasExploreContext = ids.hasAny("explore_action_bar")
 
         val hasStableHomeHost = ids.hasAny("main_feed_action_bar") &&
             signals.selectedTabs.contains(InstagramTab.HOME)
@@ -181,9 +179,6 @@ internal object InstagramProtectionEngine {
 
         // A story viewer may retain the host tab beneath it.
         if (ids.hasStoryViewer()) return InstagramScreen.STORY
-        if (InstagramPostIdentity.isViewer(ids, signals.titles, hasBackNav)) {
-            return InstagramScreen.COMMENTS_OR_DETAIL
-        }
 
         // An opened viewer can retain the Home tab/header during its transition.
         // Dedicated viewer chrome plus Back is stronger evidence than that host.
@@ -193,10 +188,7 @@ internal object InstagramProtectionEngine {
         }
 
         // 2. Notifications screen (allowed)
-        val hasNotificationsContext = signals.titles.hasAnyContaining(
-            "notifications",
-            "bildirimler"
-        ) || ids.hasAnyContaining(
+        val hasNotificationsContext = ids.hasAnyContaining(
             "activity_feed",
             "newsfeed_recycler",
             "notifications_recycler",
@@ -238,7 +230,11 @@ internal object InstagramProtectionEngine {
             "alternative_notes_options"
         )
 
-        if (hasNotesStructure) {
+        // The own profile shows the user's note as a bubble on its avatar
+        // (pog_note_bubble_card_view). A visible profile header means this is
+        // the profile, not the Direct notes tray.
+        val hasProfileHeader = ids.hasAny("profile_header_container", "profile_tabs_container")
+        if (hasNotesStructure && !hasProfileHeader) {
             return InstagramScreen.DIRECT_MESSAGES
         }
 
@@ -259,23 +255,22 @@ internal object InstagramProtectionEngine {
             "camera_shutter_button", "quick_capture_bottom_navigation",
             "cam_filter_preview", "caption_edit_text", "composer_edit_text",
             "action_bar_button_next", "publish_button", "media_picker_view",
-            "album_thumbnail_view", "gallery_container", "gallery_header"
+            "album_thumbnail_view", "gallery_container", "gallery_header",
+            // Story camera and its post-capture editor (text, stickers);
+            // they publish no title, so only these ids identify them.
+            "quick_capture_root_container", "post_capture_button_share_container",
+            "post_capture_compose_view"
         )
-        val hasCreationTitle = signals.titles.hasAnyContaining(
-            "yeni gönderi", "new post", "yeni hikaye", "new story",
-            "yeni reels", "new reel", "yeni klip", "yeni video",
-            "taslaklar", "drafts"
-        )
-        val isCreationFlow = (hasBackNav && (hasCreationTitle || hasCreationViews)) ||
+        val isCreationFlow = (hasBackNav && hasCreationViews) ||
             (hasCreationViews && !ids.hasAny("main_feed_action_bar", "reels_tray_container"))
 
-        if (isCreationFlow && !isExplicitReelsViewerTitle && !signals.selectedTabs.contains(InstagramTab.REELS)) {
+        if (isCreationFlow && !signals.selectedTabs.contains(InstagramTab.REELS)) {
             return InstagramScreen.CREATION
         }
 
         // Following/Favorites are separate action-bar screens, but still
-        // infinite Home feeds. Empty Favorites has no row_feed_* nodes, so its
-        // semantic title and list shell are required to keep the curtain owned.
+        // infinite Home feeds. Empty Favorites has no row_feed_* nodes; its
+        // empty-state ids and list shell keep the curtain owned.
         if (InstagramHomeGeometry.isAlternateFeed(ids, signals.titles, hasBackNav)) {
             return InstagramScreen.HOME_FEED
         }
@@ -283,21 +278,15 @@ internal object InstagramProtectionEngine {
         // 5. Unambiguous Home Feed Context:
         // When on Home tab or main_feed_action_bar is present, and NOT an explicit post detail,
         // this is DEFINITIVELY the HOME FEED!
-        val isPostDetailTitle = signals.titles.any { title ->
-            setOf("posts", "gönderiler", "comments", "yorumlar", "post", "gönderi").any {
-                title.trim().equals(it, ignoreCase = true)
-            }
-        }
         val isExplicitPostDetail = !ids.hasAny("main_feed_action_bar") &&
-            (ids.hasStructuralCommentView() || isPostDetailTitle)
+            ids.hasStructuralCommentView()
 
         val isHomeFeedContext = !reelsIsOnlySelectedTab &&
             signals.sourceTab != InstagramTab.REELS &&
             !isExplicitPostDetail &&
             (ids.hasAny("main_feed_action_bar") ||
                 (signals.selectedTabs.contains(InstagramTab.HOME) && !hasBackNav)) &&
-            (!isExplicitReelsViewerTitle || signals.selectedTabs.contains(InstagramTab.HOME)) &&
-            !signals.titles.hasAnyContaining("explore", "keşfet")
+            !hasExploreContext
 
         if (isHomeFeedContext) {
             return InstagramScreen.HOME_FEED
@@ -323,7 +312,6 @@ internal object InstagramProtectionEngine {
         val isReelsViewer = !isHomeFeedContext && !isCreationFlow && !hasDirectStructure && (
             reelsIsOnlySelectedTab ||
             signals.sourceTab == InstagramTab.REELS ||
-            (hasBackNav && isExplicitReelsViewerTitle) ||
             (hasBackNav && hasExploreContext && (
                 signals.hasClipsInteractionBar || ids.hasStrongReelsPlayer()
                 )) ||
@@ -342,7 +330,7 @@ internal object InstagramProtectionEngine {
             !navigatedBackFromDm &&
             !ids.hasAny("main_feed_action_bar", "reels_tray_container") && (
                 ids.hasStructuralCommentView() ||
-                (hasBackNav && (isPostDetailTitle || (ids.hasPostViewer() && !ids.hasAny("sticky_header_list", "list"))))
+                (hasBackNav && ids.hasPostViewer() && !ids.hasAny("sticky_header_list", "list"))
             )
         if (isPostOrCommentDetail) {
             return InstagramScreen.COMMENTS_OR_DETAIL
@@ -481,19 +469,7 @@ internal object InstagramProtectionEngine {
         // Creation buttons or within creation flow
         val isCreationAction = sourceIds.hasAny(
             "action_bar_button_new_post", "creation_tab", "action_bar_button_create"
-        ) || sourceIds.hasAnyContaining("new_post", "camera_shutter", "composer") ||
-            signals.sourceLabels.any {
-                it.equals("oluştur", ignoreCase = true) ||
-                it.equals("create", ignoreCase = true) ||
-                it.equals("yeni gönderi", ignoreCase = true) ||
-                it.equals("new post", ignoreCase = true) ||
-                it.equals("yeni hikaye", ignoreCase = true) ||
-                it.equals("new story", ignoreCase = true) ||
-                it.startsWith("yeni gönderi") ||
-                it.startsWith("new post") ||
-                it.startsWith("oluştur") ||
-                it.startsWith("create")
-            }
+        ) || sourceIds.hasAnyContaining("new_post", "camera_shutter", "composer")
         if (isCreationAction) {
             return false
         }
@@ -505,15 +481,13 @@ internal object InstagramProtectionEngine {
             "direct_thread_header",
             "message_composer_bar",
             "direct_tab"
-        ) || sourceIds.hasAnyContaining("direct", "inbox") ||
-            signals.sourceLabels.hasAnyContaining("direct", "mesajlar", "mesaj", "inbox", "chats", "sohbet")
+        ) || sourceIds.hasAnyContaining("direct", "inbox")
         if (isDirectAction) {
             return false
         }
 
         // Notifications icon
-        val isNotificationsAction = sourceIds.hasAnyContaining("notification", "activity_feed") ||
-            signals.sourceLabels.hasAnyContaining("bildirim", "notification", "hareketler")
+        val isNotificationsAction = sourceIds.hasAnyContaining("notification", "activity_feed")
         if (isNotificationsAction) {
             return false
         }
@@ -521,8 +495,7 @@ internal object InstagramProtectionEngine {
         // Back navigation is never a blocked content launch
         val isBackAction = sourceIds.hasAny(
             "action_bar_button_back", "back_button"
-        ) || sourceIds.hasAnyContaining("action_bar_back", "navigation_back") ||
-            signals.sourceLabels.hasAnyContaining("back", "geri", "navigate up", "yukarı git")
+        ) || sourceIds.hasAnyContaining("action_bar_back", "navigation_back")
         if (isBackAction) {
             return false
         }
@@ -555,7 +528,7 @@ internal object InstagramProtectionEngine {
             "story_ring",
             "story_view",
             "highlight"
-        ) || (!config.blockStories && signals.sourceLabels.hasAnyContaining("story", "hikaye"))
+        )
         if (!config.blockStories && isStoryClick) {
             return false
         }
@@ -575,15 +548,7 @@ internal object InstagramProtectionEngine {
             "avatar",
             "clips_grid"
         ))
-        val hasMediaLabel = signals.sourceLabels.hasAnyContaining(
-            "reel",
-            "clip",
-            "post",
-            "gönderi",
-            "video"
-        ) || (config.blockStories && signals.sourceLabels.hasAnyContaining("story", "hikaye"))
-
-        return hasMediaSource || hasMediaLabel
+        return hasMediaSource
     }
 
     private fun Set<String>.hasStrongReelsPlayer(): Boolean =

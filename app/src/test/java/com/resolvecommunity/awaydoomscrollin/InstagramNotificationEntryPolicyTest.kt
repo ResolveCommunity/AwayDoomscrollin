@@ -8,74 +8,27 @@ class InstagramNotificationEntryPolicyTest {
         assertEquals(InstagramNotificationTap.WAIT, InstagramNotificationEntryPolicy.routeTap(emptyList(), false))
         assertEquals(InstagramNotificationTap.WAIT, InstagramNotificationEntryPolicy.routeTap(listOf(" "), false))
     }
-    @Test fun everyTapOnCommentNotificationIsBlocked() {
-        repeat(100) {
-            assertEquals(InstagramNotificationTap.BLOCK,
-                InstagramNotificationEntryPolicy.routeTap(listOf("someone liked your comment: hi", "Reply"), false))
-            assertEquals(InstagramNotificationTap.BLOCK,
-                InstagramNotificationEntryPolicy.routeTap(listOf("someone replied to your comment: hi"), false))
-        }
-    }
     @Test fun onlyIndependentVerifiedProfileActionBypassesMediaBlock() {
         assertEquals(InstagramNotificationTap.PROFILE,
-            InstagramNotificationEntryPolicy.routeTap(listOf("someone liked your comment"), true))
+            InstagramNotificationEntryPolicy.routeTap(listOf("anything"), true, hasMediaThumbnail = true))
     }
-    @Test fun connectionAndOtherExistingAllowedNotificationsStillOpen() {
-        listOf("someone started following you", "someone replied to your note",
-            "someone requested to follow you", "birisi seni takip etmeye başladı",
-            "someone and 1 other are on Threads, an Instagram app. See what they're saying.")
-            .forEach { assertEquals(InstagramNotificationTap.ALLOW, InstagramNotificationEntryPolicy.routeTap(listOf(it), false)) }
-    }
-    @Test fun reelLikeMentionAndTagNotificationsAreBlockedInStrict() {
-        listOf("someone liked your reel.", "someone and 3 others liked your photo",
-            "someone liked your story.", "someone mentioned you in a comment: @you look",
-            "someone tagged you in a post", "someone commented: nice",
-            "birisi reelini beğendi", "birisi ve diğerleri reel'ini beğendiler", "birisi gönderini beğendi",
-            "birisi fotoğrafını beğendi", "birisi videonu beğendi", "birisi hikayeni beğendi",
-            "birisi bir yorumda senden bahsetti: @sen bak", "birisi seni bir gönderide etiketledi",
-            "birisi yorum yaptı: güzel")
+    @Test fun anyRowWithMediaThumbnailIsBlockedInEveryLanguage() {
+        listOf("someone liked your reel.", "birisi reelini beğendi", "quelqu’un a aimé votre reel",
+            "кто-то отметил ваш Reels", "誰かがあなたのリールにいいねしました", "")
             .forEach {
-                assertTrue(it, InstagramNotificationEntryPolicy.isBlockedMediaSummary(it))
-                assertEquals(it, InstagramNotificationTap.BLOCK,
-                    InstagramNotificationEntryPolicy.routeTap(listOf(it), false))
+                assertEquals(it, InstagramNotificationTap.BLOCK, InstagramNotificationEntryPolicy.routeTap(
+                    listOf(it), verifiedProfile = false, hasMediaThumbnail = true))
             }
     }
-    @Test fun anyRowWithMediaThumbnailIsBlockedEvenWithUnknownText() {
-        assertEquals(InstagramNotificationTap.BLOCK, InstagramNotificationEntryPolicy.routeTap(
-            listOf("someone did something new"), verifiedProfile = false, hasMediaThumbnail = true))
-        assertEquals(InstagramNotificationTap.PROFILE, InstagramNotificationEntryPolicy.routeTap(
-            listOf("someone liked your reel"), verifiedProfile = true, hasMediaThumbnail = true))
-    }
-    @Test fun quotedTextAfterTheSummaryDoesNotBlockConnectionRows() {
-        assertFalse(InstagramNotificationEntryPolicy.isMediaActivitySummary(
-            "someone started following you: liked your reel"))
-    }
-    @Test fun observedReplyAndTurkishReplyAreBlockedMediaEntries() {
-        listOf("someone replied to your comment: @someone hello", "someone replied to your reply: hello",
-            "birisi yorumuna yanıt verdi: @birisi merhaba", "birisi yorumuna cevap verdi: merhaba")
-            .forEach { assertTrue(it, InstagramNotificationEntryPolicy.isBlockedMediaSummary(it)) }
-    }
-    @Test fun replyLikeAndConnectionActionsStayDistinct() {
-        assertTrue(InstagramNotificationEntryPolicy.isBlockedMediaSummary("someone liked your comment"))
-        listOf("someone replied to your note", "someone started following you",
-            "someone sent a message: replied to your comment", "birisi mesaj gönderdi: yorumuna yanıt verdi")
-            .forEach { assertFalse(it, InstagramNotificationEntryPolicy.isBlockedMediaSummary(it)) }
-    }
-    @Test fun observedEnglishCommentLikeIsBlockedWithoutReelGuessing() {
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("someone liked your comment: hello"))
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("someone and 3 others liked your comment."))
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("SOMEONE LIKED\nYOUR COMMENT"))
-    }
-    @Test fun turkishSingularAndPluralAreRecognized() {
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("birisi yorumunu beğendi: merhaba"))
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("birisi ve diğerleri yorumunu beğendiler."))
-        assertTrue(InstagramNotificationEntryPolicy.isCommentLikeSummary("BİRİSİ YORUMUNU BEĞENDİ"))
-    }
-    @Test fun unrelatedNotificationsAndQuotedCommentTextRemainUnclassified() {
-        listOf("someone started following you", "someone liked your photo", "someone requested to follow you",
-            "someone mentioned you in a comment", "someone replied: liked your comment",
-            "birisi seni takip etmeye başladı", "birisi fotoğrafını beğendi", "birisi yorum yaptı: yorumunu beğendi")
-            .forEach { assertFalse(it, InstagramNotificationEntryPolicy.isCommentLikeSummary(it)) }
+    @Test fun rowTextNeverDecidesInAnyLanguage() {
+        // The same row must get the same decision whatever the UI language:
+        // only the thumbnail (structure) decides, never the localized summary.
+        listOf("someone liked your comment", "birisi yorumunu beğendi", "quelqu’un a aimé votre commentaire",
+            "кому-то понравился ваш комментарий", "someone started following you")
+            .forEach {
+                assertEquals(it, InstagramNotificationTap.ALLOW,
+                    InstagramNotificationEntryPolicy.routeTap(listOf(it), false, hasMediaThumbnail = false))
+            }
     }
     @Test fun stricterEntryScopeDoesNotChangeBalanced() {
         assertTrue(InstagramNotificationEntryPolicy.blocksCommentLikes(ProtectionMode.STRICT))

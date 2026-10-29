@@ -12,20 +12,15 @@ internal object InstagramStoryIdentity {
             (hasVisibleId("reel_item_toolbar_container") && hasVisibleId("reel_viewer_media_container"))
 
     /**
-     * Label of a tapped avatar that opens someone's Story ("nasa_es'in görülen
-     * hikayesi", "nasa's story, unseen"). It travels with the click event, so
-     * no remote query is needed. Own-story and creation entries ("Hikayen",
-     * "Hikayene ekle", "Your story", "Add to story") are not Story launches.
+     * Avatars which open a Story when tapped, by id (any UI language): the
+     * profile header photo frame (a Story ring sits beside it when one is
+     * live; without one the tap opens nothing that needs protection) and a
+     * search-result avatar drawn inside a Story ring.
      */
-    fun isStoryLaunchLabel(label: String?): Boolean {
-        val text = label.orEmpty().lowercase(java.util.Locale.ROOT)
-        if (text.isBlank()) return false
-        if (listOf("ekle", "add to", "your story", "hikayen", "hikâyen", "create", "oluştur")
-                .any(text::contains)) return false
-        return text.contains("hikayesi") || text.contains("hikâyesi") ||
-            text.contains("'s story") || text.contains("’s story") ||
-            text.contains("story by") || text.contains("unseen story")
-    }
+    fun isStoryLaunchSource(id: String): Boolean = id in setOf(
+        "row_profile_header_imageview_frame_layout", "row_profile_header_imageview",
+        "row_search_avatar_in_ring"
+    )
 
     /** The Story viewer opens in Instagram's modal activity window. */
     fun isStoryViewerWindowClass(className: CharSequence?): Boolean =

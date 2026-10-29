@@ -128,24 +128,17 @@ class InstagramEntryPolicyTest {
     }
 
     @Test fun onlyTheBottomSearchTabPrearmsExplore() {
-        assertTrue(InstagramEntryPolicy.isExploreTabIntent(
-            setOf("tab_icon", "search_tab", "tab_bar"), emptySet()))
-        assertTrue(InstagramEntryPolicy.isExploreTabIntent(
-            setOf("tab_bar"), setOf("ara ve keşfet")))
-        assertFalse(InstagramEntryPolicy.isExploreTabIntent(
-            setOf("action_bar_search_edit_text"), setOf("ara")))
-        assertFalse(InstagramEntryPolicy.isExploreTabIntent(
-            setOf("profile_tab", "tab_bar"), setOf("profil")))
+        assertTrue(InstagramEntryPolicy.isExploreTabIntent(setOf("tab_icon", "search_tab", "tab_bar")))
+        assertFalse(InstagramEntryPolicy.isExploreTabIntent(setOf("action_bar_search_edit_text")))
+        assertFalse(InstagramEntryPolicy.isExploreTabIntent(setOf("profile_tab", "tab_bar")))
+        // The tab bar alone (whatever its localized label) is not evidence.
+        assertFalse(InstagramEntryPolicy.isExploreTabIntent(setOf("tab_bar")))
     }
 
     @Test fun onlyTheBottomHomeTabPrearmsTheFeed() {
-        assertTrue(InstagramEntryPolicy.isHomeTabIntent(
-            setOf("tab_icon", "feed_tab", "tab_bar"), emptySet()))
-        assertTrue(InstagramEntryPolicy.isHomeTabIntent(
-            setOf("tab_bar"), setOf("ana sayfa")))
-        assertFalse(InstagramEntryPolicy.isHomeTabIntent(
-            setOf("main_feed_action_bar"), setOf("senin için")))
-        assertFalse(InstagramEntryPolicy.isHomeTabIntent(
-            setOf("profile_tab", "tab_bar"), setOf("profil")))
+        assertTrue(InstagramEntryPolicy.isHomeTabIntent(setOf("tab_icon", "feed_tab", "tab_bar")))
+        assertFalse(InstagramEntryPolicy.isHomeTabIntent(setOf("main_feed_action_bar")))
+        assertFalse(InstagramEntryPolicy.isHomeTabIntent(setOf("profile_tab", "tab_bar")))
+        assertFalse(InstagramEntryPolicy.isHomeTabIntent(setOf("tab_bar")))
     }
 }

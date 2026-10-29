@@ -10,6 +10,7 @@ internal class InstagramBalancedProfilePostSession(
     private val launchWindowMs: Long = 2_000L
 ) {
     private var pendingUntil = 0L
+    private var fromCollection = false
     var watching: Boolean = false
         private set
 
@@ -20,9 +21,16 @@ internal class InstagramBalancedProfilePostSession(
             return false
         }
         pendingUntil = now + launchWindowMs
+        fromCollection = !verifiedProfile && verifiedCollection
         watching = false
         return true
     }
+
+    /** A profile thumbnail was chosen and its viewer may still be opening, or is open. */
+    fun isChosen(now: Long): Boolean = watching || (pendingUntil != 0L && now <= pendingUntil)
+
+    /** As [isChosen], for a thumbnail chosen in a user collection (Saved, Likes). */
+    fun isChosenFromCollection(now: Long): Boolean = fromCollection && isChosen(now)
 
     fun confirm(mode: ProtectionMode, now: Long): Boolean {
         if (mode != ProtectionMode.BALANCED) {
@@ -53,6 +61,7 @@ internal class InstagramBalancedProfilePostSession(
 
     fun clear() {
         pendingUntil = 0L
+        fromCollection = false
         watching = false
     }
 }

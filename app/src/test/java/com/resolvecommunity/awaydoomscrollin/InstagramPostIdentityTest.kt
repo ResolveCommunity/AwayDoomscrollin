@@ -28,26 +28,27 @@ class InstagramPostIdentityTest {
         "sticky_header_list", "row_feed_profile_header", "row_feed_photo_imageview",
         "media_group", "row_feed_view_group_buttons")
 
-    @Test fun observedPhotoIsNotHomeAfterCommentsClose() {
-        val signals = InstagramUiSignals(ids = observed, titles = setOf("Photo"), hasBackNavigation = true)
-        assertEquals(InstagramScreen.COMMENTS_OR_DETAIL, InstagramProtectionEngine.classify(signals))
-        assertEquals(InstagramGuardAction.EXIT_REELS, InstagramProtectionEngine.guardAction(
-            signals, InstagramInteraction(InstagramEventKind.CONTENT_CHANGED)))
+    @Test fun observedPhotoIsClassifiedTheSameInEveryLanguage() {
+        val decisions = listOf(setOf("Photo"), setOf("Fotoğraf"), setOf("Фото"), setOf("写真"), emptySet())
+            .map { titles ->
+                InstagramProtectionEngine.classify(
+                    InstagramUiSignals(ids = observed, titles = titles, hasBackNavigation = true))
+            }.toSet()
+        assertEquals(1, decisions.size)
+        // Never an allowed surface: a post reached without a deliberate origin stays protected.
+        assertTrue(decisions.single() in setOf(InstagramScreen.HOME_FEED, InstagramScreen.COMMENTS_OR_DETAIL))
     }
-    @Test fun mountedHomeTabCannotOverridePhotoToolbarAndBack() {
-        assertEquals(InstagramScreen.COMMENTS_OR_DETAIL, InstagramProtectionEngine.classify(
-            InstagramUiSignals(ids = observed, titles = setOf("Photo"), hasBackNavigation = true,
-                selectedTabs = setOf(InstagramTab.HOME))))
-    }
-    @Test fun inlineHomePhotoIsNotAViewer() {
-        assertFalse(InstagramPostIdentity.isViewer(observed + "main_feed_action_bar", setOf("Photo"), true))
-        assertFalse(InstagramPostIdentity.isViewer(observed, setOf("Photo"), false))
-    }
-    @Test fun photoWordWithoutPostStructureCannotBlockEditorOrProfile() {
-        assertFalse(InstagramPostIdentity.isViewer(setOf("action_bar_button_back", "photo_view"), setOf("Photo"), true))
-        assertFalse(InstagramPostIdentity.isViewer(observed, setOf("Settings"), true))
-    }
-    @Test fun turkishPhotoToolbarIsRecognized() {
-        assertTrue(InstagramPostIdentity.isViewer(observed, setOf("Fotoğraf"), true))
+
+    @Test fun fastViewerNeedsADeliberateOriginAndPostStructure() {
+        assertTrue(InstagramPostIdentity.isFastViewer(chosen = true, hasBack = true,
+            hasHomeHeader = false, hasPostHeader = true, hasPostMedia = true))
+        // Without a chosen origin (profile, collection, notification) nothing is admitted.
+        assertFalse(InstagramPostIdentity.isFastViewer(chosen = false, hasBack = true,
+            hasHomeHeader = false, hasPostHeader = true, hasPostMedia = true))
+        // Inline Home photo / missing Back / missing post chrome are never viewers.
+        assertFalse(InstagramPostIdentity.isFastViewer(true, true, true, true, true))
+        assertFalse(InstagramPostIdentity.isFastViewer(true, false, false, true, true))
+        assertFalse(InstagramPostIdentity.isFastViewer(true, true, false, false, true))
+        assertFalse(InstagramPostIdentity.isFastViewer(true, true, false, true, false))
     }
 }

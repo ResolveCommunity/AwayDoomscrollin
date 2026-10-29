@@ -1,24 +1,112 @@
 package com.resolvecommunity.awaydoomscrollin
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * Geometry comes from uiautomator dumps of YouTube 21.42 on a 1080x2340 window
+ * (French, Turkish and English UI). Titles and Back are matched by shape only,
+ * so the localized words below never take part in a decision.
+ */
 class YouTubeUiIdentityTest {
+    private val textView = "android.widget.TextView"
+    private val imageButton = "android.widget.ImageButton"
+
+    private fun settledTitle(
+        text: String?,
+        className: String = textView,
+        clickable: Boolean = false,
+        top: Int = 129,
+        left: Int = 180,
+        right: Int = 527
+    ) = YouTubeUiIdentity.isSettledToolbarTitle(
+        className, text, clickable, top, 2_340, left, right, 0, 1_080, 48)
+
     @Test
-    fun `notification comments and replies are allowed only as settled toolbar titles`() {
-        for (title in listOf("Comments", "Yorumlar", "Replies", "Yanıtlar")) {
-            // Actual notification comment page: title [180,129][475,210], window 1080x2340.
-            assertTrue(YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                title, false, 129, 2340, 180, 475, 0, 1080, 24))
-            assertFalse(YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                title, true, 129, 2340, 180, 475, 0, 1080, 24))
-            assertFalse(YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                title, false, 900, 2340, 180, 475, 0, 1080, 24))
-            assertFalse(YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                title, false, 129, 2340, 900, 1195, 0, 1080, 24))
+    fun `a settled toolbar title is recognized in any language`() {
+        // Notifications page: title [180,129][527,210] beside Back [0,98][168,242].
+        for (title in listOf("Notifications", "Bildirimler (3)", "Уведомления", "Commentaires", "履歴")) {
+            assertTrue(title, settledTitle(title))
         }
     }
+
+    @Test
+    fun `clickable, empty, low or non-text nodes are not titles`() {
+        assertFalse(settledTitle("Notifications", clickable = true))
+        assertFalse(settledTitle(""))
+        assertFalse(settledTitle(null))
+        assertFalse(settledTitle("Notifications", top = 900))
+        // The Home bell is a clickable ImageView at [792,98][936,242].
+        assertFalse(settledTitle("Notifications", className = "android.widget.ImageView",
+            left = 792, right = 936))
+    }
+
+    @Test
+    fun `a title sliding away during Back is not settled`() {
+        assertFalse(settledTitle("Notifications", left = 350, right = 697))
+        assertFalse(settledTitle("Notifications", left = 200, right = 1_150))
+        assertFalse(settledTitle("Notifications", left = 1_120, right = 1_467))
+        assertFalse(YouTubeUiIdentity.isToolbarTitle(
+            textView, "Notifications", false, 129, 2_340, 400, 900, 0, 1_080))
+    }
+
+    @Test
+    fun `Back is the leading toolbar ImageButton`() {
+        // "Revenir en haut de la page" / "Navigate up" / "Yukarı git": [0,98][168,242].
+        assertTrue(YouTubeUiIdentity.isLeadingToolbarButton(imageButton, true, 0, 168, 0, 1_080, 48))
+        assertTrue(YouTubeUiIdentity.isLeadingToolbarButton(imageButton, true, 20, 188, 0, 1_080, 48))
+        // Sliding away, too wide, not clickable or another class.
+        assertFalse(YouTubeUiIdentity.isLeadingToolbarButton(imageButton, true, 100, 268, 0, 1_080, 48))
+        assertFalse(YouTubeUiIdentity.isLeadingToolbarButton(imageButton, true, 0, 400, 0, 1_080, 48))
+        assertFalse(YouTubeUiIdentity.isLeadingToolbarButton(imageButton, false, 0, 168, 0, 1_080, 48))
+        assertFalse(YouTubeUiIdentity.isLeadingToolbarButton(
+            "android.widget.ImageView", true, 0, 168, 0, 1_080, 48))
+    }
+
+    @Test
+    fun `feed toolbar launch buttons are named by their slot`() {
+        // Home and Subscriptions: menu_item_0 Notifications, menu_item_1 Search.
+        assertEquals(YouTubeCurtainScreen.NOTIFICATIONS, YouTubeUiIdentity.feedToolbarLaunchScreen(0, 1))
+        assertEquals(YouTubeCurtainScreen.SEARCH, YouTubeUiIdentity.feedToolbarLaunchScreen(1, 1))
+        // With a Cast button first: Cast, Notifications, Search.
+        assertNull(YouTubeUiIdentity.feedToolbarLaunchScreen(0, 2))
+        assertEquals(YouTubeCurtainScreen.NOTIFICATIONS, YouTubeUiIdentity.feedToolbarLaunchScreen(1, 2))
+        assertNull(YouTubeUiIdentity.feedToolbarLaunchScreen(-1, 1))
+    }
+
+    @Test
+    fun `menu item slots are read from their ids`() {
+        assertEquals(0, YouTubeUiIdentity.menuItemIndex("menu_item_0"))
+        assertEquals(2, YouTubeUiIdentity.menuItemIndex("menu_item_2"))
+        assertEquals(-1, YouTubeUiIdentity.menuItemIndex("menu_item_view"))
+        assertEquals(-1, YouTubeUiIdentity.menuItemIndex("toolbar"))
+    }
+
+    @Test
+    fun `a titled page reached from a feed is Notifications`() {
+        fun notifications(
+            from: YouTubeCurtainScreen,
+            requested: Boolean = false,
+            visit: Boolean = false,
+            titled: Boolean = true,
+            structural: Boolean = false
+        ) = YouTubeUiIdentity.isNotificationsPage(titled, structural, requested, from, visit)
+
+        assertTrue(notifications(YouTubeCurtainScreen.HOME))
+        assertTrue(notifications(YouTubeCurtainScreen.SUBSCRIPTIONS))
+        assertTrue(notifications(YouTubeCurtainScreen.UNKNOWN, requested = true))
+        // Back from a channel opened in Notifications.
+        assertTrue(notifications(YouTubeCurtainScreen.OTHER_ALLOWED, visit = true))
+        // History or Playlists opened from the You tab.
+        assertFalse(notifications(YouTubeCurtainScreen.YOU))
+        // Channel and watch pages keep their own identity.
+        assertFalse(notifications(YouTubeCurtainScreen.HOME, structural = true))
+        assertFalse(notifications(YouTubeCurtainScreen.HOME, titled = false))
+    }
+
     @Test
     fun `real results toolbar query remains authoritative beside microphone and overflow`() {
         assertTrue(YouTubeUiIdentity.isSettledSearchSurface("search_query", 168, 672, 0, 1080, 24))
@@ -107,36 +195,8 @@ class YouTubeUiIdentityTest {
     }
 
     @Test
-    fun `Notifications toolbar identity is allowed`() {
+    fun `Notifications toolbar search button is an allowed secondary identity`() {
         assertTrue(YouTubeUiIdentity.isAllowedSecondarySurfaceId("menu_search"))
-        assertTrue(
-            YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 180,
-                right = 527,
-                windowLeft = 0,
-                windowRight = 1_080
-            )
-        )
-    }
-
-    @Test
-    fun `clickable Home bell is not mistaken for Notifications surface title`() {
-        assertFalse(
-            YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = true,
-                top = 98,
-                windowHeight = 2_340,
-                left = 792,
-                right = 936,
-                windowLeft = 0,
-                windowRight = 1_080
-            )
-        )
     }
 
     @Test
@@ -161,31 +221,6 @@ class YouTubeUiIdentityTest {
                 windowRight = 1_080
             )
         )
-    }
-
-    @Test
-    fun `outgoing Notifications title outside viewport is ignored`() {
-        assertFalse(
-            YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 1_120,
-                right = 1_467,
-                windowLeft = 0,
-                windowRight = 1_080
-            )
-        )
-    }
-
-    @Test
-    fun `YouTube back controls use exact localized labels`() {
-        assertTrue(YouTubeUiIdentity.isBackNavigationLabel("Navigate up", null))
-        assertTrue(YouTubeUiIdentity.isBackNavigationLabel(null, "Geri"))
-        assertTrue(YouTubeUiIdentity.isBackNavigationLabel("Yukar\u0131 git", null))
-        assertTrue(YouTubeUiIdentity.isBackNavigationLabel("kapat", null))
-        assertFalse(YouTubeUiIdentity.isBackNavigationLabel("Backstage video", null))
     }
 
     @Test
@@ -243,129 +278,6 @@ class YouTubeUiIdentityTest {
                 compactId = "search_layout",
                 left = 60,
                 right = 1_140,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-    }
-
-    @Test
-    fun `notifications toolbar title sliding to the right during back is rejected`() {
-        assertFalse(
-            YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 400, // Shifted right > windowLeft + windowWidth / 3
-                right = 900,
-                windowLeft = 0,
-                windowRight = 1_080
-            )
-        )
-    }
-
-    @Test
-    fun `notifications toolbar title matches unread badges and Turkish variations`() {
-        assertTrue(
-            YouTubeUiIdentity.isAllowedSecondaryToolbarTitle(
-                rawText = "Bildirimler (3)",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 180,
-                right = 527,
-                windowLeft = 0,
-                windowRight = 1_080
-            )
-        )
-    }
-
-    @Test
-    fun `settled secondary toolbar title confirms active notifications screen`() {
-        assertTrue(
-            YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 180,
-                right = 527,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-    }
-
-    @Test
-    fun `departing secondary toolbar title sliding right is rejected`() {
-        // Shifted right beyond max allowed resting anchor
-        assertFalse(
-            YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 350,
-                right = 697,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-        // Translated offscreen to the right
-        assertFalse(
-            YouTubeUiIdentity.isSettledSecondaryToolbarTitle(
-                rawText = "Notifications",
-                isClickable = false,
-                top = 129,
-                windowHeight = 2_340,
-                left = 200,
-                right = 1_150,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-    }
-
-    @Test
-    fun `settled leading back control confirms resting back arrow`() {
-        assertTrue(
-            YouTubeUiIdentity.isSettledLeadingBackControl(
-                rawDescription = "Navigate up",
-                rawText = null,
-                left = 0,
-                right = 168,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-        assertTrue(
-            YouTubeUiIdentity.isSettledLeadingBackControl(
-                rawDescription = null,
-                rawText = "Yukarı git",
-                left = 20,
-                right = 188,
-                windowLeft = 0,
-                windowRight = 1_080,
-                tolerancePx = 48
-            )
-        )
-    }
-
-    @Test
-    fun `departing leading back control sliding right is rejected`() {
-        // Shifted away from left edge during back animation
-        assertFalse(
-            YouTubeUiIdentity.isSettledLeadingBackControl(
-                rawDescription = "Navigate up",
-                rawText = null,
-                left = 100,
-                right = 268,
                 windowLeft = 0,
                 windowRight = 1_080,
                 tolerancePx = 48

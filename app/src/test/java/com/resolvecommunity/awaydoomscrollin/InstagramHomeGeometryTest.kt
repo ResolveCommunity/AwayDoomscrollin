@@ -44,12 +44,17 @@ class InstagramHomeGeometryTest {
         val shell = setOf("action_bar_container", "refreshable_container",
             "layout_listview_parent_container", "list")
         org.junit.Assert.assertTrue(InstagramHomeGeometry.isAlternateFeed(
-            shell + "row_feed_photo", setOf("Following"), hasBackNavigation = true))
+            shell + "row_feed_photo", emptySet(), hasBackNavigation = true))
         org.junit.Assert.assertTrue(InstagramHomeGeometry.isAlternateFeed(
             shell + setOf("empty_state_view_root", "igds_empty_state_image"),
-            setOf("Favorites", "Empty Favorites Feed"), hasBackNavigation = true))
-        org.junit.Assert.assertTrue(InstagramHomeGeometry.isAlternateFeed(
+            emptySet(), hasBackNavigation = true))
+        // A title alone never decides: it differs in every UI language.
+        org.junit.Assert.assertFalse(InstagramHomeGeometry.isAlternateFeed(
             shell, setOf("Favoriler"), hasBackNavigation = true))
+        // An empty search list is not a feed.
+        org.junit.Assert.assertFalse(InstagramHomeGeometry.isAlternateFeed(
+            shell + setOf("empty_state_view_root", "igds_empty_state_image", "search_edit_text"),
+            emptySet(), hasBackNavigation = true))
     }
 
     @Test fun similarlyNamedProfileIsNotAnAlternateHomeFeed() {

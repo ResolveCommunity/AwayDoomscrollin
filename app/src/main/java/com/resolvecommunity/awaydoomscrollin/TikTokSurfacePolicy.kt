@@ -1,250 +1,105 @@
 package com.resolvecommunity.awaydoomscrollin
 
 /**
- * How TikTok's foreground surface was classified by the bounded accessibility scan.
- */
-internal enum class TikTokSurface {
-    /** Short-video feed: For You, Takipte/Following, Topluluk/Community or a watch page. */
-    FEED,
-
-    /** Messaging, profile, search, Shop, comment conversations and other non-feed surfaces. */
-    SAFE,
-
-    /** No known signal was found; the surface stays usable instead of risking a wrong Back. */
-    UNKNOWN
-}
-
-/** What the user can type into on the current surface, derived from editable field hints. */
-internal enum class TikTokComposer {
-    NONE,
-    COMMENT,
-    MESSAGE,
-    SEARCH
-}
-
-/**
- * Pure policy for classifying TikTok's foreground surface from a bounded accessibility scan.
+ * Language-free structure of TikTok's short-video surfaces.
  *
- * The intervention contract is intentionally narrow: vertical scrolling inside TikTok's
- * short-video feeds is interrupted, while messaging, profile, search, Shop and comment
- * conversations remain usable. Feed captions can contain arbitrary words, so classification
- * relies on structural signals - the selected bottom tab, the selected top tab, editable
- * composers and video action-rail markers - instead of sampled caption text.
+ * TikTok obfuscates most resource ids per release and localizes every label,
+ * so neither can identify a surface across languages. Its layout can: every
+ * short-video feed (For You, Following, Friends, Community, Nearby and a video
+ * opened from a profile, search or message) is a vertical ViewPager that fills
+ * nearly the whole screen, and moving to the next video scrolls that pager.
+ * Messages, profiles, search results, Shop and comment sheets scroll lists or
+ * grids instead, and switching top tabs scrolls a horizontal pager.
  *
- * Signals were captured from real dumps (TikTok, Turkish locale): bottom tabs expose
- * localized descriptions ("Ana sayfa", "Gelen kutusu", "Profil") with a selected state, top
- * tabs do the same ("Topluluk", "Takipte", "Sizin İçin"), and the video action rail uses
- * running descriptions such as "Video beğenin. 55,2 B beğeni", "Yorum okuyun veya ekleyin",
- * "Videoyu paylaş". Resource ids are obfuscated per release, so matching is label-based.
+ * Measured on device (TikTok 47.4.3, French UI): a feed swipe is reported by
+ * `androidx.viewpager.widget.ViewPager` filling the screen from the top with a
+ * vertical scroll delta; the top-tab pager reports only a horizontal delta; the
+ * profile's tab pager covers 57% of the screen; comments, messages, profile
+ * grids and search results scroll RecyclerViews.
  */
 internal object TikTokSurfacePolicy {
-    const val TAB_FEED = "feed"
-    const val TAB_INBOX = "inbox"
-    const val TAB_PROFILE = "profile"
-    const val TAB_SHOP = "shop"
+    /** Minimum share of the screen height a short-video pager covers. */
+    private const val FEED_PAGER_HEIGHT_RATIO = 0.75
 
-    /** A selected top feed tab whose entry must be undone (Takipte / Topluluk). */
-    const val TOP_TAB_BLOCKED = "top_blocked"
+    /** Minimum share of the screen width a short-video pager covers. */
+    private const val FEED_PAGER_WIDTH_RATIO = 0.9
 
-    /** The default For You top tab (or LIVE); entry is allowed. */
-    const val TOP_TAB_HOME = "top_home"
+    /** Top feed tabs sit in the upper part of the screen, below the status bar. */
+    private const val TOP_TAB_STRIP_MAX_TOP_RATIO = 0.15
 
-    private val feedTabIdPrefixes = listOf("home", "friends", "for_you", "foryou")
-    private val feedTabLabels = setOf(
-        "home",
-        "ana sayfa",
-        "for you",
-        "sana özel",
-        "friends",
-        "arkadaşlar",
-        "arkadaslar"
-    )
-    private val inboxTabLabels = setOf("inbox", "gelen kutusu")
-    private val profileTabLabels = setOf("profile", "profil")
-    private val shopTabLabels = setOf("shop", "mağaza", "magaza")
+    /** The video pager starts under the status bar; search's results pager starts below its tabs. */
+    private const val FEED_PAGER_MAX_TOP_RATIO = 0.05
 
-    private val blockedTopTabLabels = setOf(
-        "takipte",
-        "following",
-        "topluluk",
-        "community"
-    )
-    private val homeTopTabLabels = setOf(
-        "sizin için",
-        "sizin icin",
-        "for you"
-    )
-
-    // Follower-count strings only appear on profile and profile-preview surfaces ("0 takip
-    // ediliyor · 1.5M takipçi", "500 Followers"). Watching and scrolling someone's profile is
-    // social interaction, not doomscrolling, so these keep the surface safe even when feed
-    // signals bleed into the tree behind an overlay.
-    private val profileLabelPatterns = listOf(
-        "takipçi",
-        "takipci",
-        "takip ediliyor",
-        "followers"
-    )
-
-    /** Video action-rail categories matched by containment inside running descriptions. */
-    private val railCategoryPatterns = linkedMapOf(
-        "like" to listOf("beğen", "begen", "like"),
-        "comment" to listOf("yorum", "comment"),
-        "share" to listOf("paylaş", "paylas", "share"),
-        "favorite" to listOf("favori", "favorite")
-    )
+    fun isPagerClass(className: CharSequence?): Boolean =
+        className?.toString()?.contains("ViewPager") == true
 
     /**
-     * Resolves a selected bottom-tab node into a canonical tab token. Resource ids win over
-     * localized labels; nodes that are not bottom tabs (for example a selected feed widget or
-     * caption text) resolve to null so they can never mask the real surface.
+     * The pager's class is reported as `androidx.viewpager.widget.ViewPager`;
+     * its readable `viewpager` id is the fallback should a release rename it.
      */
-    fun resolveSelectedTab(idFragment: String?, text: String?, description: String?): String? {
-        val id = idFragment.orEmpty()
-        if (id.contains("bottom_tab")) {
-            val token = id.substringAfter("bottom_tab").trim('_', '-')
-            when {
-                token.isEmpty() -> Unit
-                feedTabIdPrefixes.any(token::startsWith) -> return TAB_FEED
-                token.startsWith("inbox") ||
-                    token.startsWith("message") ||
-                    token.startsWith("notification") -> return TAB_INBOX
-                token.startsWith("profile") -> return TAB_PROFILE
-                token.startsWith("shop") || token.startsWith("store") -> return TAB_SHOP
-            }
-        }
-        val label = normalizeLabel(text) ?: normalizeLabel(description) ?: return null
-        return when {
-            feedTabLabels.contains(label) -> TAB_FEED
-            inboxTabLabels.contains(label) -> TAB_INBOX
-            profileTabLabels.contains(label) -> TAB_PROFILE
-            shopTabLabels.contains(label) -> TAB_SHOP
-            else -> null
-        }
-    }
+    fun isPagerNode(className: CharSequence?, idFragment: String?): Boolean =
+        isPagerClass(className) || idFragment == "viewpager"
 
     /**
-     * Resolves a selected top-tab node inside the feed header. Only exact localized labels
-     * match; "Sizin İçin"/"For You" and unknown labels resolve to home/null.
+     * True for a node laid out like the fullscreen short-video pager: it fills
+     * the screen from the top, behind the feed tabs. The search results pager
+     * ([0,374][1080,2295]) starts below its own tab strip and does not match.
      */
-    fun resolveSelectedTopTab(text: String?, description: String?): String? {
-        val label = normalizeLabel(text) ?: normalizeLabel(description) ?: return null
-        return when {
-            blockedTopTabLabels.contains(label) -> TOP_TAB_BLOCKED
-            homeTopTabLabels.contains(label) -> TOP_TAB_HOME
-            else -> null
-        }
-    }
-
-    /** True when the label names a blocked top feed tab (used for click interception). */
-    fun isBlockedTopTabLabel(raw: String?): Boolean {
-        val label = normalizeLabel(raw) ?: return false
-        return blockedTopTabLabels.contains(label)
-    }
-
-    /** True when the label names the default For You top tab (the snap-back target). */
-    fun isHomeTopTabLabel(raw: String?): Boolean {
-        val label = normalizeLabel(raw) ?: return false
-        return homeTopTabLabels.contains(label)
-    }
-
-    /** True when the label looks like a follower-count line from a profile surface. */
-    fun isProfileLabel(raw: String?): Boolean {
-        val label = normalizeLabel(raw) ?: return false
-        return profileLabelPatterns.any(label::contains)
-    }
+    fun isFeedPagerBounds(top: Int, width: Int, height: Int, screenWidth: Int, screenHeight: Int): Boolean =
+        screenWidth > 0 && screenHeight > 0 && top >= 0 &&
+            top <= screenHeight * FEED_PAGER_MAX_TOP_RATIO &&
+            width >= screenWidth * FEED_PAGER_WIDTH_RATIO &&
+            height >= screenHeight * FEED_PAGER_HEIGHT_RATIO
 
     /**
-     * Classifies an editable field by its hint, text, description or resource id. Comment
-     * composers win over the others because the comment sheet can sit on top of the feed.
+     * A vertical scroll of the fullscreen short-video pager is the move to the
+     * next video, in any feed and in any language.
      */
-    fun classifyComposer(
-        hint: String?,
-        text: String?,
-        description: String?,
-        idFragment: String?
-    ): TikTokComposer {
-        val id = idFragment.orEmpty()
-        if (id.contains("comment")) return TikTokComposer.COMMENT
-        val hay = normalizeLabel(listOfNotNull(hint, description, text).joinToString(" "))
-            .orEmpty()
-        return when {
-            hay.contains("yorum") || hay.contains("comment") -> TikTokComposer.COMMENT
-            hay.contains("mesaj") || hay.contains("message") -> TikTokComposer.MESSAGE
-            id.contains("search") ||
-                hay.contains("search") ||
-                hay.contains("arama") ||
-                hay == "ara" -> TikTokComposer.SEARCH
-            else -> TikTokComposer.NONE
-        }
-    }
+    fun isFeedSwipe(
+        className: CharSequence?,
+        idFragment: String?,
+        isVerticalScroll: Boolean,
+        top: Int,
+        width: Int,
+        height: Int,
+        screenWidth: Int,
+        screenHeight: Int
+    ): Boolean = isVerticalScroll && isPagerNode(className, idFragment) &&
+        isFeedPagerBounds(top, width, height, screenWidth, screenHeight)
+
+    fun isTopTabStrip(top: Int, screenHeight: Int): Boolean =
+        screenHeight > 0 && top >= 0 && top <= screenHeight * TOP_TAB_STRIP_MAX_TOP_RATIO
+
+    /** The bottom navigation sits along the bottom edge of the screen. */
+    private const val BOTTOM_BAR_MIN_TOP_RATIO = 0.85
 
     /**
-     * Returns the rail category when the description matches one of TikTok's video action
-     * buttons by containment; running descriptions such as "Video beğenin. 114 beğeni" map
-     * to "like". Unknown descriptions resolve to null.
+     * TikTok's bottom navigation: one full-width row of 4-6 clickable items
+     * (Home, Friends, Create, Inbox, Profile) along the bottom edge. Home is
+     * the first item in every language; child order does not mirror in RTL.
      */
-    fun railActionCategory(description: String?): String? {
-        val label = normalizeLabel(description) ?: return null
-        for ((category, patterns) in railCategoryPatterns) {
-            if (patterns.any(label::contains)) return category
-        }
-        return null
-    }
+    fun isBottomBar(
+        top: Int,
+        width: Int,
+        clickableChildren: Int,
+        screenWidth: Int,
+        screenHeight: Int
+    ): Boolean = screenWidth > 0 && screenHeight > 0 &&
+        top >= screenHeight * BOTTOM_BAR_MIN_TOP_RATIO && top < screenHeight &&
+        width >= screenWidth * FEED_PAGER_WIDTH_RATIO && clickableChildren in 4..6
 
     /**
-     * Classification precedence:
-     * 1. Message or search composers mean a conversation or search surface - safe.
-     * 2. Follower-count labels mean a profile surface - safe. Scrolling a profile grid is
-     *    social browsing, and friend adding must never be interrupted by a stray Back.
-     * 3. The selected bottom tab decides the main surfaces (feed / inbox / profile / shop).
-     * 4. A selected blocked top tab (Takipte / Topluluk) is feed territory.
-     * 5. A strong video action rail (3+ categories) is the fullscreen video watch page, even
-     *    though it keeps a persistent "Yorum ekleyin..." comment bar.
-     * 6. A lone comment composer without a strong rail is a comment conversation - safe.
-     * 7. Two rail categories, or a pager with one, are accepted as weaker feed evidence.
-     * 8. Anything else stays unknown and usable.
+     * For You is the default feed and the last text tab of the Home top strip
+     * in every observed language and region ("Communauté, Suivis, Pour toi";
+     * "Сообщество, Подписки, Рекомендации"; "Communauté, Nord, Suivis,
+     * Boutique, Pour toi"). Every other top tab (Following, Community grid,
+     * Nearby, Shop) is undone. The strip only counts while the bottom bar's
+     * Home item is selected, which keeps search's own result tabs untouched.
+     * Returns the tab index to select, or null.
      */
-    fun classify(signals: TikTokUiSignals): TikTokSurface {
-        if (signals.composer == TikTokComposer.MESSAGE ||
-            signals.composer == TikTokComposer.SEARCH
-        ) {
-            return TikTokSurface.SAFE
-        }
-        if (signals.hasProfileSignals) return TikTokSurface.SAFE
-        when (signals.selectedTab) {
-            TAB_FEED -> return TikTokSurface.FEED
-            TAB_INBOX, TAB_PROFILE, TAB_SHOP -> return TikTokSurface.SAFE
-        }
-        if (signals.selectedTopTab == TOP_TAB_BLOCKED) return TikTokSurface.FEED
-        val railCategoryCount = signals.railCategories.size
-        if (railCategoryCount >= 3) return TikTokSurface.FEED
-        if (signals.composer == TikTokComposer.COMMENT) return TikTokSurface.SAFE
-        if (railCategoryCount >= 2) return TikTokSurface.FEED
-        if (signals.hasFeedPager && railCategoryCount >= 1) return TikTokSurface.FEED
-        return TikTokSurface.UNKNOWN
-    }
-
-    private fun normalizeLabel(raw: String?): String? {
-        // Locale.ROOT keeps English intact but lowercases Turkish "İ" to "i" plus a
-        // combining dot (U+0307); strip the dot so "Sizin İçin" matches "sizin için".
-        val label = raw?.trim()
-            ?.replace(Regex("\\s+"), " ")
-            ?.lowercase(java.util.Locale.ROOT)
-            ?.replace("\u0307", "")
-        return label?.takeIf(String::isNotEmpty)
+    fun snapBackTarget(selectedIndex: Int, tabCount: Int, homeTabSelected: Boolean): Int? {
+        if (!homeTabSelected || tabCount < 2) return null
+        val forYou = tabCount - 1
+        return forYou.takeIf { selectedIndex in 0 until forYou }
     }
 }
-
-/**
- * Structural signals collected from one bounded accessibility-tree scan of TikTok's
- * foreground window.
- */
-internal data class TikTokUiSignals(
-    val selectedTab: String? = null,
-    val selectedTopTab: String? = null,
-    val composer: TikTokComposer = TikTokComposer.NONE,
-    val hasProfileSignals: Boolean = false,
-    val hasFeedPager: Boolean = false,
-    val railCategories: Set<String> = emptySet()
-)

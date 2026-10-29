@@ -1151,20 +1151,21 @@ class InstagramProtectionEngineTest {
     }
 
     @Test
-    fun postDetailWithCommentsIsClassifiedAsCommentsOrDetail() {
-        val signals = InstagramUiSignals(
-            ids = setOf("action_bar_button_back", "row_feed_photo"),
-            titles = setOf("Gönderiler"),
-            hasBackNavigation = true
-        )
-        assertEquals(InstagramScreen.COMMENTS_OR_DETAIL, InstagramProtectionEngine.classify(signals))
-        assertEquals(
-            InstagramGuardAction.EXIT_REELS,
-            InstagramProtectionEngine.guardAction(
-                signals,
-                InstagramInteraction(InstagramEventKind.CONTENT_CHANGED)
-            )
-        )
+    fun postDetailIsProtectedTheSameWayInEveryLanguage() {
+        val decisions = listOf(setOf("Gönderiler"), setOf("Posts"), setOf("Publications"), emptySet())
+            .map { titles ->
+                val signals = InstagramUiSignals(
+                    ids = setOf("action_bar_button_back", "row_feed_photo"),
+                    titles = titles,
+                    hasBackNavigation = true
+                )
+                InstagramProtectionEngine.classify(signals) to InstagramProtectionEngine.guardAction(
+                    signals, InstagramInteraction(InstagramEventKind.CONTENT_CHANGED))
+            }.toSet()
+        assertEquals(1, decisions.size)
+        // Never an allowed surface: covered or exited.
+        assertTrue(decisions.single().second in setOf(
+            InstagramGuardAction.COVER_FEED, InstagramGuardAction.EXIT_REELS))
     }
 
     @Test
@@ -1292,7 +1293,7 @@ class InstagramProtectionEngineTest {
                 "layout_listview_parent_container", "list", "empty_state_view_root",
                 "igds_empty_state_image"
             ),
-            titles = setOf("Favorites", "Empty Favorites Feed"),
+            // No title: the feed is recognized the same way in every language.
             hasBackNavigation = true
         )
         assertEquals(InstagramScreen.HOME_FEED, InstagramProtectionEngine.classify(signals))

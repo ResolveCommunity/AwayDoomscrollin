@@ -161,6 +161,10 @@ internal class YouTubeProtectionOverlayController(
     val currentCurtainSurface: YouTubeProtectedSurface?
         get() = curtainSurface
 
+    /** The mounted curtain's rectangle, or null while none is mounted. */
+    val currentCurtainBounds: Rect?
+        get() = curtainBounds?.takeIf { curtain != null }?.let(::Rect)
+
     val hasStableCurtainBounds: Boolean
         get() = lastStableCurtainBounds != null
 
