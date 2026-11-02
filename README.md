@@ -110,6 +110,10 @@ Menu names differ between phone makers. Step-by-step guides are available in
 The full [privacy policy](https://awaydoomscrollin.com/privacy) describes what
 is collected and how long it is kept.
 
+Development builds keep a bounded local protection trace of structural view IDs,
+screen classifications, geometry and timings. It excludes screen text and titles,
+including chat and account names, and is not uploaded by the app.
+
 ## Building from source
 
 Requirements: Android SDK 36, JDK 17.

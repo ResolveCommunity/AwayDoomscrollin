@@ -11,6 +11,7 @@ Our philosophy is simple: keep screen-content analysis on-device and disclose ev
 AwayDoomscrollin' utilizes the Android Accessibility Service API exclusively to detect when you enter targeted short-video platforms (e.g., Instagram Reels, TikTok, YouTube Shorts). 
 - **What it does:** It inspects accessibility node text, content descriptions, view identifiers, and scroll/window events in memory to recognize target feeds and safe areas. If detected, it intervenes to stop the scrolling loop.
 - **What it does NOT do:** It does not record the screen, retain accessibility content, or include screen text, messages, comments, passwords, keystrokes, photos, or browsing history in network payloads.
+- **Development diagnostics:** Debug builds keep a bounded app-private local trace of structural view IDs, screen classifications, geometry and timings. Screen text and titles, including chat and account names, are excluded. This trace is not uploaded by the app and is not enabled in release builds.
 - **Beta status and limitations:** Instagram, TikTok, and YouTube Shorts detection is a beta feature. Their interfaces and accessibility trees are controlled by third parties and can change without notice. Detection can therefore be missed or a safe area can be misclassified. No claim of perfect detection, perfect safe-zone classification, or compatibility with every device/OS build is made.
 
 ## 3. Data Collection and Telemetry

@@ -37,6 +37,7 @@ This app:
 - Stops future submissions when the user opts out; the latest server snapshot expires within 90 days
 - Executes all detection and protection logic locally on-device without remote dependencies
 - Stores blocking statistics locally via `SharedPreferences` in addition to the disclosed aggregate telemetry submissions
+- Limits development-only local protection traces to structural view IDs, classifications, geometry and timings; screen text and titles, including chat and account names, must never enter those traces or network payloads
 
 ## Beta Compatibility Scope
 

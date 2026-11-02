@@ -1288,26 +1288,26 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private var lastFlightScanSignature = ""
     private var lastFlightSignalsSignature = ""
 
-    // Debug only: the visible ids/titles behind each distinct classification,
+    // Debug only: structural ids behind each distinct classification,
     // so a screen in any UI language can be identified from the flight log.
     private fun recordInstagramSignals(signals: InstagramUiSignals) {
         val screen = InstagramProtectionEngine.classify(
             signals.copy(sourceIds = emptySet(), sourceLabels = emptySet(), sourceTab = null))
-        val signature = "$screen|${signals.ids.sorted().joinToString(",")}|${signals.titles.sorted()}"
+        val signature = "$screen|${signals.ids.sorted().joinToString(",")}"
         if (signature == lastFlightSignalsSignature) return
         lastFlightSignalsSignature = signature
         ProtectionFlightRecorder.record(this, "instagram.signals",
             "screen=$screen tabs=${signals.selectedTabs} back=${signals.hasBackNavigation} " +
-                "search=${signals.searchFieldFocused} tiles=${signals.idlessMediaTiles} titles=${signals.titles}")
+                "search=${signals.searchFieldFocused} tiles=${signals.idlessMediaTiles}")
         signals.ids.sorted().joinToString(",").chunked(800).forEach { part ->
             ProtectionFlightRecorder.record(this, "instagram.signals.ids", part)
         }
-        // Language audit: the only titles still read are Saved's untranslated
-        // filter labels; flag any decision that would differ without them.
+        // Never persist raw titles: header views can contain account/chat names.
+        // The language audit records only the resulting classification.
         val neutral = InstagramProtectionEngine.classify(signals.copy(titles = emptySet(),
             sourceIds = emptySet(), sourceLabels = emptySet(), sourceTab = null))
         if (neutral != screen) ProtectionFlightRecorder.record(this, "instagram.textdep",
-            "screen=$screen withoutTitles=$neutral titles=${signals.titles}")
+            "screen=$screen withoutTitles=$neutral")
     }
 
     /**

@@ -12,7 +12,8 @@ AntiFeatures:
       triggers share one persisted 24-hour attempt interval, including failed attempts.
       Opting out stops future submissions; an in-flight request may finish. The latest
       active server snapshot expires within 90 days, and encrypted local operational
-      backups use a separate 14-day rotation.
+      backups use a separate 14-day rotation. Screen text and titles, including chat
+      and account names, are excluded from development diagnostics and network payloads.
 Categories:
   - System
 License: GPL-3.0-only
