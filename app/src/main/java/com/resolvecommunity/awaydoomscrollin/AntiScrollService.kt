@@ -4349,28 +4349,29 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private fun findInstagramNotificationViewerRoot(
         fallback: AccessibilityNodeInfo
     ): Pair<AccessibilityNodeInfo, InstagramScreen>? {
-        val candidates = buildList {
+        // Take one window snapshot and fetch roots lazily. A focused viewer
+        // should not wait for unrelated background windows to answer IPCs.
+        val applicationWindows = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val candidates = sequence {
             // Prefer the currently focused/active application window. The
             // Notifications tree can remain in AccessibilityWindows after a
             // Reel viewer has been opened; choosing it first creates a false
             // "returned" result and makes later retries race the new viewer.
-            windows.filter { window ->
-                window.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
-                    (window.isFocused || window.isActive)
+            applicationWindows.filter { window ->
+                window.isFocused || window.isActive
             }.forEach { window ->
                 runCatching { window.root }.getOrNull()?.let { root ->
-                    if (root.packageName?.toString() == INSTAGRAM_PACKAGE) add(root)
+                    if (root.packageName?.toString() == INSTAGRAM_PACKAGE) yield(root)
                 }
             }
-            windows.filter { window ->
-                window.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
-                    !window.isFocused && !window.isActive
+            applicationWindows.filter { window ->
+                !window.isFocused && !window.isActive
             }.forEach { window ->
                 runCatching { window.root }.getOrNull()?.let { root ->
-                    if (root.packageName?.toString() == INSTAGRAM_PACKAGE) add(root)
+                    if (root.packageName?.toString() == INSTAGRAM_PACKAGE) yield(root)
                 }
             }
-            add(fallback)
+            yield(fallback)
         }.distinctBy { it.windowId }
         return candidates.firstNotNullOfOrNull { candidate ->
             when {
