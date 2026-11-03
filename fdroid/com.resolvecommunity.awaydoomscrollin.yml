@@ -1,6 +1,7 @@
 AntiFeatures:
   Tracking:
-    en-US: Telemetry is disabled by default and no telemetry is sent until the user
+    en-US: Local Instagram background checks add no telemetry fields or network destinations.
+      Telemetry is disabled by default and no telemetry is sent until the user
       explicitly opts in. While enabled, the app sends the constant PSEUDONYMOUS_TELEMETRY
       type marker, a random per-installation UUID, a report identifier and snapshot
       sequence number, device manufacturer/model, Android/SDK/app version, the installed

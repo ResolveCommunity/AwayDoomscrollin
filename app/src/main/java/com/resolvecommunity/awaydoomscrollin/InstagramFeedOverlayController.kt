@@ -1,6 +1,7 @@
 package com.resolvecommunity.awaydoomscrollin
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -58,10 +59,14 @@ internal class InstagramFeedOverlayController(
         service.getSystemService(WindowManager::class.java)
     }
     private var overlay: View? = null
+    // A parked window is reused by identity. Draw callbacks must also belong
+    // to the current visible lifetime/surface before they can run navigation.
+    private var curtainGeneration = 0L
     var isNotificationShadeSuspended: Boolean = false
         private set
 
     fun suspendForNotificationShade() {
+        curtainGeneration++
         isNotificationShadeSuspended = true
         removeGuardWindows()
         // Keep measured geometry attached without intercepting SystemUI.
@@ -464,11 +469,13 @@ internal class InstagramFeedOverlayController(
 
     fun afterCurtainDraw(action: () -> Unit) {
         val view = overlay ?: return
+        val generation = curtainGeneration
         val listener = object : android.view.ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
                 if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnPreDrawListener(this)
                 view.postOnAnimation {
-                    if (overlay === view && view.visibility == View.VISIBLE) {
+                    if (curtainGeneration == generation && overlay === view &&
+                        view.visibility == View.VISIBLE && !isNotificationShadeSuspended) {
                         if (ProtectionFlightRecorder.ENABLED) {
                             ProtectionFlightRecorder.record(service, "instagram.curtain.drawn",
                                 "screen=${currentCopyKey?.substringBefore(':') ?: "unknown"} " +
@@ -839,9 +846,10 @@ internal class InstagramFeedOverlayController(
             updateStrictProfilePieceGuards(emptyList())
         }
         if (overlay == null) restoreParkedContentWindow()
+        if (currentCopyKey != copyKey) curtainGeneration++
         val existing = overlay
         if (existing == null) {
-            val view = createOverlay(screen, isEnglish)
+            val view = createOverlay(screen, isEnglish, bounds.height())
             return try {
                 val wm = windowManager ?: run {
                     Log.e(TAG, "WindowManager is null")
@@ -871,7 +879,7 @@ internal class InstagramFeedOverlayController(
         // letterboxing a full copy into a short opaque band clips illegibly.
         shieldContent?.visibility =
             if (screen == InstagramScreen.REELS ||
-                (currentBounds?.height() ?: bounds.height()) < dp(140)) View.GONE
+                bounds.height() < dp(140)) View.GONE
             else View.VISIBLE
         if (copyChanged) {
             val copy = copyFor(screen, isEnglish)
@@ -991,6 +999,7 @@ internal class InstagramFeedOverlayController(
     }
 
     private fun removeContentWindow(park: Boolean = false) {
+        curtainGeneration++
         if (!park) destroyParkedContentWindow()
         val view = overlay ?: return
         val parkBounds = currentBounds?.let(::Rect)
@@ -1078,7 +1087,7 @@ internal class InstagramFeedOverlayController(
         hideConversationEntryGuard()
     }
 
-    private fun createOverlay(screen: InstagramScreen, isEnglish: Boolean): View {
+    private fun createOverlay(screen: InstagramScreen, isEnglish: Boolean, height: Int): View {
         val copy = copyFor(screen, isEnglish)
         var startX = 0f
         var startY = 0f
@@ -1128,14 +1137,18 @@ internal class InstagramFeedOverlayController(
                         }
                     }
                     MotionEvent.ACTION_CANCEL -> { profileGesture = false }
-                    MotionEvent.ACTION_UP -> view.performClick()
+                    MotionEvent.ACTION_UP -> {
+                        if (currentCopyKey?.startsWith("HOME_FEED:") == true) ProtectionFlightRecorder.record(
+                            service, "instagram.home.cover-consume", "forwarded=false")
+                        view.performClick()
+                    }
                 }
                 true
             }
         }
 
         val content = LinearLayout(service).apply {
-            visibility = if (screen == InstagramScreen.REELS) View.GONE else View.VISIBLE
+            visibility = if (screen == InstagramScreen.REELS || height < dp(140)) View.GONE else View.VISIBLE
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(28), dp(28), dp(28), dp(28))

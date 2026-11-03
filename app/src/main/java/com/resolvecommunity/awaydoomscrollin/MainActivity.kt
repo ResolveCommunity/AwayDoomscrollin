@@ -278,10 +278,12 @@ private fun telemetryRenewedConsentText(isEn: Boolean): String = if (isEn) {
 
 private fun accessibilityDisclosureText(isEn: Boolean): String = if (isEn) {
     "AwayDoomscrollin' needs Accessibility access to recognize the feeds and short videos you choose to protect in Instagram, TikTok and YouTube.\n\n" +
+        "In Balanced mode, Home and Explore feeds stay covered while native Story gestures and ordinary messaging remain available.\n\n" +
         "In those apps, it examines accessibility text and labels, view identifiers, window changes, taps and scroll events on your device. It uses this information to place curtains in Instagram and YouTube and to perform specific, rule-based Back, tap and scroll actions on protected screens.\n\n" +
         "This screen information is processed only on your device. It is not recorded, saved or sent to a server. Messages, passwords, photos, screenshots and typed text are not included in optional usage reports. You can continue without granting access; protection will remain off."
 } else {
     "AwayDoomscrollin', Instagram, TikTok ve YouTube'da korumayı seçtiğiniz akışları ve kısa videoları tanımak için erişilebilirlik iznine ihtiyaç duyar.\n\n" +
+        "Dengeli modda Ana Sayfa ve Keşfet akışları örtülür; yerel hikâye hareketleri ve normal mesajlaşma kullanılabilir.\n\n" +
         "Bu uygulamalarda ekrandaki erişilebilirlik metinlerini ve etiketlerini, görünüm kimliklerini, pencere değişikliklerini, dokunma ve kaydırma olaylarını cihazınızda inceler. Bu bilgileri Instagram ve YouTube'da perdeyi yerleştirmek ve korunan ekranlarda belirli kurallara göre Geri, dokunma veya kaydırma işlemleri uygulamak için kullanır.\n\n" +
         "İncelenen ekran bilgileri yalnızca cihazınızda işlenir; kaydedilmez, saklanmaz veya sunucuya gönderilmez. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
 }

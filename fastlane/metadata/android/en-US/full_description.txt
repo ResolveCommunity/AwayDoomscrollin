@@ -17,3 +17,5 @@ Privacy and network transparency:
 • Detection and protection logic runs entirely on-device; internet access is never used for protection decisions.
 
 AwayDoomscrollin' is an independent project. It is not affiliated with, sponsored by, or endorsed by Meta, ByteDance, Google, Instagram, TikTok, or YouTube. Their names are used only to describe compatibility.
+
+Instagram screen checks run locally in the background to keep navigation responsive. Native Story gestures remain available; no Home swipe lock is added.
