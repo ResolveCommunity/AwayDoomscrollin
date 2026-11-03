@@ -17,3 +17,5 @@ Gizlilik ve ağ şeffaflığı:
 • Koruma kararları tamamen cihazınızda verilir; internet bu kararlar için kullanılmaz.
 
 AwayDoomscrollin' bağımsız bir projedir; Meta, ByteDance, Google, Instagram, TikTok veya YouTube ile bağlantılı değildir ve bu kuruluşlar tarafından desteklenmez ya da onaylanmaz. Marka adları yalnızca uyumluluğu açıklamak için kullanılır.
+
+Instagram ekran denetimleri gezinmenin hızlı kalması için cihazda arka planda çalışır. Yerel hikâye hareketleri kullanılabilir; Ana Sayfa kaydırma kilidi eklenmez.

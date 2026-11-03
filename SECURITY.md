@@ -1,5 +1,7 @@
 # Security Policy
 
+Instagram background observations are serialized and bounded to one read plus one conflated follow-up. Navigation invalidates obsolete work, and positive results recheck foreground package/window identity before changing protection. Unknown or unsupported layouts retain the cover and return to the established detector.
+
 ## Supported Versions
 
 | Version | Supported |

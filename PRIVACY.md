@@ -2,6 +2,8 @@
 
 **Effective Date:** October 11, 2026
 
+Instagram responsiveness checks use view identifiers, selection, window identity and geometry already exposed through Accessibility. Work stays on the device; only immutable classifications and rectangles return to the UI thread. This change adds no collected fields, server destinations, telemetry or retention.
+
 ## 1. Introduction
 Resolve Community ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains our data collection and processing practices for the **AwayDoomscrollin'** Android application.
 

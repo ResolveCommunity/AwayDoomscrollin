@@ -21,6 +21,8 @@
   <img src="fastlane/metadata/android/en-US/images/featureGraphic.png" alt="AwayDoomscrollin' feature graphic" width="640"/>
 </p>
 
+Supported Instagram Home, Explore/search and main-inbox checks run on a serial local background reader so screen reads do not occupy the overlay UI thread. Native Home Story gestures stay available; this change adds no swipe lock or touch-exploration mode. Unsupported layouts retain protection and use the existing detector.
+
 ## About
 
 AwayDoomscrollin' is a digital wellbeing app for people who want to keep using

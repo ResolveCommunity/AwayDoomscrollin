@@ -1,6 +1,7 @@
 package com.resolvecommunity.awaydoomscrollin
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -1136,7 +1137,11 @@ internal class InstagramFeedOverlayController(
                         }
                     }
                     MotionEvent.ACTION_CANCEL -> { profileGesture = false }
-                    MotionEvent.ACTION_UP -> view.performClick()
+                    MotionEvent.ACTION_UP -> {
+                        if (currentCopyKey?.startsWith("HOME_FEED:") == true) ProtectionFlightRecorder.record(
+                            service, "instagram.home.cover-consume", "forwarded=false")
+                        view.performClick()
+                    }
                 }
                 true
             }
