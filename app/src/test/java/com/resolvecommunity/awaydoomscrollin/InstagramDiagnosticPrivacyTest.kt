@@ -1,6 +1,7 @@
 package com.resolvecommunity.awaydoomscrollin
 
 import org.junit.Assert.assertFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -11,6 +12,8 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class InstagramDiagnosticPrivacyTest {
     @Test fun diagnosticSignalsNeverRecordScreenTitles() {
+        // Release builds have no recorder storage; only the debug backend logs.
+        assumeTrue(ProtectionFlightRecorder.ENABLED)
         val service = Robolectric.buildService(AntiScrollService::class.java).create().get()
         try {
             // Synthetic text only. A real title can contain an account or chat name.
