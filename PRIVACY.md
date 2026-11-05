@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective Date:** October 11, 2026
+**Effective Date:** November 5, 2026
 
 ## 1. Introduction
 Resolve Community ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains our data collection and processing practices for the **AwayDoomscrollin'** Android application.
@@ -10,7 +10,7 @@ Our philosophy is simple: keep screen-content analysis on-device and disclose ev
 ## 2. Accessibility Service API
 AwayDoomscrollin' utilizes the Android Accessibility Service API exclusively to detect when you enter targeted short-video platforms (e.g., Instagram Reels, TikTok, YouTube Shorts). 
 - **What it does:** It inspects accessibility node text, content descriptions, view identifiers, and scroll/window events in memory to recognize target feeds and safe areas. If detected, it intervenes to stop the scrolling loop.
-- **What it does NOT do:** It does not record the screen, retain accessibility content, or include screen text, messages, comments, passwords, keystrokes, photos, or browsing history in network payloads.
+- **What it does NOT do:** It does not record the screen, retain accessibility content, or include screen text, messages, comments, passwords, keystrokes, photos, or browsing history in network payloads. The only thing it keeps is the local troubleshooting log described in section 3.3, which records what protection did, not what was on the screen.
 - **Beta status and limitations:** Instagram, TikTok, and YouTube Shorts detection is a beta feature. Their interfaces and accessibility trees are controlled by third parties and can change without notice. Detection can therefore be missed or a safe area can be misclassified. No claim of perfect detection, perfect safe-zone classification, or compatibility with every device/OS build is made.
 
 ## 3. Data Collection and Telemetry
@@ -38,6 +38,16 @@ After explicit opt-in, automatic app-startup and blocking-event triggers share o
   - **Protection Measurements:** Total and per-platform intervention counts; accumulated Instagram and YouTube curtain-visibility times and their measurement versions. Curtain time is not blocked-video duration or an estimate of time saved.
   - **Not included:** Local streak days and XP are not part of telemetry v3.
   - *The telemetry payload does not contain an IP address, MAC address, location, screen content, hardware identifier, account identifier, or advertising identifier. It does contain the random installation UUID described above. As with any HTTPS request, the server, reverse proxy, and network provider can observe the source IP at the transport layer. The application telemetry database does not store that IP as a telemetry field.*
+  - The troubleshooting log described below is never part of the telemetry payload.
+
+### 3.3 Local troubleshooting log
+
+Starting with version 1.4.1, the app keeps a short technical log on the device so that problems can be diagnosed when you contact support. It is not a network path: the app never sends it anywhere, whether or not telemetry is enabled. The log is on by default and can be turned off at any time with the switch on the "Troubleshooting log" card in About. Turning it off deletes the stored log at once, and nothing is recorded until you turn it on again.
+
+- **What it records:** the time of each protection event and a few technical values about it, for example which protected app was in front (Instagram, TikTok, YouTube, or simply "other" for any other app), which kind of page was recognized (such as Home feed, Reels or Shorts), whether a curtain was shown or removed and where on the screen, whether a Reel or Short was allowed or closed, screen size changes after folding or rotating, slow responses, and the reason Android gave if the app was previously stopped.
+- **What it never records:** screen text, labels or view identifiers, names or usernames, messages, comments, passwords, keystrokes, photos, links, or the names of other apps you use. Values are filtered to short technical codes before they are written.
+- **Where it is stored and for how long:** in the app's private storage on the device. Entries older than 24 hours are deleted, and the log is limited to about 120 KB. It is excluded from Android cloud backup and device-to-device transfer. You can delete it at any time with "Delete log" in About or by turning the log off; clearing app data or uninstalling the app also removes it.
+- **How it is shared:** only by you. "Copy log" in About places the log on the clipboard (marked as sensitive, so Android 13 and later hide it from the clipboard preview) so you can paste it into an email to support. The copied text starts with a short header: the app version, phone manufacturer and model, Android version, the installed versions of Instagram, TikTok and YouTube, the protection settings for each app, whether the accessibility permission is on, the screen size, the app language, and the battery optimization and background restriction status. You can read the whole text before sending it. We use a log you send only to answer your support request.
 
 ## 4. Open Source Transparency
 AwayDoomscrollin' is fully open-source. The entire codebase is publicly auditable on our [GitHub Repository](https://github.com/ResolveCommunity/AwayDoomscrollin), ensuring complete transparency regarding how the app functions and handles your data.

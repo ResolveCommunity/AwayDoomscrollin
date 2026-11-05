@@ -1,0 +1,6 @@
+• YouTube: Subscriptions stay open in Balanced, also in the new layout. Dragging the top bar no longer uncovers Home.
+• Troubleshooting log in About: never sent on its own. Paste it into a support email or turn it off.
+• Foldables and tablets: Instagram's side menu stays usable and the feed is fully covered.
+• Instagram, Balanced: Reels from chats and profiles no longer close at once.
+• Protection also works in pop-up windows.
+• Fixes for older Android versions, Pixel and permission prompts.

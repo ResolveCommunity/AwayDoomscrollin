@@ -16,13 +16,13 @@ internal object ProtectionCopy {
     )
 
     fun youtubeScope(isEn: Boolean) = if (isEn) ModeScope(
-        both = "Home and Subscriptions are covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos remain available.",
-        balanced = "You can watch one Short opened from search, a channel or a link; swiping to the next one takes you back. Reading and scrolling comments do not count as changing videos.",
-        strict = "All Shorts are blocked, including those opened from search, channels or links."
+        both = "Home is covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos remain available.",
+        balanced = "Subscriptions stay open: they only show channels you chose to follow. You can watch one Short opened from Subscriptions, search, a channel or a link; swiping to the next one takes you back. Reading and scrolling comments do not count as changing videos.",
+        strict = "Subscriptions are covered as well. All Shorts are blocked, including those opened from search, channels or links."
     ) else ModeScope(
-        both = "Ana Sayfa ve Abonelikler akışları perdelenir; Shorts sekmesi engellenir. Arama sonuçları, kanallar, oynatma listeleri, You sekmesi ve uzun videolar açık kalır.",
-        balanced = "Arama, kanal veya bağlantıdan açtığınız tek bir Short'u izleyebilirsiniz; sonraki videoya geçtiğinizde geri dönülür. Yorumları okumak ve kaydırmak video geçişi sayılmaz.",
-        strict = "Arama, kanal veya bağlantıdan açılanlar dahil tüm Shorts videoları engellenir."
+        both = "Ana Sayfa akışı perdelenir; Shorts sekmesi engellenir. Arama sonuçları, kanallar, oynatma listeleri, You sekmesi ve uzun videolar açık kalır.",
+        balanced = "Abonelikler açıktır; orada yalnızca takip etmeyi seçtiğiniz kanallar görünür. Aboneliklerden, aramadan, bir kanaldan veya bağlantıdan açtığınız tek bir Short'u izleyebilirsiniz; sonraki videoya geçtiğinizde geri dönülür. Yorumları okumak ve kaydırmak video geçişi sayılmaz.",
+        strict = "Abonelikler de perdelenir. Arama, kanal veya bağlantıdan açılanlar dahil tüm Shorts videoları engellenir."
     )
 
     /** Plain-text form for dialogs and bullet lists, one paragraph per part. */
@@ -67,19 +67,19 @@ internal object ProtectionCopy {
         }
         ProtectedApp.YOUTUBE -> when (mode) {
             ProtectionMode.BALANCED -> if (isEn)
-                "You can watch one Short opened from search, a channel or a link."
-                else "Arama, kanal veya bağlantıdan açtığınız tek bir Short'u izleyebilirsiniz."
+                "Subscriptions stay open; you can watch one Short you open."
+                else "Abonelikler açık; açtığınız tek bir Short'u izleyebilirsiniz."
             ProtectionMode.STRICT -> if (isEn)
-                "All Shorts are closed, wherever they are opened from."
-                else "Nereden açılırsa açılsın tüm Shorts kapalı."
+                "Subscriptions are covered and all Shorts are closed."
+                else "Abonelikler perdeli, tüm Shorts kapalı."
         }
         ProtectedApp.TIKTOK -> ""
     }
 
     /** Applies to every app; shown once under the per-app scope. */
     fun detectionNote(isEn: Boolean) = if (isEn) {
-        "Screen information is processed on your device and is never saved or sent. Detection can be delayed or affected by changes to these apps, Android or your phone's software."
+        "Screen information is processed on your device and is never sent anywhere; on-screen text is not saved. Detection can be delayed or affected by changes to these apps, Android or your phone's software."
     } else {
-        "Ekran bilgileri cihazınızda işlenir; kaydedilmez ve gönderilmez. Bu uygulamalardaki, Android'deki veya telefon yazılımındaki değişiklikler algılamayı geciktirebilir ya da etkileyebilir."
+        "Ekran bilgileri cihazınızda işlenir ve hiçbir yere gönderilmez; ekrandaki yazılar kaydedilmez. Bu uygulamalardaki, Android'deki veya telefon yazılımındaki değişiklikler algılamayı geciktirebilir ya da etkileyebilir."
     }
 }

@@ -13,7 +13,11 @@ internal enum class YouTubeCurtainScreen {
  * there is no mandatory hold after that frame. Once completed, verified observations classify
  * normally, including system Back without a click event. Call [clear] when leaving YouTube.
  */
-internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) {
+internal class YouTubeCurtainState(
+    private val requestTimeoutMs: Long = 2_500L,
+    /** Strict covers Subscriptions too; Balanced leaves it open (see [YouTubeSurfacePolicy]). */
+    private val subscriptionsProtected: () -> Boolean = { true }
+) {
     init {
         require(requestTimeoutMs > 0L)
     }
@@ -50,6 +54,16 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
     private var lastCompletedDestination: YouTubeCurtainScreen? = null
     private var lastCompletedAtMs = 0L
 
+    /**
+     * True for the observation that completed a request on a full-screen
+     * allowed page (no tab bar), such as the camera opened by Create. The
+     * cover was armed for a tab that never showed a feed, so it may drop at
+     * once instead of after the anti-flap settle window: on a Galaxy S9+ that
+     * window left a full-screen Subscriptions curtain over the camera.
+     */
+    var resolvedOnFullScreenAllowedPage = false
+        private set
+
     /** The screen visible when the last request was armed (diagnostics). */
     val lastRequestOutgoingScreen: YouTubeCurtainScreen?
         get() = outgoingScreenAtRequest
@@ -72,10 +86,10 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
         // not re-arm and blink the curtain over the visible allowed page.
         if (destination == lastCompletedDestination &&
             nowMs - lastCompletedAtMs < DUPLICATE_RESTORED_REQUEST_WINDOW_MS &&
-            lastObservedScreen in setOf(
+            (lastObservedScreen in setOf(
                 YouTubeCurtainScreen.SEARCH, YouTubeCurtainScreen.NOTIFICATIONS,
                 YouTubeCurtainScreen.OTHER_ALLOWED, YouTubeCurtainScreen.YOU
-            )
+            ) || (lastObservedScreen == YouTubeCurtainScreen.SUBSCRIPTIONS && !subscriptionsProtected()))
         ) {
             return generation
         }
@@ -101,6 +115,7 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
         nowMs: Long,
         selectedDestination: YouTubeNavigationDestination = YouTubeNavigationDestination.UNKNOWN
     ): YouTubeProtectedSurface? {
+        resolvedOnFullScreenAllowedPage = false
         if (screen != YouTubeCurtainScreen.UNKNOWN) {
             // Track the last VERIFIED screen: a transitional UNKNOWN frame
             // arriving together with the tab click must not erase the identity
@@ -118,8 +133,16 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
             // frame cannot release the curtain and re-cover on a feed flash.
             // Outgoing allowed frames (selected tab still elsewhere) keep the
             // coverage.
-            val selectedMatches = selectedDestination != YouTubeNavigationDestination.UNKNOWN &&
-                selectedDestination.curtainScreen() == target
+            // A full-screen allowed page without any tab bar (no tab selected)
+            // also resolves the request. A four-item bar without Subscriptions
+            // (Home, Shorts, Create, You; seen on a Honor 400 Pro) puts Create
+            // where Subscriptions would be, so a Create tap arrives as a
+            // Subscriptions request and opens the camera: the curtain stayed
+            // over the camera until the request timed out (2.5 s).
+            val fullScreenAllowedPage = screen == YouTubeCurtainScreen.OTHER_ALLOWED &&
+                selectedDestination == YouTubeNavigationDestination.UNKNOWN
+            val selectedMatches = (selectedDestination != YouTubeNavigationDestination.UNKNOWN &&
+                selectedDestination.curtainScreen() == target) || fullScreenAllowedPage
             val settledAllowedPage = screen == YouTubeCurtainScreen.SEARCH ||
                 screen == YouTubeCurtainScreen.NOTIFICATIONS ||
                 screen == YouTubeCurtainScreen.OTHER_ALLOWED ||
@@ -146,6 +169,7 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
                 expiresAtMs = 0L
                 lastCompletedDestination = target
                 lastCompletedAtMs = nowMs
+                resolvedOnFullScreenAllowedPage = restoredAllowedPage && fullScreenAllowedPage
                 resetRestoredAllowedStreak()
                 return currentSurface
             }
@@ -181,7 +205,8 @@ internal class YouTubeCurtainState(private val requestTimeoutMs: Long = 2_500L) 
     private fun protectedSurface(screen: YouTubeCurtainScreen): YouTubeProtectedSurface? =
         when (screen) {
             YouTubeCurtainScreen.HOME -> YouTubeProtectedSurface.HOME
-            YouTubeCurtainScreen.SUBSCRIPTIONS -> YouTubeProtectedSurface.SUBSCRIPTIONS
+            YouTubeCurtainScreen.SUBSCRIPTIONS ->
+                YouTubeProtectedSurface.SUBSCRIPTIONS.takeIf { subscriptionsProtected() }
             else -> null
         }
 }

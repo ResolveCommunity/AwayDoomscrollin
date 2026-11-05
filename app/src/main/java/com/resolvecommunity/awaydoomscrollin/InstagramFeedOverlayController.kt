@@ -61,6 +61,34 @@ internal class InstagramFeedOverlayController(
     var isNotificationShadeSuspended: Boolean = false
         private set
 
+    // Instagram's large-screen tab rail. Curtains keep their logical bounds
+    // (callers compare them with the window); only the mounted window leaves
+    // the rail uncovered so its tabs stay reachable.
+    private var sideNavigation: Rect? = null
+
+    fun updateSideNavigation(rail: Rect?) {
+        if (rail == sideNavigation) return
+        sideNavigation = rail?.let(::Rect)
+        val view = overlay ?: return
+        val bounds = currentBounds ?: return
+        try {
+            windowManager?.updateViewLayout(view, layoutParams(curtainWindowBounds(bounds), touchable = true))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply side navigation", e)
+        }
+        if (strictProfilePieceWindows.isNotEmpty()) {
+            updateStrictProfilePieceGuards(strictProfilePieceTargets.toList(), force = true)
+        }
+    }
+
+    private fun curtainWindowBounds(bounds: Rect): Rect {
+        val rail = sideNavigation ?: return bounds
+        val visible = InstagramSideNavigation.excludeRail(
+            InstagramGeometrySample(bounds.left, bounds.top, bounds.right, bounds.bottom),
+            InstagramGeometrySample(rail.left, rail.top, rail.right, rail.bottom))
+        return Rect(visible.left, visible.top, visible.right, visible.bottom)
+    }
+
     fun suspendForNotificationShade() {
         isNotificationShadeSuspended = true
         removeGuardWindows()
@@ -438,9 +466,13 @@ internal class InstagramFeedOverlayController(
      * highlights and grid stay untouchable while the numbers and buttons stay
      * native.
      */
-    fun updateStrictProfilePieceGuards(pieces: List<Rect>) {
-        val targets = pieces.map { Rect(it) }
-        val changed = strictProfilePieceWindows.map { it.second } != targets
+    private val strictProfilePieceTargets = mutableListOf<Rect>()
+
+    fun updateStrictProfilePieceGuards(pieces: List<Rect>, force: Boolean = false) {
+        strictProfilePieceTargets.clear()
+        pieces.mapTo(strictProfilePieceTargets) { Rect(it) }
+        val targets = pieces.map { curtainWindowBounds(it) }
+        val changed = force || strictProfilePieceWindows.map { it.second } != targets
         targets.forEachIndexed { index, bounds ->
             val existing = strictProfilePieceWindows.getOrNull(index)
             val replacement = updateNotificationWindow(existing, bounds,
@@ -817,6 +849,9 @@ internal class InstagramFeedOverlayController(
         isEnglish: Boolean,
         forceRelayout: Boolean = false
     ): Boolean {
+        // Support log: the caller's reason for this show; plain recognition otherwise.
+        supportReasonInFlight = supportReason ?: "screen"
+        supportReason = null
         // Visible curtains belong to feeds, never to media-exit transitions.
         if (!InstagramSurfacePolicy.needsCurtain(screen)) return false
         if (bounds == null || bounds.width() <= 0 || bounds.height() <= dp(60)) {
@@ -847,7 +882,7 @@ internal class InstagramFeedOverlayController(
                     Log.e(TAG, "WindowManager is null")
                     return false
                 }
-                wm.addView(view, layoutParams(bounds, touchable = true))
+                wm.addView(view, layoutParams(curtainWindowBounds(bounds), touchable = true))
                 overlay = view
                 currentBounds = Rect(bounds)
                 currentCopyKey = copyKey
@@ -859,6 +894,7 @@ internal class InstagramFeedOverlayController(
                         "mode=add screen=$screen bounds=$bounds")
                     recordCurtainDraw(view, screen, bounds, "add")
                 }
+                noteSupportShown(screen, bounds, supportReasonInFlight)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to add overlay with bounds $bounds", e)
@@ -898,7 +934,7 @@ internal class InstagramFeedOverlayController(
             }
             return try {
                 val wm = windowManager ?: return false
-                wm.updateViewLayout(existing, layoutParams(bounds, touchable = true))
+                wm.updateViewLayout(existing, layoutParams(curtainWindowBounds(bounds), touchable = true))
                 if (!boundsChanged) lastForcedLayoutAtMs = android.os.SystemClock.uptimeMillis()
                 else lastForcedLayoutAtMs = 0L
                 currentBounds = Rect(bounds)
@@ -913,6 +949,7 @@ internal class InstagramFeedOverlayController(
                         "mode=layout screen=$screen bounds=$bounds changed=$boundsChanged forced=$forceRelayout")
                     recordCurtainDraw(existing, screen, bounds, "layout")
                 }
+                noteSupportShown(screen, bounds, supportReasonInFlight)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update overlay layout", e)
@@ -930,7 +967,36 @@ internal class InstagramFeedOverlayController(
             ProtectionFlightRecorder.record(service, "instagram.curtain.show",
                 "mode=reuse screen=$screen bounds=$bounds")
         }
+        noteSupportShown(screen, bounds, supportReasonInFlight)
         return true
+    }
+
+    // Support log: one line when a curtain appears, changes screen or moves
+    // noticeably, and one when it goes away; not every relayout.
+    private var supportShownScreen: InstagramScreen? = null
+    private var supportShownTop = 0
+    private var supportShownBottom = 0
+
+    /** Set by the service right before show(): why this curtain is being shown. */
+    var supportReason: String? = null
+    private var supportReasonInFlight = "screen"
+
+    private fun noteSupportShown(screen: InstagramScreen, bounds: Rect, reason: String) {
+        val tolerance = dp(24)
+        if (supportShownScreen == screen &&
+            kotlin.math.abs(supportShownTop - bounds.top) < tolerance &&
+            kotlin.math.abs(supportShownBottom - bounds.bottom) < tolerance) return
+        supportShownScreen = screen
+        supportShownTop = bounds.top
+        supportShownBottom = bounds.bottom
+        SupportDiagnostics.record(service, SupportEvent.INSTAGRAM_CURTAIN_SHOWN,
+            mapOf("screen" to screen, "top" to bounds.top, "bottom" to bounds.bottom, "why" to reason))
+    }
+
+    private fun noteSupportHidden() {
+        val screen = supportShownScreen ?: return
+        supportShownScreen = null
+        SupportDiagnostics.record(service, SupportEvent.INSTAGRAM_CURTAIN_HIDDEN, mapOf("screen" to screen))
     }
 
     fun hide() {
@@ -1002,6 +1068,7 @@ internal class InstagramFeedOverlayController(
             ProtectionFlightRecorder.record(service, "instagram.curtain.hide",
                 "screen=${currentCopyKey?.substringBefore(':') ?: "unknown"} bounds=$currentBounds")
         }
+        noteSupportHidden()
         InstagramProtectionMetrics.onCurtainHidden(service)
         overlay = null
         currentBounds = null

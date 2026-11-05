@@ -73,6 +73,27 @@ internal class InstagramProtectedNavigationLatch(
         return true
     }
 
+    /**
+     * Whether the guarded tap must still be sent to Instagram's tab.
+     *
+     * The destination tab already being selected has two meanings. If the
+     * tap started on another tab, Instagram handled it natively before the
+     * curtain drew: tapping again would repeat it. If the tap started on the
+     * same tab, the user is on a page opened on top of that tab (e.g.
+     * Notifications over Home, which keeps Home selected and shows the tab
+     * bar or side rail on large screens). Only the tab tap leads back there,
+     * so it must be forwarded unless the user is already on the tab's root.
+     */
+    fun shouldForwardTap(
+        request: InstagramProtectedNavigationRequest,
+        currentTab: InstagramTab?,
+        onTabRoot: Boolean
+    ): Boolean {
+        if (currentTab != request.tab) return true
+        if (request.sourceTab != null && request.sourceTab != request.tab) return false
+        return !onTabRoot
+    }
+
     fun markDispatched(request: InstagramProtectedNavigationRequest): Boolean {
         if (active?.generation != request.generation || dispatched) return false
         dispatched = true

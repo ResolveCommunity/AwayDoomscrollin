@@ -279,11 +279,11 @@ private fun telemetryRenewedConsentText(isEn: Boolean): String = if (isEn) {
 private fun accessibilityDisclosureText(isEn: Boolean): String = if (isEn) {
     "AwayDoomscrollin' needs Accessibility access to recognize the feeds and short videos you choose to protect in Instagram, TikTok and YouTube.\n\n" +
         "In those apps, it examines accessibility text and labels, view identifiers, window changes, taps and scroll events on your device. It uses this information to place curtains in Instagram and YouTube and to perform specific, rule-based Back, tap and scroll actions on protected screens.\n\n" +
-        "This screen information is processed only on your device. It is not recorded, saved or sent to a server. Messages, passwords, photos, screenshots and typed text are not included in optional usage reports. You can continue without granting access; protection will remain off."
+        "This screen information is processed only on your device and is never sent to a server. Text, labels and view identifiers are not saved; only a short troubleshooting log of what protection did stays on your device for 24 hours. You can turn it off in About, and sharing it is up to you. Messages, passwords, photos, screenshots and typed text are not included in optional usage reports. You can continue without granting access; protection will remain off."
 } else {
     "AwayDoomscrollin', Instagram, TikTok ve YouTube'da korumayı seçtiğiniz akışları ve kısa videoları tanımak için erişilebilirlik iznine ihtiyaç duyar.\n\n" +
         "Bu uygulamalarda ekrandaki erişilebilirlik metinlerini ve etiketlerini, görünüm kimliklerini, pencere değişikliklerini, dokunma ve kaydırma olaylarını cihazınızda inceler. Bu bilgileri Instagram ve YouTube'da perdeyi yerleştirmek ve korunan ekranlarda belirli kurallara göre Geri, dokunma veya kaydırma işlemleri uygulamak için kullanır.\n\n" +
-        "İncelenen ekran bilgileri yalnızca cihazınızda işlenir; kaydedilmez, saklanmaz veya sunucuya gönderilmez. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
+        "İncelenen ekran bilgileri yalnızca cihazınızda işlenir ve sunucuya gönderilmez. Metinler, etiketler ve görünüm kimlikleri kaydedilmez; yalnızca korumanın ne yaptığını gösteren kısa bir sorun giderme kaydı 24 saat cihazınızda kalır. Bu kaydı Hakkında bölümünden kapatabilirsiniz; paylaşıp paylaşmamak size kalmıştır. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
 }
 
 private fun getAccessibilityPathGuidance(isEn: Boolean): String {
@@ -441,13 +441,13 @@ private fun ModeIntroDialog(
                             "• Balanced: you can watch one Reel or Short you choose, but not move on to the next. On Instagram, profile posts and Saved lists stay open.\n\n" +
                             "• Strict: Reels and Shorts are blocked completely. On Instagram, profile posts and Saved lists are closed and Stories are blocked.\n\n" +
                             "After the update, both apps started in Balanced. On Instagram, Strict is closest to the previous version.\n\n" +
-                            "On YouTube, Home and Subscriptions are now covered in both modes."
+                            "On YouTube, Home is covered in both modes. Subscriptions stay open in Balanced and are covered in Strict."
                     } else {
                         "Instagram ve YouTube için artık iki koruma modu var:\n\n" +
                             "• Dengeli: Seçtiğiniz tek bir Reel veya Short izlenebilir, sonraki videoya geçilemez. Instagram'da profil gönderileri ve Kaydedilenler açık kalır.\n\n" +
                             "• Sert: Reels ve Shorts tamamen engellenir. Instagram'da profil gönderileri ve Kaydedilenler kapanır, hikâyeler engellenir.\n\n" +
                             "Güncellemeden sonra iki uygulama da Dengeli modda başladı. Instagram'da önceki sürüme en yakın koruma Sert moddur.\n\n" +
-                            "YouTube'da Ana Sayfa ve Abonelikler artık iki modda da perdeli."
+                            "YouTube'da Ana Sayfa iki modda da perdeli. Abonelikler Dengeli modda açık, Sert modda perdeli."
                     },
                     fontSize = 13.sp,
                     lineHeight = 19.sp
@@ -1330,9 +1330,9 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isEn)
-                        "Even when I was busy with something else, I'd find myself opening short videos without thinking. I built AwayDoomscrollin' under Resolve Community to create a clear boundary that you control. I use it myself, and it keeps improving through testing and feedback from people who use it."
+                        "Even when I was busy with something else, I'd find myself opening short videos without thinking. I built AwayDoomscrollin' under Resolve Community to create a clear boundary that holds even on tired days. I use it myself, and it keeps improving through testing and feedback from people who use it."
                     else
-                        "Başka bir şeyle ilgilenirken bile düşünmeden kısa videolara yöneldiğimi fark ediyordum. AwayDoomscrollin' uygulamasını, kontrolü kullanıcıda olan net bir sınır oluşturmak için Resolve Community çatısı altında geliştirdim. Ben de kullanıyorum; uygulama testlerle ve kullanıcıların geri bildirimleriyle gelişmeye devam ediyor.",
+                        "Başka bir şeyle ilgilenirken bile düşünmeden kısa videolara yöneldiğimi fark ediyordum. AwayDoomscrollin' uygulamasını, yorgun günlerde bile esnemeyen net bir sınır oluşturmak için Resolve Community çatısı altında geliştirdim. Ben de kullanıyorum; uygulama testlerle ve kullanıcıların geri bildirimleriyle gelişmeye devam ediyor.",
                     fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     lineHeight = 19.sp
@@ -1498,9 +1498,9 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                     iconTint = Color(0xFF00FF87),
                     title = if (isEn) "On-device protection" else "Cihazda çalışan koruma",
                     description = if (isEn)
-                        "Screen information is processed on your device, never saved or sent to a server. Optional usage-data sharing is a separate choice. App or Android updates can affect detection."
+                        "Screen information is processed on your device and never sent to a server; only a short troubleshooting log stays on the phone. Optional usage-data sharing is a separate choice. App or Android updates can affect detection."
                     else
-                        "Ekran bilgileri cihazınızda işlenir; kaydedilmez veya sunucuya gönderilmez. İsteğe bağlı kullanım verisi paylaşımı ayrı bir tercihtir. Uygulama veya Android güncellemeleri algılamayı etkileyebilir."
+                        "Ekran bilgileri cihazınızda işlenir ve sunucuya gönderilmez; telefonda yalnızca kısa bir sorun giderme kaydı kalır. İsteğe bağlı kullanım verisi paylaşımı ayrı bir tercihtir. Uygulama veya Android güncellemeleri algılamayı etkileyebilir."
                 )
             }
         }
@@ -1984,7 +1984,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "Does not save or send on-screen accessibility information. Messages, passwords, photos and screenshots are never collected." else "İncelenen ekran bilgilerini kaydetmez veya göndermez; mesajlarınız, şifreleriniz, fotoğraflarınız ve ekran görüntüleriniz asla toplanmaz.", isNegative = true)
+                MatrixBullet(if (isEn) "Does not save on-screen text or send screen information anywhere. Messages, passwords, photos and screenshots are never collected." else "Ekrandaki yazıları kaydetmez, ekran bilgilerini hiçbir yere göndermez; mesajlarınız, şifreleriniz, fotoğraflarınız ve ekran görüntüleriniz asla toplanmaz.", isNegative = true)
                 MatrixBullet(if (isEn) "Does not include your name, messages or browsing history in usage reports. Sharing usage data is optional and off by default." else "Kullanım raporlarına adınızı, mesajlarınızı veya gezinme geçmişinizi eklemez. Kullanım verisi paylaşımı isteğe bağlıdır ve başlangıçta kapalıdır.", isNegative = true)
                 MatrixBullet(if (isEn) "Does not show ads or sell personal data." else "Reklam göstermez ve kişisel verilerinizi asla satmaz.", isNegative = true)
             }
@@ -2147,7 +2147,7 @@ fun OnboardingStepFourAppsAndPrefs(
         if (ProtectedApp.YOUTUBE in installedApps) {
             CompactOnboardingAppCard(
                 appName = "YouTube",
-                subtitle = if (isEn) "Home, Subscriptions and Shorts" else "Ana Sayfa, Abonelikler ve Shorts",
+                subtitle = if (isEn) "Home feed and Shorts" else "Ana Sayfa ve Shorts",
                 iconRes = R.drawable.ic_youtube,
                 brandColor = Color(0xFFFF0055),
                 isEnabled = isYoutubeEnabled,
@@ -3996,6 +3996,22 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 7. KATEGORİ: DESTEK
+            Text(
+                text = if (isEn) "SUPPORT" else "DESTEK",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SupportLogCard(isEn = isEn)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // FOOTER
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -4550,7 +4566,10 @@ fun BorderlessPeakHourRow(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (isEn) "$cnt attempts were blocked during this hour." else "Bu saat aralığında $cnt girişim engellendi.",
+                    text = if (isEn) {
+                        if (cnt == 1) "1 attempt was blocked during this hour."
+                        else "$cnt attempts were blocked during this hour."
+                    } else "Bu saat aralığında $cnt girişim engellendi.",
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -4623,7 +4642,7 @@ val ALL_FOCUS_TIERS = listOf(
         iconRes = R.drawable.ic_tier_water,
         color = Color(0xFF00E5FF),
         descTr = "Koruma seriniz 10 güne ulaştı. Kısa içerik sınırlarınızı koruyorsunuz.",
-        descEn = "Your protection streak reached 10 days. You are keeping your short-content limits.",
+        descEn = "Your protection streak reached 10 days. You are keeping your boundaries with short content.",
         neuroBenefitTr = "Koruma tercihini sürdürme",
         neuroBenefitEn = "Sticking with your protection routine"
     ),
@@ -4635,7 +4654,7 @@ val ALL_FOCUS_TIERS = listOf(
         descTr = "İki haftalık koruma serisini geride bıraktınız.",
         descEn = "You have completed a two-week protection streak.",
         neuroBenefitTr = "Kısa içerik kullanımında daha bilinçli sınırlar",
-        neuroBenefitEn = "More deliberate limits around short-content use"
+        neuroBenefitEn = "Clearer boundaries around short content"
     ),
     FocusTier(
         level = 7, minDays = 21, maxDays = 29,
@@ -4655,7 +4674,7 @@ val ALL_FOCUS_TIERS = listOf(
         descTr = "Bir aylık koruma serisine ulaştınız.",
         descEn = "You reached a one-month protection streak.",
         neuroBenefitTr = "Kısa içerik sınırlarını uzun süre koruma",
-        neuroBenefitEn = "Keeping short-content limits over a longer period"
+        neuroBenefitEn = "Holding short-content boundaries over a longer period"
     ),
     FocusTier(
         level = 9, minDays = 45, maxDays = 59,
@@ -4664,8 +4683,8 @@ val ALL_FOCUS_TIERS = listOf(
         color = Color(0xFF00F5D4),
         descTr = "Koruma seriniz 45 günü geçti.",
         descEn = "Your protection streak passed 45 days.",
-        neuroBenefitTr = "Kendi kullanım sınırlarınıza bağlı kalma",
-        neuroBenefitEn = "Staying aligned with your own usage limits"
+        neuroBenefitTr = "Kısa içerik sınırlarına bağlı kalma",
+        neuroBenefitEn = "Staying with your short-content boundaries"
     ),
     FocusTier(
         level = 10, minDays = 60, maxDays = 89,
@@ -4684,8 +4703,8 @@ val ALL_FOCUS_TIERS = listOf(
         color = Color(0xFFFF0055),
         descTr = "Koruma seriniz 90 güne ulaştı.",
         descEn = "Your protection streak reached 90 days.",
-        neuroBenefitTr = "Belirlediğiniz dijital sınırları koruma",
-        neuroBenefitEn = "Keeping the digital limits you chose"
+        neuroBenefitTr = "Dijital sınırlarınızı koruma",
+        neuroBenefitEn = "Keeping your digital boundaries"
     ),
     FocusTier(
         level = 12, minDays = 100, maxDays = Int.MAX_VALUE,
@@ -4759,8 +4778,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.INSTAGRAM,
             titleTr = "İlk Reels Freni",
             titleEn = "First Reels Block",
-            descTr = "Instagram'da ilk engellemeye ulaşın",
-            descEn = "Record your first Instagram block",
+            descTr = "Instagram'da ilk engelleme",
+            descEn = "First block on Instagram",
             iconRes = R.drawable.ic_instagram,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4771,8 +4790,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.INSTAGRAM,
             titleTr = "Reels Direnci",
             titleEn = "Reels Resistance",
-            descTr = "Instagram'da 10 engellemeye ulaşın",
-            descEn = "Reach 10 blocks on Instagram",
+            descTr = "Instagram'da 10 engelleme",
+            descEn = "10 blocks on Instagram",
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4783,8 +4802,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.INSTAGRAM,
             titleTr = "Algoritma Fatihi",
             titleEn = "Algorithm Conqueror",
-            descTr = "Instagram'da 50 engellemeye ulaşın",
-            descEn = "Reach 50 blocks on Instagram",
+            descTr = "Instagram'da 50 engelleme",
+            descEn = "50 blocks on Instagram",
             iconRes = R.drawable.ic_tier_bolt,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4795,8 +4814,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.INSTAGRAM,
             titleTr = "Reels Muhafızı",
             titleEn = "Reels Sentinel",
-            descTr = "Instagram'da 100 engellemeye ulaşın",
-            descEn = "Reach 100 blocks on Instagram",
+            descTr = "Instagram'da 100 engelleme",
+            descEn = "100 blocks on Instagram",
             iconRes = R.drawable.ic_tier_crown,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4809,8 +4828,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.TIKTOK,
             titleTr = "İlk TikTok Kalkanı",
             titleEn = "First TikTok Shield",
-            descTr = "TikTok akışında bir kaydırmayı durdurun",
-            descEn = "Stop the TikTok 'For You' feed once",
+            descTr = "TikTok'ta ilk engelleme",
+            descEn = "First block on TikTok",
             iconRes = R.drawable.ic_tiktok,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4821,8 +4840,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.TIKTOK,
             titleTr = "Akış Freni",
             titleEn = "Feed Breaker",
-            descTr = "TikTok'ta 10 engellemeye ulaşın",
-            descEn = "Reach 10 blocks on TikTok",
+            descTr = "TikTok'ta 10 engelleme",
+            descEn = "10 blocks on TikTok",
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4833,8 +4852,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.TIKTOK,
             titleTr = "Sonsuz Akış Kırıcı",
             titleEn = "Endless Feed Breaker",
-            descTr = "TikTok'ta 50 engellemeye ulaşın",
-            descEn = "Reach 50 blocks on TikTok",
+            descTr = "TikTok'ta 50 engelleme",
+            descEn = "50 blocks on TikTok",
             iconRes = R.drawable.ic_tier_crystal,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4845,8 +4864,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.TIKTOK,
             titleTr = "TikTok Ustası",
             titleEn = "TikTok Master",
-            descTr = "TikTok'ta 100 engellemeye ulaşın",
-            descEn = "Reach 100 blocks on TikTok",
+            descTr = "TikTok'ta 100 engelleme",
+            descEn = "100 blocks on TikTok",
             iconRes = R.drawable.ic_tier_gem,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4859,8 +4878,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.YOUTUBE,
             titleTr = "Shorts Kilidi",
             titleEn = "Shorts Lock",
-            descTr = "YouTube'da ilk engellemeye ulaşın",
-            descEn = "Record your first YouTube block",
+            descTr = "YouTube'da ilk engelleme",
+            descEn = "First block on YouTube",
             iconRes = R.drawable.ic_youtube,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4871,8 +4890,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.YOUTUBE,
             titleTr = "Shorts Kalkanı",
             titleEn = "Shorts Shield",
-            descTr = "YouTube Shorts'ta 10 engellemeye ulaşın",
-            descEn = "Reach 10 blocks on YouTube Shorts",
+            descTr = "YouTube Shorts'ta 10 engelleme",
+            descEn = "10 blocks on YouTube Shorts",
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4883,8 +4902,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.YOUTUBE,
             titleTr = "Kırmızı Çizgi Savunması",
             titleEn = "Red Line Defense",
-            descTr = "YouTube Shorts'ta 50 engellemeye ulaşın",
-            descEn = "Reach 50 blocks on YouTube Shorts",
+            descTr = "YouTube Shorts'ta 50 engelleme",
+            descEn = "50 blocks on YouTube Shorts",
             iconRes = R.drawable.ic_target,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4895,8 +4914,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.YOUTUBE,
             titleTr = "Shorts 100",
             titleEn = "Shorts 100",
-            descTr = "YouTube Shorts'ta 100 engellemeye ulaşın",
-            descEn = "Reach 100 blocks on YouTube Shorts",
+            descTr = "YouTube Shorts'ta 100 engelleme",
+            descEn = "100 blocks on YouTube Shorts",
             iconRes = R.drawable.ic_trophy,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4909,8 +4928,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.GENERAL,
             titleTr = "Uyanış",
             titleEn = "Awakening",
-            descTr = "İlk koruma müdahalesine ulaşın",
-            descEn = "Record your first protection intervention",
+            descTr = "İlk koruma müdahalesi",
+            descEn = "First protection intervention",
             iconRes = R.drawable.ic_tier_seed,
             brandColor = Color(0xFF00FF87),
             currentVal = totalBlocks,
@@ -4921,8 +4940,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.GENERAL,
             titleTr = "3 Günlük Kıvılcım",
             titleEn = "3-Day Spark",
-            descTr = "3 günlük koruma serisine ulaşın",
-            descEn = "Reach a 3-day protection streak",
+            descTr = "3 günlük koruma serisi",
+            descEn = "A 3-day protection streak",
             iconRes = R.drawable.ic_tier_fire,
             brandColor = Color(0xFFFF5500),
             currentVal = streakDays,
@@ -4933,8 +4952,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.GENERAL,
             titleTr = "1 Haftalık İrade",
             titleEn = "1-Week Fortitude",
-            descTr = "7 günlük koruma serisine ulaşın",
-            descEn = "Reach a 7-day protection streak",
+            descTr = "7 günlük koruma serisi",
+            descEn = "A 7-day protection streak",
             iconRes = R.drawable.ic_tier_bolt,
             brandColor = Color(0xFFFFB700),
             currentVal = streakDays,
@@ -4945,8 +4964,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.GENERAL,
             titleTr = "21 Günlük Seri",
             titleEn = "21-Day Streak",
-            descTr = "21 günlük koruma serisine ulaşın",
-            descEn = "Reach a 21-day protection streak",
+            descTr = "21 günlük koruma serisi",
+            descEn = "A 21-day protection streak",
             iconRes = R.drawable.ic_tier_brain,
             brandColor = Color(0xFFFF2A85),
             currentVal = streakDays,
@@ -4957,8 +4976,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
             category = AchievementCategory.GENERAL,
             titleTr = "Yüzlük Kalkan",
             titleEn = "Centurion Shield",
-            descTr = "Toplam 100 engellemeye ulaşın",
-            descEn = "Reach 100 blocks overall",
+            descTr = "Toplam 100 engelleme",
+            descEn = "100 blocks in total",
             iconRes = R.drawable.ic_trophy,
             brandColor = Color(0xFFFFD700),
             currentVal = totalBlocks,

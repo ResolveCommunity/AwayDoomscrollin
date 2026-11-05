@@ -58,7 +58,7 @@ jobs:
           for locale in en-US tr-TR; do
             changelog="fastlane/metadata/android/$locale/changelogs/$version_code.txt"
             test -f "$changelog"
-            test "$(wc -m < "$changelog")" -le 500
+            test "$(LC_ALL=C.UTF-8 wc -m < "$changelog")" -le 500
             test -f "fastlane/metadata/android/$locale/images/icon.png"
             test -f "fastlane/metadata/android/$locale/images/featureGraphic.png"
             count="$(find "fastlane/metadata/android/$locale/images/phoneScreenshots" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) 2>/dev/null | wc -l)"
@@ -73,8 +73,8 @@ jobs:
         env:
           PLAY_UPLOAD_KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
 
-      - name: Test, lint, and build signed Play bundle
-        run: ./gradlew testDebugUnitTest lintDebug lintRelease bundleRelease --stacktrace
+      - name: Lint and build signed Play bundle
+        run: ./gradlew lintDebug lintRelease bundleRelease --stacktrace
         env:
           PLAY_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
           PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}

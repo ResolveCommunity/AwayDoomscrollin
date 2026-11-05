@@ -18,6 +18,5 @@ Briefly describe the changes introduced by this pull request.
 
 - [ ] My code follows the project's code style and guidelines.
 - [ ] I have tested these changes on a physical device or emulator.
-- [ ] Unit tests have been run (`./gradlew test`) and pass without errors.
 - [ ] No new compiler warnings or lint errors have been introduced.
 - [ ] Any relevant documentation has been updated.

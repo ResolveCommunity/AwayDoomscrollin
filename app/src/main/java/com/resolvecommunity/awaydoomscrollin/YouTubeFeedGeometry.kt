@@ -58,8 +58,18 @@ internal object YouTubeFeedGeometry {
         dp56: Int,
         dp16: Int,
         landscape: Boolean = false,
-        toolbarScrolledAway: Boolean = false
+        toolbarScrolledAway: Boolean = false,
+        openFeedTabsBottom: Int? = null
     ): Int {
+        // Balanced leaves the Home feed's top tab strip uncovered: it is the
+        // only way to Subscriptions in YouTube's 2026 layout. The strip sits
+        // under the toolbar, or pinned under the status bar once the toolbar
+        // scrolled away; anything lower is not that strip.
+        openFeedTabsBottom?.let { tabsBottom ->
+            val base = if (landscape) windowTop else maxOf(windowTop, statusBarInset.coerceAtLeast(0))
+            val maxTabsBottom = base + (dp56.coerceAtLeast(0) + dp16.coerceAtLeast(0)) * 2
+            if (tabsBottom > base && tabsBottom <= maxTabsBottom) return tabsBottom
+        }
         // In landscape YouTube's subscriptions layout is a two-pane feed. The
         // portrait status-bar inset is not a usable boundary there, so use the
         // live toolbar edge when it is available. This keeps the notification
@@ -131,7 +141,8 @@ internal object YouTubeFeedGeometry {
         dp16: Int,
         toolbarScrolledAway: Boolean = false,
         bottomBarScrolledAway: Boolean = false,
-        tappableBottomInset: Int = dp48
+        tappableBottomInset: Int = dp48,
+        openFeedTabsBottom: Int? = null
     ): Rect? {
         if (rootBounds.width() <= 0 || rootBounds.height() <= 0) return null
 
@@ -143,7 +154,8 @@ internal object YouTubeFeedGeometry {
             dp56 = dp56,
             dp16 = dp16,
             landscape = rootBounds.width() > rootBounds.height(),
-            toolbarScrolledAway = toolbarScrolledAway
+            toolbarScrolledAway = toolbarScrolledAway,
+            openFeedTabsBottom = openFeedTabsBottom
         ).coerceIn(rootBounds.top, rootBounds.bottom)
 
         val bottom = calculateBottom(

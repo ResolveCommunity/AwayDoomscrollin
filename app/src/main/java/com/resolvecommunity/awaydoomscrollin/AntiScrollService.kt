@@ -33,6 +33,11 @@ class AntiScrollService : AccessibilityService() {
     companion object {
         private const val TAG = "AntiScrollService"
         private const val INSTAGRAM_PACKAGE = "com.instagram.android"
+        private const val REEL_WINDOW_REBIND_MS = 3_000L
+        /** Support log: only stalls a user could notice. */
+        private const val SUPPORT_SLOW_MS = 500L
+        /** Stand-in destination for a focused window the service cannot read. */
+        private const val UNREADABLE_FOREGROUND = "unreadable.foreground"
         private const val TIKTOK_PACKAGE = "com.zhiliaoapp.musically"
         private const val YOUTUBE_PACKAGE = "com.google.android.youtube"
         private const val YOUTUBE_SOURCE_PATH_DEPTH = 24
@@ -72,6 +77,8 @@ class AntiScrollService : AccessibilityService() {
         private const val YOUTUBE_CLICK_INTENT_MS = 1_500L
 private const val YOUTUBE_SHORTS_TAB_CLICK_LATCH_MS = 2_000L
 private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
+/** How long the feed pager's settle scroll can trail a tab tap or page change. */
+private const val YOUTUBE_FEED_PAGER_SETTLE_MS = 800L
 private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         private const val YOUTUBE_QUICK_IDENTITY_MAX_NODES = 80
         private const val OVERLAY_FOREGROUND_CHECK_MS = 250L
@@ -170,7 +177,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private val instagramBlockedAttempt = BlockedAttemptCounter()
     private val instagramProtectedNavigation = InstagramProtectedNavigationLatch(
         holdMs = INSTAGRAM_PROTECTED_NAVIGATION_HOLD_MS)
-    private val youtubeCurtainState = YouTubeCurtainState()
+    private val youtubeCurtainState = YouTubeCurtainState(
+        subscriptionsProtected = ::youtubeSubscriptionsProtected)
     private var youtubeObservedScreen = YouTubeCurtainScreen.UNKNOWN
     private var youtubeLastVerifiedScreen = YouTubeCurtainScreen.UNKNOWN
     private var youtubeAllowedFlipSince = 0L
@@ -189,6 +197,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private var youtubeAllowedReturnSurface: YouTubeProtectedSurface? = null
     private var youtubeAllowedReturnBounds: Rect? = null
     private var youtubeLastStableDestination = YouTubeNavigationDestination.UNKNOWN
+    /** When the visible page last became Subscriptions (uptime ms). */
+    private var youtubeSubscriptionsSince = 0L
     private var youtubeSurfaceScanScheduled = false
     private var youtubeSurfaceScanAt = 0L
     private var lastPackage = ""
@@ -233,6 +243,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             calculateExploreBounds(feedRoot, window)
         } else calculateHomeFeedBounds(feedRoot, window)
         clampCurtainBottomToNavigation(feedRoot, bounds)
+        supportCurtainReason = "back"
         if (!showInstagramCurtain(bounds, origin)) return false
         instagramCollectionFeedOrigin = null
         if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
@@ -251,6 +262,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
     private var instagramBalancedNotificationPostWatching = false
     private var instagramUnknownSince = 0L
+    /** The window whose unrecognized frames [instagramUnknownWindowSince] times. */
+    private var instagramUnknownWindowId = -1
+    private var instagramUnknownWindowSince = 0L
     private var instagramExploreSearchSeen = false
     private val instagramReelsSession = InstagramReelsSession()
     private val instagramReelShadeHold = InstagramReelShadeHold()
@@ -258,6 +272,36 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private val instagramReelsPagerMotion = InstagramReelsPagerMotion()
     private var instagramReelsMotionGeneration = -1L
     private var instagramReelsVerifiedAt = Long.MAX_VALUE
+    /** Viewer window the allowed Balanced Reel was verified in. */
+    private var instagramReelsVerifiedWindowId = -1
+    /** After a fold/rotation the viewer window may be recreated under a new id. */
+    private var instagramReelWindowRebindUntil = 0L
+    // Support log: why the next curtain / viewer exit happens. Set right before
+    // the call by paths other than plain screen recognition; read and reset by
+    // showInstagramCurtain() / exitBlockedViewer().
+    private var supportCurtainReason = "screen"
+    private var supportExitReason = "screen"
+    /** The pending profile-Reel intent came from a late profile-grid tap. */
+    private var instagramBalancedLateProfileTap = false
+
+    /** View ids of [source] and up to [depth] ancestors (source first). */
+    private fun ancestorIds(source: AccessibilityNodeInfo?, depth: Int): List<String> {
+        val ids = ArrayList<String>(depth)
+        var current = source
+        repeat(depth) {
+            val node = current ?: return ids
+            compactId(node.viewIdResourceName).takeIf { it.isNotEmpty() }?.let(ids::add)
+            current = node.parent
+        }
+        return ids
+    }
+
+    /**
+     * Window of the allowed Reel itself. The state machine may still point at
+     * a blocked viewer that was just closed on top of it.
+     */
+    private fun allowedReelWindowId(): Int =
+        instagramReelsVerifiedWindowId.takeIf { it >= 0 } ?: instagramStateMachine.currentWindowId
     private val instagramNotificationReturn = InstagramNotificationReturnState()
     private val instagramProfileReturn = InstagramProfileReturnState()
     private val instagramNotificationMotion = InstagramNotificationMotionGate()
@@ -344,6 +388,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 }
                 Log.d(TAG, "IG_NOTIFICATION_COMMENT_SECOND_BACK " +
                     "sheetVisible=$commentSheetStillVisible waitMs=$commentWaitElapsed")
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     root,
                     instagramWindowBounds(root),
@@ -458,6 +503,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // focused. Use the same all-window probe as the initial launch so
             // the second Back does not wait for focus to move back.
             findInstagramNotificationViewerRoot(root)?.let { (viewerRoot, viewerScreen) ->
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     viewerRoot,
                     instagramWindowBounds(viewerRoot),
@@ -474,8 +520,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // Back may remove only one. Verify the next current layer even when
             // Instagram publishes no further accessibility event.
             if (hasFastSinglePostViewer(root)) {
+                supportExitReason = "post"
                 exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.COMMENTS_OR_DETAIL)
             } else if (hasFastCommentSheet(root)) {
+                supportExitReason = "post"
                 exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.COMMENTS_OR_DETAIL,
                     useGlobalBackOnly = true)
             }
@@ -489,12 +537,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // main pager has just settled from DM/Home onto Reels. Retry once, but
         // only while current foreground structure still proves a Reel viewer.
         if (hasFastStoryViewer(root) && instagramStoriesBlocked()) {
+            supportExitReason = "story"
             exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.STORY, useGlobalBackOnly = true)
         } else if (hasFastMainReelsTabDestination(root) ||
             hasFastReelsViewer(root) || hasFastReelPreview(root) ||
             (instagramBalancedReelOrigin == InstagramScreen.SAVED_COLLECTION &&
                 hasFastSavedCollectionReelList(root))) {
             Log.d(TAG, "IG_VIEWER_EXIT_RETRY stillVisible=true")
+            supportExitReason = "retry"
             exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.REELS)
         } else if (instagramExitFromNotifications &&
             instagramNotificationBackCount < INSTAGRAM_NOTIFICATION_MAX_BACKS) {
@@ -569,7 +619,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             onAllowedYouNavigation = ::onYouTubeAllowedYouNavigation,
             onAllowedBackNavigationDown = ::onYouTubeAllowedBackNavigationDown,
             onAllowedLaunchNavigation = ::onYouTubeAllowedToolbarNavigation,
-            onCurtainVisibilityChanged = ::measureYouTubeCurtainVisibility
+            onCurtainVisibilityChanged = ::measureYouTubeCurtainVisibility,
+            subscriptionsOpen = { !youtubeSubscriptionsProtected() }
         )
     }
     private fun measureYouTubeCurtainVisibility(visible: Boolean) {
@@ -579,6 +630,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private fun onYouTubeShortsGuardBlocked() {
         // The guard consumed one completed native-button tap; no viewer exit
         // follows. Each distinct user attempt counts as one intervention.
+        SupportDiagnostics.record(this, SupportEvent.YOUTUBE_SHORTS, mapOf("what" to "tab"))
         recordIntervention(YOUTUBE_PACKAGE, System.currentTimeMillis())
     }
     private fun recordYouTubeViewerIntervention(accepted: Boolean) {
@@ -686,6 +738,19 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             YouTubeProtectedSurface.SUBSCRIPTIONS -> YouTubeCurtainScreen.SUBSCRIPTIONS
         }
 
+    private fun youtubeSubscriptionsProtected(): Boolean =
+        YouTubeSurfacePolicy.subscriptionsProtected(
+            ProtectionPreferences.getMode(this, ProtectedApp.YOUTUBE))
+
+    /** The curtain a feed tab needs; Balanced leaves Subscriptions uncovered. */
+    private fun youtubeFeedSurface(destination: YouTubeNavigationDestination): YouTubeProtectedSurface? =
+        when (destination) {
+            YouTubeNavigationDestination.HOME -> YouTubeProtectedSurface.HOME
+            YouTubeNavigationDestination.SUBSCRIPTIONS ->
+                YouTubeProtectedSurface.SUBSCRIPTIONS.takeIf { youtubeSubscriptionsProtected() }
+            else -> null
+        }
+
     private fun onYouTubeProtectedNavigation(surface: YouTubeProtectedSurface) {
         navigateYouTubeTab(
             if (surface == YouTubeProtectedSurface.HOME) YouTubeNavigationDestination.HOME
@@ -711,7 +776,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         traceYouTubeProtection("tab-armed")
         // addView/state publication is not a rendered opaque frame. Do not let YouTube
         // start its feed animation until that frame has actually passed pre-draw.
-        if (!curtainAlreadyVisible && destination in setOf(
+        // An open destination (Balanced Subscriptions from an uncovered page)
+        // mounts no curtain, so waiting for its draw would swallow the tap.
+        if (!curtainAlreadyVisible && surface != null && destination in setOf(
                 YouTubeNavigationDestination.HOME, YouTubeNavigationDestination.SUBSCRIPTIONS
             )) {
             youtubeOverlay.afterCurtainDraw {
@@ -893,6 +960,33 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 resetYouTubeProtection()
                 return
             }
+            // YouTube's runtime permission prompt (notifications on first start)
+            // is focused but unreadable: the service may read only the protected
+            // apps, so focusedNonOverlayPackage() falls back to YouTube's active
+            // window and the curtain stayed over the dialog. YouTube itself is
+            // always readable, so a persisting unreadable focused app window is
+            // another app. Hide the windows like for the notification shade and
+            // restore them once YouTube has focus again.
+            youtubeUnreadableForegroundChecks =
+                if (focusedAppWindowUnreadable()) youtubeUnreadableForegroundChecks + 1 else 0
+            if (YouTubeSurfacePolicy.suspendForUnreadableFocus(
+                    youtubeOverlay.isSystemUiSuspended, youtubeUnreadableForegroundChecks)) {
+                if (!youtubeOverlay.isSystemUiSuspended) {
+                    if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                        this@AntiScrollService, "youtube.foreign-focus", "pkg=unreadable")
+                    SupportDiagnostics.record(this@AntiScrollService, SupportEvent.STEPPED_ASIDE,
+                        mapOf("app" to "youtube", "why" to "other-app"))
+                }
+                youtubeOverlay.setSystemUiSuspended(true)
+                scheduleYouTubeOverlayForegroundCheck()
+                return
+            }
+            // YouTube's own pop-up (Premium offer, menu) is still open: stay hidden.
+            if (youtubeOverlay.isSystemUiSuspended &&
+                rootInActiveWindow?.let(::isYouTubePopUpOverMain) == true) {
+                scheduleYouTubeOverlayForegroundCheck()
+                return
+            }
             youtubeOverlay.setSystemUiSuspended(false)
             // Reclassify even when only tab guards remain; a missing final event must not
             // leave a returned Home feed uncovered. The cheap focus probe above runs every
@@ -919,10 +1013,48 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (!instagramOverlay.hasVisibleWindows) return
 
             val activeRoot = rootInActiveWindow
-            val activePkg = activeRoot?.packageName?.toString()
+            var activePkg = activeRoot?.packageName?.toString()
+            if (ProtectionFlightRecorder.ENABLED && activePkg == INSTAGRAM_PACKAGE && activeRoot != null) {
+                val rootBounds = Rect().also(activeRoot::getBoundsInScreen)
+                if (!isFullscreenWindow(rootBounds) && rootBounds != lastWindowedInstagramRoot) {
+                    ProtectionFlightRecorder.record(this@AntiScrollService, "instagram.root.windowed",
+                        "root=$rootBounds display=${currentDisplayBounds()}")
+                }
+                lastWindowedInstagramRoot = rootBounds.takeUnless { isFullscreenWindow(it) }
+            }
             if (activePkg == INSTAGRAM_PACKAGE && isTaskSwitcherShowing(activeRoot)) {
                 enterTaskSwitcher(INSTAGRAM_PACKAGE)
                 return
+            }
+            if (activePkg == null) {
+                // The runtime permission prompt is focused but unreadable: the
+                // service may read only the protected apps, so its root is null.
+                // Instagram itself is always readable, so a focused application
+                // window without a root that persists is another app.
+                val focusedApp = windows.firstOrNull {
+                    it.isFocused && it.type == AccessibilityWindowInfo.TYPE_APPLICATION
+                }
+                unreadableForegroundChecks =
+                    if (focusedApp != null && focusedApp.root == null) unreadableForegroundChecks + 1 else 0
+                if (InstagramSurfacePolicy.isUnreadableForeground(unreadableForegroundChecks)) {
+                    if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                        this@AntiScrollService, "instagram.foreign-focus", "pkg=unreadable")
+                    SupportDiagnostics.record(this@AntiScrollService, SupportEvent.STEPPED_ASIDE,
+                        mapOf("app" to "instagram", "why" to "other-app"))
+                    unreadableForegroundChecks = 0
+                    instagramUnreadableForeground = true
+                    activePkg = UNREADABLE_FOREGROUND
+                }
+            } else {
+                unreadableForegroundChecks = 0
+            }
+            if (activePkg == INSTAGRAM_PACKAGE) {
+                InstagramSurfacePolicy.foreignFocusedPackage(activePkg, focusedNonOverlayPackage())
+                    ?.let { foreign ->
+                        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                            this@AntiScrollService, "instagram.foreign-focus", "pkg=$foreign")
+                        activePkg = foreign
+                    }
             }
             if (activePkg != null && activePkg != INSTAGRAM_PACKAGE) {
                 if (retainInstagramCurtainUnderNotificationShade(activePkg, rootInActiveWindow)) return
@@ -952,6 +1084,18 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Folding, unfolding or rotating can recreate Instagram's viewer
+        // window under a new id; the allowed Reel moves with it once.
+        if (instagramReelsSession.watching) {
+            instagramReelWindowRebindUntil = SystemClock.uptimeMillis() + REEL_WINDOW_REBIND_MS
+        }
+        val display = currentDisplayBounds()
+        SupportDiagnostics.record(this, SupportEvent.DISPLAY_CHANGED,
+            mapOf("w" to display.width(), "h" to display.height(), "fold" to true))
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instagramStructuralNodesRequested = null
@@ -979,6 +1123,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             1001
         )
         Log.d(TAG, "Accessibility protection connected")
+        SupportDiagnostics.record(this, SupportEvent.SERVICE_CONNECTED)
+        SupportDiagnostics.recordPreviousExit(this)
+        SupportDiagnostics.watchSettings(this)
         if (ProtectionFlightRecorder.ENABLED) {
             @Suppress("DEPRECATION")
             val versionName = runCatching {
@@ -1036,6 +1183,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (ProtectionFlightRecorder.ENABLED && elapsed >= 24L && event != null) {
                 ProtectionFlightRecorder.record(this, "a11y.slow",
                     "type=${event.eventType} pkg=${event.packageName} elapsedMs=$elapsed")
+            }
+            if (elapsed >= SUPPORT_SLOW_MS && event != null) {
+                SupportDiagnostics.record(this, SupportEvent.SLOW,
+                    mapOf("ms" to elapsed, "app" to supportAppName(event.packageName?.toString())))
             }
         }
     }
@@ -1150,6 +1301,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                         !igVisible(searchRoot, "search_row") && !igVisible(searchRoot, "echo_text")) {
                         clearInstagramResumeProtection()
                         currentInstagramWindowId = searchRoot.windowId
+                        supportCurtainReason = "back"
                         showInstagramCurtain(
                             calculateExploreBounds(searchRoot, instagramWindowBounds(searchRoot)),
                             InstagramScreen.EXPLORE)
@@ -1184,6 +1336,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                             currentInstagramWindowId = homeRoot.windowId
                             val bounds = calculateHomeFeedBounds(homeRoot, instagramWindowBounds(homeRoot))
                             clampCurtainBottomToNavigation(homeRoot, bounds)
+                            supportCurtainReason = "back"
                             showInstagramCurtain(bounds, InstagramScreen.HOME_FEED)
                             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
                                 this, "instagram.notifications.back", "precover=home-header")
@@ -1407,6 +1560,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
                 this@AntiScrollService, "instagram.recover.cover",
                 "screen=${retained.first} directWindowId=$directNavigationSourceWindowId")
+            supportCurtainReason = "restore"
             showInstagramCurtain(Rect(retained.second), retained.first)
         }
     }
@@ -1692,6 +1846,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             fun mountAt(top: Int?) {
                 profileWindowId = root.windowId
                 val resolved = top?.coerceAtMost(bottom - 1) ?: floor
+                supportCurtainReason = "profile"
                 showInstagramCurtain(Rect(window.left, resolved, window.right, bottom),
                     InstagramScreen.PROFILE)
             }
@@ -1978,6 +2133,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             val bounds = Rect(retained.second).apply { top = header.bottom }
             if (bounds.top >= bounds.bottom) return
             exploreTransitionCoverUntil = 0L
+            instagramOverlay.supportReason = "restore"
             if (instagramOverlay.show(bounds, InstagramScreen.EXPLORE, isEnglish())) {
                 lastVerifiedInstagramCurtain = InstagramScreen.EXPLORE to Rect(bounds)
             }
@@ -2097,6 +2253,25 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 instagramBalancedProfileReelIntentWindowId = event.windowId
                 instagramBalancedProfileReelIntentUntil = eventNow + 1_500L
                 Log.d(TAG, "IG_BALANCED_PROFILE_REEL_INTENT window=${event.windowId}")
+                if (ProtectionFlightRecorder.ENABLED) {
+                    val chain = ancestorIds(event.source, 24)
+                    ProtectionFlightRecorder.record(this, "instagram.profile.reel-tap",
+                        "grid=${InstagramBalancedReelIngressPolicy.isProfileGridTap(chain)} " +
+                            "chain=${chain.joinToString(">")}")
+                }
+            } else if (lastInstagramScreen == InstagramScreen.REELS && instagramReelsSession.watching &&
+                event.windowId != instagramReelsVerifiedWindowId &&
+                eventNow - event.eventTime in
+                    0L..InstagramBalancedReelIngressPolicy.LATE_PROFILE_TAP_MAX_AGE_MS &&
+                isProfileReelThumbnailIntent(event.source) &&
+                InstagramBalancedReelIngressPolicy.isProfileGridTap(ancestorIds(event.source, 24))) {
+                // A profile opened from the allowed Reel, tapped before the
+                // profile could be classified (Instagram stalled the service).
+                instagramBalancedProfileReelIntentWindowId = event.windowId
+                instagramBalancedProfileReelIntentUntil = eventNow + 1_500L
+                instagramBalancedLateProfileTap = true
+                Log.d(TAG, "IG_BALANCED_PROFILE_REEL_INTENT late window=${event.windowId} " +
+                    "ageMs=${eventNow - event.eventTime}")
             }
             if (freshClick && lastInstagramScreen == InstagramScreen.SAVED_COLLECTION &&
                 isCollectionReelThumbnailIntent(event.source)) {
@@ -2139,6 +2314,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     instagramOverlay.hide()
                     val bounds = calculateExploreBounds(root, instagramWindowBounds(root))
                     clampCurtainBottomToNavigation(root, bounds)
+                    supportCurtainReason = "tab"
                     showInstagramCurtain(bounds, InstagramScreen.EXPLORE)
                     Log.d(TAG,
                         "IG_EXPLORE_INTENT_CURTAIN eventAgeMs=${eventNow - event.eventTime}")
@@ -2155,6 +2331,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     instagramOverlay.visibleCurtain() == null) {
                     clearInstagramResumeProtection()
                     currentInstagramWindowId = root.windowId
+                    supportCurtainReason = "back"
                     showInstagramCurtain(
                         calculateExploreBounds(root, instagramWindowBounds(root)),
                         InstagramScreen.EXPLORE)
@@ -2180,6 +2357,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     // Recreate instead of resizing the Profile curtain. Keeping
                     // its token lets Samsung animate and briefly shorten it.
                     instagramOverlay.hide()
+                    supportCurtainReason = "tab"
                     showInstagramCurtain(
                         Rect(display.left, top, display.right, bottom),
                         InstagramScreen.HOME_FEED)
@@ -2463,6 +2641,25 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             return
         }
         resumeInstagramNotificationShade(root)
+        // Instagram's own dialog (promo/suggestion pop-up) is the active window.
+        // The feed behind it is dimmed and cannot be touched, and a curtain
+        // measured from the dialog window would hide the dialog itself. Step
+        // aside until the dialog closes; its dismissal rescans Instagram.
+        // One lookup per scan: every Instagram dialog seen so far (promo,
+        // suggestion) is hosted in dialog_container.
+        if (InstagramSurfacePolicy.isInstagramDialog(
+                dialogContainerVisible = igVisible(root, "dialog_container"),
+                promoHeadlineVisible = false)) {
+            if (instagramOverlay.hasVisibleWindows) {
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                    this, "instagram.dialog", "released window=${root.windowId}")
+                SupportDiagnostics.record(this, SupportEvent.STEPPED_ASIDE,
+                    mapOf("app" to "instagram", "why" to "popup"))
+                instagramOverlay.updateEntryGuards(emptyList(), isEnglish())
+                hideInstagramContentOverlay()
+            }
+            return
+        }
         if (precoverCollectionReturn(root)) return
         val notificationTransitionActive = lastInstagramScreen == InstagramScreen.NOTIFICATIONS ||
             instagramExitFromNotifications || instagramNotificationReturn.isPending(scanNow) ||
@@ -2532,6 +2729,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) ==
                     ProtectionMode.BALANCED &&
                     allowBalancedInstagramNotificationViewer(viewerRoot, viewerScreen)) return
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     viewerRoot,
                     instagramWindowBounds(viewerRoot),
@@ -2579,6 +2777,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // A current, verified Reel in a new chat-owned window needs no
             // profile/navigation/inbox discovery. Stories still fail this exact
             // Reel predicate and keep their separate transition grace.
+            supportExitReason = "reel"
             exitBlockedViewer(root, initialWindowBounds, InstagramScreen.REELS)
             return
         }
@@ -2606,6 +2805,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     queueInstagramScan(minOf(wait, 80L))
                     return
                 }
+                supportExitReason = "story"
                 exitBlockedViewer(root, initialWindowBounds, InstagramScreen.STORY, useGlobalBackOnly = true)
             } else {
                 releaseAllowedProfileSurface()
@@ -2641,10 +2841,13 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // can pin the old safe surface while Reels is already playing.
         val instagramMode = ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM)
         if (!InstagramBalancedReelIngressPolicy.keepsVerifiedSession(
-                instagramMode, instagramReelsSession.watching, instagramReelsSession.exiting) &&
+                instagramMode, instagramReelsSession.watching, instagramReelsSession.exiting,
+                viewerWindowId = root.windowId, verifiedWindowId = instagramReelsVerifiedWindowId,
+                rebindAllowed = SystemClock.uptimeMillis() < instagramReelWindowRebindUntil) &&
             hasFastMainReelsTabDestination(root)) {
             instagramReelsSession.observe(instagramMode,
                 viewerVisible = true, feedEntry = true)
+            supportExitReason = "reelstab"
             exitBlockedViewer(root, initialWindowBounds, InstagramScreen.REELS)
             return
         }
@@ -2701,6 +2904,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 if (viewerScreen == InstagramScreen.REELS) {
                     instagramNotificationReelExitIssued = true
                 }
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     viewerRoot,
                     instagramWindowBounds(viewerRoot),
@@ -2721,6 +2925,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 instagramNotificationContentLaunchUntil = 0L
                 instagramNotificationExitHoldUntil = SystemClock.uptimeMillis() + 10_000L
                 if (notificationReel) instagramNotificationReelExitIssued = true
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     root,
                     initialWindowBounds,
@@ -2759,6 +2964,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 if (viewerScreen == InstagramScreen.REELS) {
                     instagramNotificationReelExitIssued = true
                 }
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     viewerRoot,
                     instagramWindowBounds(viewerRoot),
@@ -2773,10 +2979,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             directLaunchPending = scanNow < directReelLaunchPendingUntil)
         logSlowInstagramStage("fast-viewer", stageStarted)
         if (fastReelsViewer && !keepVerifiedHome) {
+            supportExitReason = "reel"
             exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.REELS)
             return
         }
         if (hasFastReelPreview(root) && !keepVerifiedHome) {
+            supportExitReason = "reelpreview"
             exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.REELS)
             return
         }
@@ -2790,6 +2998,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 return
             }
             if (allowBalancedInstagramProfilePost(root)) return
+            supportExitReason = "post"
             exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL)
             return
         }
@@ -2811,6 +3020,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 if (viewerScreen == InstagramScreen.REELS) {
                     instagramNotificationReelExitIssued = true
                 }
+                supportExitReason = "notification"
                 exitBlockedViewer(
                     viewerRoot,
                     instagramWindowBounds(viewerRoot),
@@ -2833,6 +3043,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     allowBalancedInstagramNotificationViewer(
                         root, InstagramScreen.COMMENTS_OR_DETAIL)) return
                 instagramNotificationContentLaunchUntil = 0L
+                supportExitReason = "notification"
                 exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL)
             } else {
                 instagramOverlay.hide()
@@ -2864,6 +3075,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             clearDirectConversationEntryGuard()
             profileAllowedDepartureUntil = 0L
             if (instagramStoriesBlocked()) {
+                supportExitReason = "story"
                 exitBlockedViewer(root, windowBounds, InstagramScreen.STORY, useGlobalBackOnly = true)
                 return
             }
@@ -2889,6 +3101,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 scanNow < directDetailsLaunchPendingUntil) && hasFastPostViewer(root)) {
             directDetailsLaunchPendingUntil = 0L
             directDetailsFallbackBackAt = 0L
+            supportExitReason = "chatmedia"
             exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL)
             return
         }
@@ -2901,6 +3114,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     // top layer. Global Back targets that top layer reliably.
                     directDetailsLaunchPendingUntil = 0L
                     directDetailsFallbackBackAt = 0L
+                    supportExitReason = "chatmedia"
                     exitBlockedViewer(
                         root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL,
                         useGlobalBackOnly = true)
@@ -2921,6 +3135,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             } else {
                 // The aggregate Media/Reposts gallery is protected regardless
                 // of whether the opened item is a photo, post or Reel.
+                supportExitReason = "chatmedia"
                 exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL)
                 return
             }
@@ -3031,6 +3246,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     collectionOrigin, retainedCurtain?.first)
             Log.d(TAG, "IG_BLOCKED_COLLECTION_EXIT origin=$collectionOrigin " +
                 "keepCover=$keepProtectedOrigin")
+            supportExitReason = "collection"
             exitBlockedViewer(root, windowBounds, InstagramScreen.COMMENTS_OR_DETAIL,
                 preserveObservedOrigin = true,
                 keepOriginCover = keepProtectedOrigin)
@@ -3162,6 +3378,27 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // Reel trace.
             if (instagramOverlay.hasVisibleWindows) {
                 if (instagramUnknownSince == 0L) instagramUnknownSince = now
+                // Timed per window: a long transition in the main window must
+                // not let a newly opened window step aside on its first frame.
+                if (instagramUnknownWindowId != root.windowId) {
+                    instagramUnknownWindowId = root.windowId
+                    instagramUnknownWindowSince = now
+                }
+                if (InstagramSurfacePolicy.stepsAsideForUnknownWindow(
+                        unknownForMs = now - instagramUnknownWindowSince,
+                        rootWindowId = root.windowId,
+                        verifiedWindowId = instagramStateMachine.currentWindowId,
+                        tabBarVisible = igVisible(root, "tab_bar"),
+                        windowCoversScreen = isFullscreenWindow(Rect().also(root::getBoundsInScreen)))) {
+                    if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                        "instagram.unknown-window", "released window=${root.windowId} " +
+                            "verified=${instagramStateMachine.currentWindowId} screen=$lastInstagramScreen")
+                    SupportDiagnostics.record(this, SupportEvent.STEPPED_ASIDE,
+                        mapOf("app" to "instagram", "why" to "page"))
+                    instagramOverlay.updateEntryGuards(emptyList(), isEnglish())
+                    hideInstagramContentOverlay()
+                    return
+                }
                 queueInstagramScan(InstagramSurfacePolicy.unknownRescanDelayMs(now - instagramUnknownSince))
             }
             return
@@ -3218,6 +3455,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 val keywordGrid = if (screen == InstagramScreen.SEARCH_RESULTS) {
                     keywordResultsGridBounds(root, windowBounds)
                 } else null
+                supportCurtainReason = "search"
                 if (keywordGrid == null || !showInstagramCurtain(keywordGrid, InstagramScreen.EXPLORE)) {
                     hideInstagramContentOverlay()
                 }
@@ -3306,6 +3544,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         currentInstagramWindowId = root.windowId
         val bounds = calculateExploreBounds(root, instagramWindowBounds(root))
         clampCurtainBottomToNavigation(root, bounds)
+        supportCurtainReason = "back"
         val mounted = showInstagramCurtain(bounds, InstagramScreen.EXPLORE)
         if (!mounted) {
             performGlobalAction(GLOBAL_ACTION_BACK)
@@ -3504,6 +3743,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         refreshMainReelsTabGuard(root)
         if (!instagramProfilePostsBlocked()) {
             instagramOverlay.updateStrictProfilePieceGuards(emptyList())
+            supportCurtainReason = "profile"
             showInstagramCurtain(bounds, InstagramScreen.PROFILE)
             return
         }
@@ -3535,6 +3775,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // building): never expose highlights or the grid while the header
             // rebuilds.
             instagramOverlay.updateStrictProfilePieceGuards(emptyList())
+            supportCurtainReason = "profile"
             showInstagramCurtain(bounds, InstagramScreen.PROFILE)
             return
         }
@@ -3554,6 +3795,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             } else {
                 instagramOverlay.updateStrictProfilePieceGuards(emptyList())
             }
+            supportCurtainReason = "profile"
             showInstagramCurtain(Rect(window.left, rowTop, window.right, bottom),
                 InstagramScreen.PROFILE)
             return
@@ -3561,6 +3803,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // No tray above the row (or the tray renders below it): a single
         // curtain from the row's bottom covers the tray and the grid together.
         instagramOverlay.updateStrictProfilePieceGuards(emptyList())
+        supportCurtainReason = "profile"
         showInstagramCurtain(Rect(window.left, rowTop, window.right, bottom),
             InstagramScreen.PROFILE)
     }
@@ -3897,6 +4140,38 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
      * both forms as the same navigation affordance; otherwise a valid
      * Profile -> Reel launch is mistaken for the blocked Reels tab.
      */
+    /**
+     * The id-less Back arrow of a single-Reel viewer, found through its
+     * button group. Used only as Balanced ingress evidence; exit decisions
+     * keep [hasFastActionBarBack].
+     */
+    private fun hasReelViewerStartBack(root: AccessibilityNodeInfo): Boolean {
+        val window = instagramWindowBounds(root)
+        val windowSample = window.toInstagramGeometrySample()
+        return cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/${InstagramReelViewerBack.startButtonsId}")
+            .filter { it.isVisibleToUser }
+            .any { group ->
+                // The arrow is a direct child or wrapped once (LinearLayout > ImageView).
+                val pending = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
+                for (i in 0 until minOf(group.childCount, 6)) group.getChild(i)?.let { pending.add(it to 1) }
+                var found = false
+                while (pending.isNotEmpty() && !found) {
+                    val (node, depth) = pending.removeFirst()
+                    if (!node.isVisibleToUser) continue
+                    val bounds = Rect().also(node::getBoundsInScreen)
+                    found = InstagramReelViewerBack.isBack(
+                        clickable = node.isClickable,
+                        hasText = !node.text.isNullOrBlank(),
+                        bounds = leftToRight(bounds, window, INSTAGRAM_PACKAGE).toInstagramGeometrySample(),
+                        window = windowSample)
+                    if (!found && depth < 2) {
+                        for (i in 0 until minOf(node.childCount, 6)) node.getChild(i)?.let { pending.add(it to depth + 1) }
+                    }
+                }
+                found
+            }
+    }
+
     private fun hasFastActionBarBack(root: AccessibilityNodeInfo): Boolean =
         igVisible(root, "action_bar_button_back") ||
             findInstagramTopLeftBack(root, instagramWindowBounds(root)) != null
@@ -4105,6 +4380,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // Without it every swipe was treated as foreign and the user
             // could scroll a notification Reel endlessly.
             if (!wasWatching) instagramReelsVerifiedAt = SystemClock.uptimeMillis()
+            instagramReelsVerifiedWindowId = root.windowId
             instagramBalancedReelOrigin = InstagramScreen.NOTIFICATIONS
         } else {
             instagramBalancedNotificationPostWatching = true
@@ -4131,8 +4407,49 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // frame even for a Reel deliberately opened from DM or a profile. Once
         // that first frame has positive ingress identity, retain the session;
         // its pager-motion gate remains responsible for exiting on video two.
+        val rebind = SystemClock.uptimeMillis() < instagramReelWindowRebindUntil
         if (InstagramBalancedReelIngressPolicy.keepsVerifiedSession(
-                mode, instagramReelsSession.watching, instagramReelsSession.exiting)) return true
+                mode, instagramReelsSession.watching, instagramReelsSession.exiting,
+                viewerWindowId = root.windowId, verifiedWindowId = instagramReelsVerifiedWindowId,
+                rebindAllowed = rebind)) {
+            if (root.windowId != instagramReelsVerifiedWindowId) {
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                    "instagram.balanced.reel",
+                    "rebound from=$instagramReelsVerifiedWindowId to=${root.windowId}")
+                instagramReelsVerifiedWindowId = root.windowId
+                instagramReelWindowRebindUntil = 0L
+                // The next-video gate matches pager events against the state
+                // machine's window; move it to the recreated viewer as well.
+                observeInstagramScreen(InstagramScreen.REELS, root.windowId)
+            } else if (instagramStateMachine.currentWindowId != root.windowId) {
+                // Back from a viewer that was blocked on top (an audio-page
+                // Reel): the state machine still points at that window, so
+                // the next-video gate would skip every pager event here.
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                    "instagram.balanced.reel", "resumed from=${instagramStateMachine.currentWindowId} " +
+                        "to=${root.windowId}")
+                observeInstagramScreen(InstagramScreen.REELS, root.windowId)
+            }
+            return true
+        }
+        // A Reel's own bottom sheet (options, audio row) can open in a window
+        // of its own that still reports the Reel's player underneath. It is a
+        // layer over the allowed Reel, not another Reel: keep the session and
+        // leave the verified window as it is.
+        if (mode == ProtectionMode.BALANCED && instagramReelsSession.watching &&
+            !instagramReelsSession.exiting && InstagramReelsIdentity.isSheetOverViewer(
+                bottomSheetVisible = igVisible(root, "bottom_sheet_container") ||
+                    igVisible(root, "layout_container_bottom_sheet"),
+                ownPagerVisible = InstagramReelsIdentity.pagerIds.any { igVisible(root, it) })) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.balanced.reel", "sheet-over verified=$instagramReelsVerifiedWindowId " +
+                    "viewer=${root.windowId}")
+            return true
+        }
+        if (instagramReelsSession.watching && ProtectionFlightRecorder.ENABLED) {
+            ProtectionFlightRecorder.record(this, "instagram.balanced.reel",
+                "other-viewer verified=$instagramReelsVerifiedWindowId viewer=${root.windowId}")
+        }
         val shadeOrigin = if (instagramReelShadeHold.isHeld && mode == ProtectionMode.BALANCED) {
             instagramReelShadeHold.take(root.windowId, SystemClock.uptimeMillis())
         } else {
@@ -4143,11 +4460,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             InstagramNotificationShadePolicy.isProtectedFeedOrigin(lastInstagramScreen)) {
             instagramReelsSession.observe(mode,
                 viewerVisible = true, feedEntry = true)
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_REEL_DENIED,
+                mapOf("reason" to "feed-origin", "from" to lastInstagramScreen))
             return false
         }
         if (instagramStoriesBlocked() || hasFastMainReelsTabDestination(root)) {
             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
                 "instagram.balanced.reel", "denied=main-reels-tab last=$lastInstagramScreen")
+            if (!instagramStoriesBlocked()) SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_REEL_DENIED,
+                mapOf("reason" to "main-reels-tab", "from" to lastInstagramScreen))
             return false
         }
         val now = SystemClock.uptimeMillis()
@@ -4157,9 +4478,21 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         } else {
             instagramStateMachine.currentWindowId
         }
+        val tabBarVisible = igVisible(root, "tab_bar")
+        val selectedTab = if (tabBarVisible) selectedInstagramMainTab(root) else null
+        val mainTabBarVisible = tabBarVisible &&
+            !InstagramBalancedReelIngressPolicy.tabBarHostsSingleReel(selectedTab, lastInstagramScreen)
+        // A late profile-grid tap stands in for the profile the service could
+        // not classify in time; only for a viewer other than the allowed one.
+        val lateProfileTap = instagramBalancedLateProfileTap &&
+            now < instagramBalancedProfileReelIntentUntil &&
+            lastInstagramScreen == InstagramScreen.REELS &&
+            root.windowId != instagramReelsVerifiedWindowId
+        if (now >= instagramBalancedProfileReelIntentUntil) instagramBalancedLateProfileTap = false
+        val ingressOrigin = if (lateProfileTap) InstagramScreen.PROFILE else lastInstagramScreen
         val ingress = if (shadeOrigin != null) null else InstagramBalancedReelIngressPolicy.resolve(
             mode = mode,
-            previousScreen = lastInstagramScreen,
+            previousScreen = ingressOrigin,
             originWindowId = originWindowId,
             viewerWindowId = root.windowId,
             profileReelIntentWindowId = instagramBalancedProfileReelIntentWindowId,
@@ -4167,27 +4500,34 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             collectionReelIntentWindowId = instagramBalancedCollectionReelIntentWindowId,
             collectionReelIntentPending = now < instagramBalancedCollectionReelIntentUntil,
             reelsTabTapLatched = now < instagramReelsTabTapUntil,
-            mainTabBarVisible = igVisible(root, "tab_bar"),
-            actionBarBackVisible = hasFastActionBarBack(root),
+            mainTabBarVisible = mainTabBarVisible,
+            actionBarBackVisible = hasFastActionBarBack(root) || hasReelViewerStartBack(root),
             directIntentPending = now < directReelLaunchPendingUntil,
             notificationItemWatching = instagramBalancedNotificationPostWatching
         )
         if (ingress == InstagramBalancedReelIngress.NONE) {
             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
                 "instagram.balanced.reel", "denied=no-ingress last=$lastInstagramScreen " +
-                    "tabBar=${igVisible(root, "tab_bar")} back=${hasFastActionBarBack(root)} " +
+                    "tabBar=$tabBarVisible selectedTab=$selectedTab back=${hasFastActionBarBack(root)} " +
+                    "startBack=${hasReelViewerStartBack(root)} " +
                     "viewer=${root.windowId} intent=$instagramBalancedProfileReelIntentWindowId")
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_REEL_DENIED, mapOf(
+                "reason" to "no-ingress", "from" to ingressOrigin, "tabbar" to tabBarVisible,
+                "back" to (hasFastActionBarBack(root) || hasReelViewerStartBack(root)),
+                "tab" to selectedTab))
             return false
         }
         val wasWatching = instagramReelsSession.watching
         if (instagramReelsSession.observe(mode, viewerVisible = true) ==
             InstagramReelsDecision.EXIT) return false
         if (!wasWatching) instagramReelsVerifiedAt = now
+        instagramReelsVerifiedWindowId = root.windowId
         instagramBalancedReelOrigin = when {
             shadeOrigin != null -> shadeOrigin
             ingress == InstagramBalancedReelIngress.NOTIFICATION_COMMENT_SHEET -> InstagramScreen.NOTIFICATIONS
-            else -> lastInstagramScreen
+            else -> ingressOrigin
         }
+        instagramBalancedLateProfileTap = false
         clearDirectConversationEntryGuard()
         clearDirectDetailsScrollGuard()
         lastDirectConversationGuards.clear()
@@ -4200,9 +4540,11 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         instagramBalancedProfileReelIntentUntil = 0L
         instagramBalancedCollectionReelIntentWindowId = -1
         instagramBalancedCollectionReelIntentUntil = 0L
-        Log.d(TAG, "IG_BALANCED_REEL_ALLOWED ingress=${ingress ?: "shade-return"}")
+        Log.d(TAG, "IG_BALANCED_REEL_ALLOWED ingress=${ingress ?: "return"}")
+        SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_REEL_ALLOWED,
+            mapOf("via" to (ingress?.name ?: "return"), "from" to (shadeOrigin ?: ingressOrigin)))
         if (shadeOrigin != null && ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
-            this, "instagram.balanced.reel", "restored=shade-return origin=$shadeOrigin")
+            this, "instagram.balanced.reel", "restored=return origin=$shadeOrigin")
         observeInstagramScreen(InstagramScreen.REELS, root.windowId)
         return true
     }
@@ -4219,7 +4561,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             (lastInstagramScreen != InstagramScreen.REELS &&
                 !(instagramBalancedReelOrigin == InstagramScreen.SAVED_COLLECTION &&
                     instagramReelsSession.watching && hasFastSavedCollectionReelList(root))) ||
-            !InstagramReelsIdentity.isCurrentSessionEvent(instagramStateMachine.currentWindowId,
+            // The allowed Reel's own window, not the state machine's: a viewer
+            // blocked on top may have moved the latter, and then every swipe
+            // here would have been skipped (endless scrolling).
+            !InstagramReelsIdentity.isCurrentSessionEvent(allowedReelWindowId(),
                 event.windowId, root.windowId, event.eventTime, instagramReelsVerifiedAt, started)) {
             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
                 "instagram.balanced.reel.scroll", "skipped=session-mismatch last=$lastInstagramScreen " +
@@ -4276,6 +4621,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (decision == InstagramReelsDecision.EXIT) {
             Log.d(TAG, "IG_SINGLE_REEL_NEXT_VIDEO_EXIT generation=${instagramReelsSession.generation} " +
                 "eventAgeMs=${started - event.eventTime} decisionMs=${SystemClock.uptimeMillis() - started}")
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_REEL_NEXT_VIDEO)
             // The verified pager belongs to the already-confirmed foreground
             // Reel. Issue Back directly instead of querying an absent control.
             exitBlockedViewer(root, instagramWindowBounds(root), InstagramScreen.REELS, useGlobalBackOnly = true)
@@ -4487,6 +4833,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (protect) {
             // Use the stable pager, not the tab-specific list. Instagram removes
             // shared_media_list while animating between Media and Reposts.
+            supportCurtainReason = "chatmedia"
             showInstagramCurtain(pager, InstagramScreen.DIRECT_SHARED_MEDIA)
             val nextGuard = directDetailsTouchGuardBounds(window, pager)
             val previousGuard = directDetailsInteractionBounds
@@ -4609,6 +4956,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         instagramEntryTargets.clear()
         instagramOverlay.updateEntryGuards(emptyList(), isEnglish())
         if (InstagramDirectDetailsPolicy.shouldProtect(tabIndex, false)) {
+            supportCurtainReason = "chatmedia"
             showInstagramCurtain(pager, InstagramScreen.DIRECT_SHARED_MEDIA)
             directDetailsInteractionBounds = directDetailsTouchGuardBounds(window, pager)
             directDetailsInteractionBounds?.let { instagramOverlay.showTransientTouchGuard(it, isEnglish()) }
@@ -5474,6 +5822,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         preserveObservedOrigin: Boolean = false,
         keepOriginCover: Boolean = false
     ) {
+        // Support log: why this viewer is being closed (set by the caller).
+        val exitReason = supportExitReason
+        supportExitReason = "screen"
         if (screen == InstagramScreen.REELS && allowBalancedInstagramReel(root)) return
         val wasDirectConversation = lastInstagramScreen == InstagramScreen.DIRECT_MESSAGES
         val wasNotificationSurface = lastInstagramScreen == InstagramScreen.NOTIFICATIONS
@@ -5614,6 +5965,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 ?.let { now - it }
             Log.d(TAG, "IG_VIEWER_EXIT screen=$screen singleAction viewerBack=$clickedBack " +
                 "accepted=$accepted notificationElapsedMs=$attemptElapsed")
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_VIEWER_EXIT,
+                mapOf("screen" to screen, "ok" to accepted, "why" to exitReason))
             // Failsafe exit retries belong to the same viewer encounter and
             // must not inflate the user-facing or API block count.
             if (instagramBlockedAttempt.acceptedIntervention(accepted)) {
@@ -5845,38 +6198,42 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             ProtectionFlightRecorder.record(this, "tiktok.scroll",
                 "class=${event.className} path=$path bounds=$bounds $deltas " +
                     "from=${event.fromIndex} to=${event.toIndex} " +
-                    "count=${event.itemCount} vertical=${isVerticalScroll(event)}")
+                    "count=${event.itemCount} direction=${scrollDirection(event)}")
         }
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> maybeSnapBackFromBlockedTopTab(force = true)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED ->
-                if (isVerticalScroll(event)) handleTikTokScroll(event)
-                else maybeSnapBackFromBlockedTopTab()
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                val direction = scrollDirection(event)
+                if (!ScrollEventPolicy.mayBeVertical(direction) || !handleTikTokScroll(event, direction)) {
+                    maybeSnapBackFromBlockedTopTab()
+                }
+            }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> maybeSnapBackFromBlockedTopTab()
             else -> Unit
         }
     }
 
-    private fun handleTikTokScroll(event: AccessibilityEvent) {
+    /** Returns true when the event was a feed swipe (exited or still in cooldown). */
+    private fun handleTikTokScroll(event: AccessibilityEvent, direction: ScrollDirection): Boolean {
         val protectionEnabled = ProtectionPreferences.isEnabled(this, ProtectedApp.TIKTOK)
-        if (!protectionEnabled) return
+        if (!protectionEnabled) return false
         // The scrolled container itself identifies a feed swipe; no label or
         // obfuscated id is read, so this works in every UI language.
-        val source = event.source ?: return
+        val source = event.source ?: return false
         val bounds = Rect().also(source::getBoundsInScreen)
         val screen = currentDisplayBounds()
         val feedSwipe = TikTokSurfacePolicy.isFeedSwipe(
             className = event.className,
             idFragment = compactId(source.viewIdResourceName),
-            isVerticalScroll = true,
+            direction = direction,
             top = bounds.top,
             width = bounds.width(),
             height = bounds.height(),
             screenWidth = screen.width(),
             screenHeight = screen.height()
         )
-        if (!feedSwipe) return
+        if (!feedSwipe) return false
         val packageInForeground = rootInActiveWindow?.packageName?.toString() == TIKTOK_PACKAGE
         if (!TikTokInterventionPolicy.shouldExit(
                 protectionEnabled = protectionEnabled,
@@ -5886,13 +6243,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 isSafeSurface = false
             )
         ) {
-            return
+            return false
         }
 
         val now = System.currentTimeMillis()
-        if (!TikTokInterventionPolicy.cooldownElapsed(now, lastTikTokExitTime)) return
+        if (!TikTokInterventionPolicy.cooldownElapsed(now, lastTikTokExitTime)) return true
 
         val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
+        SupportDiagnostics.record(this, SupportEvent.TIKTOK, mapOf("what" to "feed", "ok" to accepted))
         if (accepted) {
             lastTikTokExitTime = now
             recordIntervention(TIKTOK_PACKAGE, now)
@@ -5901,6 +6259,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // Do not count a block that Android rejected; the next scroll event may retry.
             Log.w(TAG, "TIKTOK_EXIT_REJECTED")
         }
+        return true
     }
 
     private fun scheduleTikTokFeedExitRetry() {
@@ -5939,6 +6298,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             val candidate = current ?: return
             if (candidate.isClickable) {
                 if (candidate.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                    SupportDiagnostics.record(this, SupportEvent.TIKTOK, mapOf("what" to "tab"))
                     recordIntervention(TIKTOK_PACKAGE, System.currentTimeMillis())
                     Log.d(TAG, "TIKTOK_TOP_TAB_SNAP_BACK from=${layout.selectedTopTab} to=$target")
                 }
@@ -5962,6 +6322,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
      * top of the screen) with its selected position.
      */
     private fun scanTikTokLayout(root: AccessibilityNodeInfo): TikTokLayout {
+        val started = SystemClock.uptimeMillis()
         val screen = currentDisplayBounds()
         val bounds = Rect()
         var feedPagerVisible = false
@@ -5991,13 +6352,11 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             }
             // Class only: the horizontal tab pagers share the readable
             // `viewpager` id but report an obfuscated class.
-            if (!feedPagerVisible && node.isScrollable &&
+            val isFeedPager = node.isScrollable &&
                 TikTokSurfacePolicy.isPagerClass(node.className) &&
                 TikTokSurfacePolicy.isFeedPagerBounds(
                     bounds.top, bounds.width(), bounds.height(), screen.width(), screen.height())
-            ) {
-                feedPagerVisible = true
-            }
+            if (isFeedPager) feedPagerVisible = true
             if (tabs.isEmpty() && node.className?.toString()?.contains("HorizontalScrollView") == true &&
                 TikTokSurfacePolicy.isTopTabStrip(bounds.top, screen.height())
             ) {
@@ -6007,9 +6366,20 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     selected = tabs.indexOfFirst(::isTikTokTabSelected)
                 }
             }
+            // Every child read waits for TikTok's UI thread while a video plays
+            // (up to 2 s per walk on a Galaxy S9+), so stop once all three are
+            // known and never enter the video pages: they hold each video's own
+            // controls, not the top tabs or the bottom bar.
+            if (TikTokSurfacePolicy.layoutWalkComplete(feedPagerVisible, bottomBarSeen, tabs.size)) break
+            if (isFeedPager) continue
             for (index in 0 until node.childCount) {
                 node.getChild(index)?.let(pending::addLast)
             }
+        }
+        if (ProtectionFlightRecorder.ENABLED) {
+            val elapsed = SystemClock.uptimeMillis() - started
+            if (elapsed >= 24L) ProtectionFlightRecorder.record(this, "tiktok.layout",
+                "visited=$visited elapsedMs=$elapsed pager=$feedPagerVisible bar=$bottomBarSeen tabs=${tabs.size}")
         }
         return TikTokLayout(feedPagerVisible, homeTabSelected, tabs, selected)
     }
@@ -6020,6 +6390,30 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (tab.getChild(index)?.isSelected == true) return true
         }
         return false
+    }
+
+    /**
+     * Balanced leaves Subscriptions open, and in YouTube's 2026 layout it is a
+     * page of the same horizontal pager as Home and Music. Its curtain only
+     * follows a settled tab, so a sideways drag held halfway showed the Home
+     * feed beside it. The pager's first scroll covers the feed at once; a drag
+     * that settles back on Subscriptions lifts it again.
+     */
+    private fun coverYouTubeFeedPagerSwipe(event: AccessibilityEvent, now: Long) {
+        if (youtubeObservedScreen != YouTubeCurtainScreen.SUBSCRIPTIONS || youtubeSubscriptionsProtected()) return
+        if (event.className?.toString()?.endsWith("ViewPager") != true) return
+        // Arriving on Subscriptions (tab tap or a finished swipe) ends with
+        // the pager's own settle scroll; that is not a new drag.
+        if (now - youtubeSubscriptionsSince < YOUTUBE_FEED_PAGER_SETTLE_MS ||
+            now - youtubeLastClickAt < YOUTUBE_FEED_PAGER_SETTLE_MS) return
+        // Without deltas (Android 8) a settling page scroll looks the same.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || event.scrollDeltaX == 0) return
+        if (youtubeCurtainState.pendingDestination == YouTubeCurtainScreen.HOME) return
+        youtubeCurtainState.request(YouTubeCurtainScreen.HOME, now)
+        youtubeOverlay.showCurtain(null, youtubeCurtainState.currentSurface, isEnglish(), preserveBounds = true)
+        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+            "youtube.feed.pager", "covered from=SUBSCRIPTIONS")
+        queueYouTubeSurfaceScan(0L)
     }
 
     private fun handleYouTube(event: AccessibilityEvent) {
@@ -6042,6 +6436,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 queueYouTubeSurfaceScan(0L)
             } else queueYouTubeContentScan()
             scheduleYouTubeOverlayForegroundCheck()
+            if (isScrollEvent) coverYouTubeFeedPagerSwipe(event, now)
             if (!isScrollEvent ||
                 ProtectionPreferences.getMode(this, ProtectedApp.YOUTUBE) == ProtectionMode.STRICT
             ) return
@@ -6057,8 +6452,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (isClickEvent) {
             youtubeLastClickAt = now
             val root = currentYouTubeRoot() ?: return
-            // Both modes share exactly the same feed/navigation curtain. Only Shorts
-            // viewing differs: strict rejects entry, balanced runs the session below.
+            // Both modes cover Home the same way; Balanced leaves Subscriptions
+            // open (youtubeFeedSurface). Shorts viewing also differs: strict
+            // rejects entry, balanced runs the session below.
             val destination = youtubeNavigationIntent(source)
             val selected = collectYouTubeNavigationSignals(root).selectedDestination
             val dispatchFeedback = destination == youtubeLastDispatchedTab &&
@@ -6095,6 +6491,21 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             listOf("reel_recycler", "reel_watch", "reel_player", "shorts_player", "shorts_video")
                 .any(id::contains)
         }
+        val direction = if (isScrollEvent) scrollDirection(event) else ScrollDirection.NONE
+        // Without a direction, the page filling the pager tells whether the
+        // viewer moved on. Read only then: each child is a remote call.
+        val visiblePagerRow = if (isScrollEvent && sourceIsShortsPager && source != null &&
+            (direction == ScrollDirection.UNDEFINED || direction == ScrollDirection.NONE)
+        ) youtubeShortsPagerRow(source) else null
+        if (ProtectionFlightRecorder.ENABLED && isScrollEvent) {
+            val deltas = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                "dx=${event.scrollDeltaX} dy=${event.scrollDeltaY}"
+            } else "dx=? dy=?"
+            ProtectionFlightRecorder.record(this, "youtube.shorts.scroll",
+                "path=${sourcePath.take(2).joinToString(">")} $deltas from=${event.fromIndex} " +
+                    "to=${event.toIndex} direction=$direction row=$visiblePagerRow " +
+                    "session=${youtubeShortsSession.state}")
+        }
         val feedTabEntry = isClickEvent && YouTubeShortsPolicy.shouldBlockEntry(
             ProtectionMode.BALANCED,
             youtubeNavigationIntent(source) == YouTubeNavigationDestination.SHORTS
@@ -6113,9 +6524,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             definitelyOutsideShorts = false,
             safeBottomSheetOpen = safeBottomSheetOpen,
             isScrollEvent = isScrollEvent,
-            hasVerticalMovement = isScrollEvent && isVerticalScroll(event),
+            hasVerticalMovement = isScrollEvent && ScrollEventPolicy.isShortsMovement(direction),
             sourceIsShortsPager = sourceIsShortsPager,
-            feedTabEntry = feedTabEntry
+            feedTabEntry = feedTabEntry,
+            visiblePagerRow = visiblePagerRow
         ))
         queueYouTubeContentScan()
         // Entering and watching the first Short stays allowed. Only a real vertical movement
@@ -6124,9 +6536,23 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         performYouTubeShortsExit()
     }
 
+    private fun youtubeShortsPagerRow(pager: AccessibilityNodeInfo): Int? {
+        val pagerBounds = Rect().also(pager::getBoundsInScreen)
+        val childBounds = Rect()
+        val rows = (0 until pager.childCount.coerceAtMost(4)).mapNotNull { index ->
+            val child = pager.getChild(index) ?: return@mapNotNull null
+            val row = child.collectionItemInfo?.rowIndex ?: return@mapNotNull null
+            child.getBoundsInScreen(childBounds)
+            YouTubeShortsPolicy.PagerRow(row, childBounds.top, childBounds.bottom)
+        }
+        return YouTubeShortsPolicy.dominantRow(rows, pagerBounds.top, pagerBounds.bottom)
+    }
+
     private fun performYouTubeShortsExit() {
         val token = youtubeShortsSession.generation
-        recordYouTubeViewerIntervention(performGlobalAction(GLOBAL_ACTION_BACK))
+        val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
+        SupportDiagnostics.record(this, SupportEvent.YOUTUBE_SHORTS, mapOf("what" to "next", "ok" to accepted))
+        recordYouTubeViewerIntervention(accepted)
 
         mainHandler.postDelayed({
             // The user may already have returned to results and opened another Short.
@@ -6150,7 +6576,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (youtubeShortsSession.isExitPending(token, SystemClock.uptimeMillis()) &&
                 signals.shortsVisible && !signals.safeBottomSheetOpen
             ) {
-                recordYouTubeViewerIntervention(performGlobalAction(GLOBAL_ACTION_BACK))
+                val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
+                SupportDiagnostics.record(this, SupportEvent.YOUTUBE_SHORTS, mapOf("what" to "retry", "ok" to accepted))
+                recordYouTubeViewerIntervention(accepted)
             }
             // Always acknowledge completion, even if the returned results page lacks the
             // expected browse IDs. EXITING must never become an unbounded allow-all state.
@@ -6361,7 +6789,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val shortsTabBounds: Rect?,
         val homeTabBounds: Rect?,
         val subscriptionsTabBounds: Rect?,
-        val youTabBounds: Rect?
+        val youTabBounds: Rect?,
+        /** Tab buttons in the bottom bar (0 when it is hidden). */
+        val itemCount: Int = 0
     )
 
     private fun collectYouTubeNavigationSignals(
@@ -6374,6 +6804,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         var homeTabBounds: Rect? = null
         var subscriptionsTabBounds: Rect? = null
         var youTabBounds: Rect? = null
+        var itemCount = 0
 
         for (bar in bars) {
             val barBounds = Rect().also(bar::getBoundsInScreen)
@@ -6381,6 +6812,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             bottomBarTop = bottomBarTop?.coerceAtMost(barBounds.top) ?: barBounds.top
 
             val items = youtubeNavigationItems(bar, barBounds)
+            itemCount = maxOf(itemCount, items.size)
             if (items.size >= 2) noteLayoutDirection(YOUTUBE_PACKAGE,
                 Rect().also(items.first()::getBoundsInScreen), Rect().also(items.last()::getBoundsInScreen))
             items.forEachIndexed { index, node ->
@@ -6405,7 +6837,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             shortsTabBounds = shortsTabBounds,
             homeTabBounds = homeTabBounds,
             subscriptionsTabBounds = subscriptionsTabBounds,
-            youTabBounds = youTabBounds
+            youTabBounds = youTabBounds,
+            itemCount = itemCount
         )
     }
 
@@ -6555,6 +6988,76 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             back, loadingBackPresent, launchNodes)
     }
 
+    /** An expanded or full-screen watch page (not the minimized player). */
+    private fun youtubeWatchSurfaceVisible(root: AccessibilityNodeInfo): Boolean =
+        // watch_player alone also exists for the miniplayer; only then
+        // are the two confirming lookups worth their remote cost.
+        findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/watch_player") != null &&
+            YouTubeUiIdentity.isConfirmedWatchSurface(
+                watchPlayerVisible = true,
+                watchPanelVisible = findVisibleNodeBounds(
+                    root, "$YOUTUBE_PACKAGE:id/watch_panel") != null,
+                inlinePlayerVisible = findVisibleNodeBounds(
+                    root, "$YOUTUBE_PACKAGE:id/inline_player_container") != null
+            )
+
+    private data class YouTubeFeedTabsSnapshot(val bounds: Rect, val selected: YouTubeFeedTab)
+
+    /** The Home feed's top tab strip and its selected page; null on any other page. */
+    private fun collectYouTubeFeedTabs(
+        root: AccessibilityNodeInfo,
+        window: Rect,
+        toolbar: YouTubeToolbarSnapshot,
+        selectedDestination: YouTubeNavigationDestination,
+        bottomBarItems: Int
+    ): YouTubeFeedTabsSnapshot? {
+        // A channel page's strip sits under Back and the channel name.
+        val backPresent = toolbar.backNode != null || toolbar.loadingBackPresent || toolbar.titled
+        if (backPresent && !ProtectionFlightRecorder.ENABLED) return null
+        val strip = cachedNodeLookup(root, "$YOUTUBE_PACKAGE:id/tabs_bar_view")
+            .firstOrNull { it.isVisibleToUser } ?: return null
+        if (backPresent) {
+            ProtectionFlightRecorder.record(this, "youtube.feed.strip",
+                "rejected back=${toolbar.backNode != null} loadingBack=${toolbar.loadingBackPresent} " +
+                    "titled=${toolbar.titled}")
+            return null
+        }
+        val bounds = Rect().also(strip::getBoundsInScreen)
+        // The strip starts at most one toolbar height below the status bar.
+        // While the toolbar slides back in its reported bounds lag the strip
+        // (toolbar [0,0][1080,136] above a strip at 217 on a Galaxy S23), so
+        // the live toolbar edge is no limit.
+        val topLimit = maxOf(window.top, statusBarInset()) + dp(56) + dp(24)
+        if (!YouTubeFeedTabs.isFeedStrip(
+                bounds.left, bounds.top, bounds.right, bounds.bottom,
+                window.left, window.right, window.height(), topLimit,
+                backPresent = false, selectedDestination = selectedDestination
+            )) {
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "youtube.feed.strip", "rejected strip=$bounds toolbar=${toolbar.bounds} " +
+                    "limit=$topLimit selected=$selectedDestination")
+            return null
+        }
+        // The tabs are siblings, so breadth-first order is their layout order.
+        // Tabs scrolled out of the strip are still in the tree and still count.
+        var tabCount = 0
+        var selectedIndex = -1
+        val pending = ArrayDeque<AccessibilityNodeInfo>()
+        pending.addLast(strip)
+        var visited = 0
+        while (pending.isNotEmpty() && visited++ < 80) {
+            val node = pending.removeFirst()
+            if (compactId(node.viewIdResourceName) == "tabs_bar_text_tab_view") {
+                if (node.isSelected && selectedIndex < 0) selectedIndex = tabCount
+                tabCount++
+                continue
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(pending::addLast)
+        }
+        return YouTubeFeedTabsSnapshot(bounds,
+            YouTubeFeedTabs.tabAt(selectedIndex, tabCount, bottomBarItems))
+    }
+
     private fun collectYouTubeCurtainSignals(root: AccessibilityNodeInfo): YouTubeUiSignals {
         val navigation = collectYouTubeNavigationSignals(root)
         val window = Rect().also(root::getBoundsInScreen)
@@ -6575,7 +7078,23 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 ) && it.height() >= window.height() / 2
             } == true
         }
-        val needsSecondaryProbe = !homeToolbar && !shorts && !search
+        // YouTube's 2026 layout: the feed's top tab strip names Home and
+        // Subscriptions, and outlives the logo when a drag collapses the
+        // toolbar. Without it that frame read as a channel page and the
+        // curtain lifted off the Home feed.
+        val feedTabs = if (!shorts && !search) {
+            collectYouTubeFeedTabs(root, window, toolbarSnapshot, navigation.selectedDestination,
+                navigation.itemCount)
+        } else null
+            // An expanded player hides the bottom bar and covers the feed, whose
+            // strip still reports visible underneath. Only then is the bar
+            // missing, so only then are the watch lookups worth their cost.
+            ?.takeUnless {
+                navigation.selectedDestination == YouTubeNavigationDestination.UNKNOWN &&
+                    youtubeWatchSurfaceVisible(root)
+            }
+        val feedFrame = homeToolbar || feedTabs != null
+        val needsSecondaryProbe = !feedFrame && !shorts && !search
         val profileVisible = needsSecondaryProbe &&
             navigation.selectedDestination == YouTubeNavigationDestination.YOU &&
             findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/collapsing_header_container")?.let {
@@ -6590,32 +7109,29 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 // toolbar titled with the channel or playlist name. Home and
                 // Subscriptions have no such header. A channel's tab strip
                 // (Home/Videos/Shorts/...) stays pinned if the header ever
-                // scrolls out of view.
+                // scrolls out of view. The Home feed's own strip never gets
+                // here: it already made this a feed frame above.
                 listOf("collapsing_header_container", "tabs_bar_view").any { id ->
                     findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/$id")?.let {
                         YouTubeUiIdentity.hasMeaningfulHorizontalPresence(
                             it.left, it.right, window.left, window.right)
                     } == true
                 } ||
-                // watch_player alone also exists for the miniplayer; only then
-                // are the two confirming lookups worth their remote cost.
-                (findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/watch_player") != null &&
-                    YouTubeUiIdentity.isConfirmedWatchSurface(
-                        watchPlayerVisible = true,
-                        watchPanelVisible = findVisibleNodeBounds(
-                            root, "$YOUTUBE_PACKAGE:id/watch_panel") != null,
-                        inlinePlayerVisible = findVisibleNodeBounds(
-                            root, "$YOUTUBE_PACKAGE:id/inline_player_container") != null
-                    )) ||
+                youtubeWatchSurfaceVisible(root) ||
                 // The Shorts creation flow (camera, mode switcher, post-record
                 // editor) is an allowed surface. Its window replaces the feed,
                 // so the curtain must lift instead of being retained for an
                 // unclassified tree (the + button opened the camera under it).
                 // Those full-screen pages hide the bottom navigation; while the
                 // bar is visible the five lookups cannot match and are skipped.
+                // YouTube's own "Update your app" page (NewVersionAvailableActivity)
+                // also has no bottom bar. Unclassified, it kept the Home curtain,
+                // stretched to the bottom, over its Update button. Only its
+                // description id is used: install buttons also appear in feed ads.
                 (navigation.bottomBarTop == null && listOf(
                     "reel_camera_layout", "camera_preview", "record_button_view",
-                    "creation_modes_container", "editor_tool_button_icon"
+                    "creation_modes_container", "editor_tool_button_icon",
+                    "upgrade_details"
                 ).any { findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/$it") != null })
             )
         // A titled page is told apart by how it was reached, never by its
@@ -6633,7 +7149,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             (toolbarSnapshot.titled || structurallyOtherAllowed)
         // A minimized long video stays usable above a covered feed: the user
         // must be able to expand, pause or close what they chose to watch.
-        val miniplayer = if (homeToolbar) {
+        val miniplayer = if (feedFrame) {
             YouTubeFeedGeometry.miniplayerCutout(
                 controls = findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/floaty_bar_controls_view"),
                 window = window
@@ -6641,17 +7157,17 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         } else null
         val screen = YouTubeScreenClassifier.classify(
             navigation.selectedDestination, homeToolbar, profileVisible,
-            search, notifications, otherAllowed, shorts
+            search, notifications, otherAllowed, shorts, feedTabs?.selected
         )
         if (ProtectionFlightRecorder.ENABLED) {
             val signature = "$screen|$search|$notifications|$otherAllowed|$homeToolbar|" +
-                "${navigation.selectedDestination}"
+                "${navigation.selectedDestination}|${feedTabs?.selected}|${feedTabs?.bounds}"
             if (signature != lastYouTubeSignalsSignature) {
                 lastYouTubeSignalsSignature = signature
                 ProtectionFlightRecorder.record(this, "youtube.signals",
                     "screen=$screen search=$search notif=$notifications other=$otherAllowed " +
                         "home=$homeToolbar selected=${navigation.selectedDestination} " +
-                        "shorts=$shorts")
+                        "shorts=$shorts feedTab=${feedTabs?.selected} strip=${feedTabs?.bounds}")
             }
         }
         val toolbar = toolbarSnapshot.bounds
@@ -6662,15 +7178,17 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 toolbar != null, navigation.bottomBarTop != null, navigation.selectedDestination),
             bottomBarScrolledAway = YouTubeFeedGeometry.bottomBarScrolledAway(
                 navigation.bottomBarTop != null),
-            tappableBottomInset = tappableBottomInset()
+            tappableBottomInset = tappableBottomInset(),
+            // Strict covers Subscriptions as well, so the strip stays covered.
+            openFeedTabsBottom = feedTabs?.bounds?.bottom?.takeIf { !youtubeSubscriptionsProtected() }
         )
         val backBounds = if (screen == YouTubeCurtainScreen.SEARCH ||
             screen == YouTubeCurtainScreen.NOTIFICATIONS ||
-            (screen == YouTubeCurtainScreen.UNKNOWN && !homeToolbar)
+            (screen == YouTubeCurtainScreen.UNKNOWN && !feedFrame)
         ) toolbarSnapshot.backNode?.let {
             Rect().also(it::getBoundsInScreen)
         } ?: toolbar?.takeIf {
-            screen == YouTubeCurtainScreen.UNKNOWN && !homeToolbar && toolbarSnapshot.loadingBackPresent
+            screen == YouTubeCurtainScreen.UNKNOWN && !feedFrame && toolbarSnapshot.loadingBackPresent
         }?.let { leftToRight(Rect(window.left, it.top, window.left + dp(56), it.bottom), window, YOUTUBE_PACKAGE) }
             // The search-suggestions page (before a query is submitted) draws
             // its Back arrow outside the "toolbar" view; without this its
@@ -6691,7 +7209,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             definiteBrowseSurface = !shorts && screen != YouTubeCurtainScreen.UNKNOWN,
             protectedSurface = when (screen) {
                 YouTubeCurtainScreen.HOME -> YouTubeProtectedSurface.HOME
-                YouTubeCurtainScreen.SUBSCRIPTIONS -> YouTubeProtectedSurface.SUBSCRIPTIONS
+                YouTubeCurtainScreen.SUBSCRIPTIONS ->
+                    youtubeFeedSurface(YouTubeNavigationDestination.SUBSCRIPTIONS)
                 else -> null
             },
             feedViewportBounds = viewport,
@@ -6707,8 +7226,11 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 // left above it turned a tap on the player's Close button
                 // into opening Search.
                 miniplayer == null || !Rect.intersects(bounds, miniplayer)
-            }.takeIf { screen in setOf(YouTubeCurtainScreen.HOME, YouTubeCurtainScreen.SUBSCRIPTIONS) }
-                ?: emptyMap(),
+            }.takeIf {
+                // Only a covered feed needs its toolbar taps captured first.
+                screen == YouTubeCurtainScreen.HOME || (screen == YouTubeCurtainScreen.SUBSCRIPTIONS &&
+                    youtubeFeedSurface(YouTubeNavigationDestination.SUBSCRIPTIONS) != null)
+            } ?: emptyMap(),
             selectedDestination = navigation.selectedDestination,
             searchSurfaceVisible = search,
             allowedSecondarySurfaceVisible = notifications || otherAllowed,
@@ -6720,15 +7242,44 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         )
     }
 
+    /** [root] is a YouTube pop-up (offer, menu, dialog) above YouTube's main window. */
+    private fun isYouTubePopUpOverMain(root: AccessibilityNodeInfo): Boolean {
+        if (root.packageName?.toString() != YOUTUBE_PACKAGE) return false
+        val hasTabBar = findVisibleNodeBounds(root, "$YOUTUBE_PACKAGE:id/pivot_bar") != null
+        if (hasTabBar) return false
+        val others = windows.count { window ->
+            window.type == AccessibilityWindowInfo.TYPE_APPLICATION && window.id != root.windowId &&
+                (windowPackages[window.id] ?: window.root?.packageName?.toString()
+                    ?.also { windowPackages[window.id] = it }) == YOUTUBE_PACKAGE
+        }
+        return YouTubeSurfacePolicy.isPopUpOverMain(hasTabBar, others)
+    }
+
     private fun refreshYouTubeSurfaceProtection(root: AccessibilityNodeInfo) {
         if (youtubeOverlay.isSystemUiSuspended) {
-            if (focusedNonOverlayPackage() != YOUTUBE_PACKAGE) return
+            // An unreadable focused dialog (permission prompt) also reports
+            // YouTube here through its active-window fallback; YouTube's own
+            // pop-ups keep the windows hidden until they close.
+            if (focusedNonOverlayPackage() != YOUTUBE_PACKAGE || focusedAppWindowUnreadable() ||
+                isYouTubePopUpOverMain(root)) return
             youtubeOverlay.setSystemUiSuspended(false)
         }
         if (root.packageName?.toString() != YOUTUBE_PACKAGE ||
             !ProtectionPreferences.isEnabled(this, ProtectedApp.YOUTUBE)
         ) {
             resetYouTubeProtection()
+            return
+        }
+        if (isYouTubePopUpOverMain(root)) {
+            // Step aside like for the notification shade: the pop-up is modal,
+            // the dimmed feed behind it cannot be scrolled, and its own
+            // dismissal brings YouTube's main window back into focus.
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "youtube.popup", "suspended window=${root.windowId}")
+            SupportDiagnostics.record(this, SupportEvent.STEPPED_ASIDE,
+                mapOf("app" to "youtube", "why" to "popup"))
+            youtubeOverlay.setSystemUiSuspended(true)
+            scheduleYouTubeOverlayForegroundCheck()
             return
         }
         val collectStarted = SystemClock.uptimeMillis()
@@ -6753,7 +7304,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 sourceIsShortsPager = false,
                 feedTabEntry = YouTubeShortsPolicy.shouldBlockEntry(
                     ProtectionMode.BALANCED,
-                    fromShortsTab = SystemClock.uptimeMillis() < youtubeShortsTabClickUntil
+                    fromShortsTab = YouTubeShortsPolicy.isShortsTabEntry(
+                        recentTabClick = SystemClock.uptimeMillis() < youtubeShortsTabClickUntil,
+                        selected = signals.selectedDestination,
+                        shortsVisible = signals.shortsVisible)
                 )
             )
         )
@@ -6776,6 +7330,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         val previousScreen = youtubeObservedScreen
         youtubeObservedScreen = signals.screen
+        if (signals.screen == YouTubeCurtainScreen.SUBSCRIPTIONS &&
+            previousScreen != YouTubeCurtainScreen.SUBSCRIPTIONS
+        ) youtubeSubscriptionsSince = now
         if (signals.screen == YouTubeCurtainScreen.OTHER_ALLOWED &&
             youtubeLastVerifiedScreen == YouTubeCurtainScreen.NOTIFICATIONS
         ) youtubeNotificationChildOpen = true
@@ -6793,11 +7350,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         ) {
             // The Back arrow can be usable before the secondary page title has settled.
             // Arm its return guard during loading too, not only after Notifications is named.
-            youtubeAllowedReturnSurface = when (youtubeLastStableDestination) {
-                YouTubeNavigationDestination.HOME -> YouTubeProtectedSurface.HOME
-                YouTubeNavigationDestination.SUBSCRIPTIONS -> YouTubeProtectedSurface.SUBSCRIPTIONS
-                else -> null
-            }
+            youtubeAllowedReturnSurface = youtubeFeedSurface(youtubeLastStableDestination)
         }
         // Conservative coverage while a Home/Subscriptions tab is selected is
         // only safe when the feed itself was the last verified surface. If the
@@ -6832,7 +7385,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // The selected tab also survives behind Search/Notifications while their toolbar
             // loads. Cover UNKNOWN conservatively, but do not invent a navigation request:
             // the next verified secondary page must release coverage without a timeout.
-            youtubeCurtainState.observe(signals.selectedDestination.curtainScreen(), now)
+            // Subscriptions in the feed's top strip keeps the bottom Home tab
+            // selected: a video opening from it must not flash the Home curtain.
+            val feedScreen = if (signals.selectedDestination == YouTubeNavigationDestination.HOME &&
+                youtubeLastVerifiedScreen == YouTubeCurtainScreen.SUBSCRIPTIONS
+            ) YouTubeCurtainScreen.SUBSCRIPTIONS else signals.selectedDestination.curtainScreen()
+            youtubeCurtainState.observe(feedScreen, now)
         }
         if (signals.screen == YouTubeCurtainScreen.SHORTS && youtubeCurtainState.isPending) {
             youtubeCurtainState.clear()
@@ -6861,7 +7419,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         when (signals.screen) {
             YouTubeCurtainScreen.HOME, YouTubeCurtainScreen.SUBSCRIPTIONS -> {
-                youtubeLastStableDestination = signals.selectedDestination
+                // The page, not the bottom tab: Subscriptions in the feed's top
+                // strip keeps the bottom Home tab selected.
+                youtubeLastStableDestination = if (signals.screen == YouTubeCurtainScreen.HOME)
+                    YouTubeNavigationDestination.HOME else YouTubeNavigationDestination.SUBSCRIPTIONS
                 youtubeAllowedReturnBounds = signals.feedViewportBounds?.let(::Rect)
             }
             YouTubeCurtainScreen.YOU -> {
@@ -6870,11 +7431,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             }
             YouTubeCurtainScreen.SEARCH, YouTubeCurtainScreen.NOTIFICATIONS -> {
                 if (previousScreen != signals.screen && youtubeAllowedReturnSurface == null) {
-                    youtubeAllowedReturnSurface = when (youtubeLastStableDestination) {
-                        YouTubeNavigationDestination.HOME -> YouTubeProtectedSurface.HOME
-                        YouTubeNavigationDestination.SUBSCRIPTIONS -> YouTubeProtectedSurface.SUBSCRIPTIONS
-                        else -> null
-                    }
+                    youtubeAllowedReturnSurface = youtubeFeedSurface(youtubeLastStableDestination)
                 }
             }
             else -> Unit
@@ -6886,7 +7443,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // A Shorts entry is covered in strict mode and when a real tab tap just
         // slipped through the guard; an intentionally opened link/search Short
         // stays uncovered in balanced mode and runs the single-video session.
-        val shortsTabEntry = now < youtubeShortsTabClickUntil
+        val shortsTabEntry = YouTubeShortsPolicy.isShortsTabEntry(
+            recentTabClick = now < youtubeShortsTabClickUntil,
+            selected = signals.selectedDestination,
+            shortsVisible = signals.shortsVisible)
         val blockedShorts = signals.screen == YouTubeCurtainScreen.SHORTS &&
             YouTubeShortsPolicy.shouldBlockEntry(
                 ProtectionPreferences.getMode(this, ProtectedApp.YOUTUBE),
@@ -6900,7 +7460,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // secondary pages (Notifications, Search) are definitive: their curtain
         // lifts on the first verified frame so the return never feels late.
         val definitiveSecondary = signals.screen == YouTubeCurtainScreen.SEARCH ||
-            signals.screen == YouTubeCurtainScreen.NOTIFICATIONS
+            signals.screen == YouTubeCurtainScreen.NOTIFICATIONS ||
+            youtubeCurtainState.resolvedOnFullScreenAllowedPage
         val showSurface = if (effectiveSurface == null) {
             if (definitiveSecondary) {
                 youtubeAllowedFlipSince = 0L
@@ -6991,7 +7552,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         traceYouTubeProtection("observed")
         if (blockedShorts && now - youtubeStrictShortsExitAt >= 600L) {
             youtubeStrictShortsExitAt = now
-            recordYouTubeViewerIntervention(performGlobalAction(GLOBAL_ACTION_BACK))
+            val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
+            SupportDiagnostics.record(this, SupportEvent.YOUTUBE_SHORTS, mapOf("what" to "blocked", "ok" to accepted, "fromtab" to shortsTabEntry))
+            recordYouTubeViewerIntervention(accepted)
             queueYouTubeSurfaceScan(96L)
         }
         scheduleYouTubeOverlayForegroundCheck()
@@ -7142,6 +7705,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM) && retained != null &&
             matchesRetainedInstagramFeed(root, retained.first)) {
             clearInstagramResumeProtection()
+            instagramOverlay.supportReason = "shade"
             if (instagramOverlay.show(retained.second, retained.first, isEnglish())) {
                 Log.d(TAG, "IG_SHADE_FAST_RETURN screen=${retained.first} " +
                     "elapsedMs=${SystemClock.uptimeMillis() - started}")
@@ -7200,14 +7764,20 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     /** The protected app whose curtains were removed for the task switcher. */
     private var taskSwitcherOwner: String? = null
+    /** Debug flight log: the last pop-up/split Instagram root, logged once per change. */
+    private var lastWindowedInstagramRoot: Rect? = null
+
+    /** The window covers the display from its top-left corner (not a pop-up). */
+    private fun isFullscreenWindow(bounds: Rect): Boolean {
+        val display = currentDisplayBounds()
+        return TaskSwitcherPolicy.isFullscreen(bounds.left - display.left, bounds.top - display.top,
+            bounds.right - display.left, bounds.bottom - display.top, display.width(), display.height())
+    }
 
     private fun isTaskSwitcherShowing(activeRoot: AccessibilityNodeInfo?): Boolean {
         val switchers = taskSwitcherPackages
         if (switchers.isEmpty() || activeRoot == null) return false
-        val display = currentDisplayBounds()
-        val active = Rect().also(activeRoot::getBoundsInScreen)
-        val fullscreen = TaskSwitcherPolicy.isFullscreen(
-            active.width(), active.height(), display.width(), display.height())
+        val fullscreen = isFullscreenWindow(Rect().also(activeRoot::getBoundsInScreen))
         if (!fullscreen) return false
         val packages = windows.filter {
             it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.id != activeRoot.windowId
@@ -7223,6 +7793,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             ProtectionFlightRecorder.record(this, "task.switcher", "enter owner=$owner")
         }
         taskSwitcherOwner = owner
+        SupportDiagnostics.record(this, SupportEvent.RECENTS_OPENED,
+            mapOf("app" to supportAppName(owner)))
         when (owner) {
             INSTAGRAM_PACKAGE -> {
                 suspendInstagramProtection()
@@ -7257,6 +7829,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 ProtectionFlightRecorder.record(this@AntiScrollService, "task.switcher",
                     "leave owner=$owner active=$activePkg")
             }
+            SupportDiagnostics.record(this@AntiScrollService, SupportEvent.RECENTS_CLOSED,
+                mapOf("app" to supportAppName(owner), "back" to (activePkg == owner)))
             // Another app: its own events route normally from here.
             if (activePkg != owner) return
             trackPackageTransition(owner)
@@ -7479,13 +8053,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         return false
     }
 
-    private fun isVerticalScroll(event: AccessibilityEvent): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-            (event.scrollDeltaX != 0 || event.scrollDeltaY != 0)
-        ) {
-            return abs(event.scrollDeltaY) >= abs(event.scrollDeltaX)
-        }
-        return event.fromIndex >= 0 && event.toIndex >= 0 && event.fromIndex != event.toIndex
+    private fun scrollDirection(event: AccessibilityEvent): ScrollDirection {
+        // Scroll deltas exist from Android 9; minSdk is 8.0, where only the
+        // item indexes can tell a move.
+        val hasDeltas = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+        return ScrollEventPolicy.direction(
+            dx = if (hasDeltas) event.scrollDeltaX else 0,
+            dy = if (hasDeltas) event.scrollDeltaY else 0,
+            fromIndex = event.fromIndex,
+            toIndex = event.toIndex)
     }
 
     private fun sourcePathIds(source: AccessibilityNodeInfo?, maxDepth: Int): List<String> {
@@ -7639,6 +8215,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // The grid climbed above the curtain edge (a header fling). Raise
             // the edge first: the viewer probes below cost 100-200 ms, during
             // which the first grid row was visible. Exact geometry follows.
+            supportCurtainReason = "profile"
             showInstagramCurtain(Rect(mounted.left, maxOf(bounds.top, window.top), mounted.right,
                 mounted.bottom), InstagramScreen.PROFILE)
         }
@@ -8278,7 +8855,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val selectedTab = selectedInstagramMainTab(current)
         if (!instagramProtectedNavigation.acceptsDispatch(
                 request, now, current.windowId, selectedTab)) return
-        val accepted = selectedTab == request.tab || performInstagramTabAction(current, targetId)
+        val onTabRoot = lastInstagramScreen == when (request.tab) {
+            InstagramTab.HOME -> InstagramScreen.HOME_FEED
+            else -> InstagramScreen.EXPLORE
+        }
+        val accepted = !instagramProtectedNavigation.shouldForwardTap(request, selectedTab, onTabRoot) ||
+            performInstagramTabAction(current, targetId)
         if (accepted) {
             instagramProtectedNavigation.markDispatched(request)
             if (request.tab == InstagramTab.HOME) {
@@ -8518,6 +9100,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         } else {
             InstagramScreen.EXPLORE
         }
+        supportCurtainReason = "tab"
         val shown = showInstagramCurtain(bounds, screen)
         if (shown && tab == InstagramTab.HOME) {
             // Tab navigation is not a feed fling. Keep the conservative cover
@@ -8736,6 +9319,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 stableHomeSamples = 0
             }
         }
+        supportCurtainReason = "scroll"
         showInstagramCurtain(measured, InstagramScreen.HOME_FEED)
         return true
     }
@@ -8889,6 +9473,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val barTop = attachedBounds("tab_bar")
             .filter { it.width() >= window.width() / 2 }
             .minOfOrNull { it.top }
+        // Large-screen layout: the tabs live in a side rail, so the lower tabs
+        // are not a bottom bar. Nothing but system buttons sits at the bottom.
+        val sideRail = if (barTop == null) instagramSideRail(root, window) else null
+        instagramOverlay.updateSideNavigation(sideRail)
+        if (sideRail != null) {
+            return InstagramSideNavigation.bottomWithoutBottomBar(window.bottom, tappableBottomInset())
+                .coerceIn(window.centerY() + 1, window.bottom)
+        }
         val tabTop = if (barTop == null) {
             listOf("feed_tab", "clips_tab", "direct_tab", "search_tab", "profile_tab")
                 .flatMap(::attachedBounds)
@@ -8909,6 +9501,32 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             fallbackInset = dp(48),
             contentBottom = profileContentBottom
         )
+    }
+
+    private val instagramSideRailProbe = InstagramSideRailProbe()
+
+    /**
+     * Instagram's large-screen tab rail, when this window shows one. Probed at
+     * most every [InstagramSideRailProbe.MAX_AGE_MS] per window and size, so
+     * phones whose tab bar is scrolled away pay almost nothing. Visibility is
+     * not required: our own curtain makes the covered rail report invisible,
+     * so its shape decides.
+     */
+    private fun instagramSideRail(root: AccessibilityNodeInfo, window: Rect): Rect? {
+        val now = SystemClock.uptimeMillis()
+        instagramSideRailProbe.cached(root.windowId, window.width(), window.height(), now)?.let {
+            return it.rail?.let { r -> Rect(r.left, r.top, r.right, r.bottom) }
+        }
+        val windowSample = window.toInstagramGeometrySample()
+        val rail = InstagramSideNavigation.railIds.firstNotNullOfOrNull { id ->
+            cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/$id")
+                .map { Rect().also(it::getBoundsInScreen).toInstagramGeometrySample() }
+                .firstNotNullOfOrNull { InstagramSideNavigation.rail(it, windowSample, dp(8)) }
+        }
+        instagramSideRailProbe.store(root.windowId, window.width(), window.height(), rail, now)
+        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this, "instagram.rail.probe",
+            "window=${root.windowId} size=${window.width()}x${window.height()} rail=$rail")
+        return rail?.let { Rect(it.left, it.top, it.right, it.bottom) }
     }
 
     private fun onInstagramOverlayTouched() {
@@ -9221,6 +9839,23 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 InstagramScreen.DIRECT_SHARED_MEDIA, InstagramScreen.PROFILE,
                 InstagramScreen.SAVED_COLLECTION, InstagramScreen.NOTIFICATIONS,
                 InstagramScreen.CREATION, InstagramScreen.STORY)) {
+            // A side trip from an allowed Reel (the viewer's "+" camera, the
+            // author's profile) opens another window over the viewer; coming
+            // back shows the same viewer window. Keep its ingress for that
+            // return, exactly as for a visit outside Instagram.
+            val viewerWindowId = allowedReelWindowId()
+            if (InstagramReelShadeHold.holdsOnInAppSideTrip(
+                    previous = previous,
+                    viewerWindowId = viewerWindowId,
+                    destinationWindowId = windowId,
+                    watching = instagramReelsSession.watching,
+                    exiting = instagramReelsSession.exiting,
+                    mode = ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM))) {
+                instagramReelShadeHold.hold(viewerWindowId, instagramBalancedReelOrigin,
+                    SystemClock.uptimeMillis())
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                    "instagram.balanced.reel", "held=side-trip to=$screen window=$viewerWindowId")
+            }
             instagramReelsSession.observe(ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM),
                 viewerVisible = false, verifiedOutside = true)
         }
@@ -9270,8 +9905,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         instagramBalancedProfilePost.observeVerifiedSurface(screen, SystemClock.uptimeMillis())
         val decision = instagramStateMachine.observe(screen, windowId,
-            allowChosenReel = !instagramStoriesBlocked() && instagramReelsSession.watching &&
-                !instagramReelsSession.exiting,
+            // Strict never allows; Balanced allows only the viewer window the
+            // chosen Reel was verified in (not a Reel opened on top of it).
+            allowChosenReel = !instagramStoriesBlocked() &&
+                InstagramBalancedReelIngressPolicy.keepsVerifiedSession(
+                    ProtectionMode.BALANCED, instagramReelsSession.watching,
+                    instagramReelsSession.exiting, viewerWindowId = windowId,
+                    verifiedWindowId = instagramReelsVerifiedWindowId,
+                    rebindAllowed = SystemClock.uptimeMillis() < instagramReelWindowRebindUntil),
             allowProfile = !instagramProfilePostsBlocked(),
             allowChosenProfilePost = instagramBalancedProfilePost.watching ||
                 instagramBalancedNotificationPostWatching,
@@ -9285,6 +9926,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     "from=$previous to=${decision.screen} window=$windowId " +
                         "revision=${decision.revision} action=${decision.action}")
             }
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_SCREEN,
+                mapOf("from" to previous, "to" to decision.screen, "action" to decision.action))
         }
         if (screen != InstagramScreen.UNKNOWN) {
             lastInstagramScreen = decision.screen
@@ -9306,6 +9949,23 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         return decision
     }
 
+    /** Consecutive foreground checks that found a focused, unreadable app window. */
+    private var unreadableForegroundChecks = 0
+
+    /** The same count for YouTube's foreground check. */
+    private var youtubeUnreadableForegroundChecks = 0
+
+    /**
+     * Protection was suspended for an unreadable dialog over Instagram. Instagram
+     * keeps publishing content events behind it; no curtain may be redrawn over
+     * the dialog until Instagram's own window has focus again.
+     */
+    private var instagramUnreadableForeground = false
+
+    private fun focusedAppWindowUnreadable(): Boolean =
+        windows.firstOrNull { it.isFocused && it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?.let { it.root == null } == true
+
     private fun scheduleOverlayForegroundCheck() {
         if (overlayForegroundCheckScheduled) return
         overlayForegroundCheckScheduled = true
@@ -9314,7 +9974,25 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     private fun showInstagramCurtain(bounds: Rect?, screen: InstagramScreen): Boolean {
+        // Support log: why this curtain is shown. Callers that are not plain
+        // screen recognition set supportCurtainReason right before calling.
+        val reason = supportCurtainReason
+        supportCurtainReason = "screen"
         if (bounds == null) return false
+        if (isMeasuredInScaledInstagramTask(bounds)) {
+            // Pixel's Recents shows Instagram as a live, scaled-down card and
+            // reports its nodes at that size. A curtain laid out there stays
+            // card-sized after returning (Pixel 11 Pro ticket). Wait until the
+            // window is full size again; the foreground check handles Recents.
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.curtain.reject", "screen=$screen bounds=$bounds reason=scaled-task")
+            scheduleOverlayForegroundCheck()
+            return false
+        }
+        if (instagramUnreadableForeground) {
+            if (focusedAppWindowUnreadable()) return false
+            instagramUnreadableForeground = false
+        }
         if (screen == InstagramScreen.PROFILE) {
             if (ProtectionFlightRecorder.ENABLED) {
                 val callers = Throwable().stackTrace.drop(1).take(3)
@@ -9357,11 +10035,13 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // verified rectangle each frame snaps the attached window back to
             // application coordinates without exposing the Instagram surface.
             return retained?.let { (retainedScreen, retainedBounds) ->
+                instagramOverlay.supportReason = reason
                 instagramOverlay.show(
                     retainedBounds, retainedScreen, isEnglish(), forceRelayout = true)
             } ?: false
         }
         mainHandler.removeCallbacks(instagramResumeRescan)
+        instagramOverlay.supportReason = reason
         return instagramOverlay.show(bounds, screen, isEnglish()).also { shown ->
             if (shown) lastVerifiedInstagramCurtain = screen to Rect(bounds)
             if (shown) {
@@ -9389,13 +10069,16 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val retained = lastVerifiedInstagramCurtain
             ?.takeIf { (retainedScreen, retainedBounds) ->
                 retainedScreen == screen && retainedBounds.width() == display.width() &&
-                    display.contains(retainedBounds)
+                    display.contains(retainedBounds) &&
+                    InstagramResumeCurtainPolicy.canReuse(screen, retainedBounds.bottom,
+                        stableMainNavigationTop(root, window, screen), dp(24))
             }
             ?.second
         val bounds = retained ?: conservativeInstagramResumeBounds(root, window, screen) ?: return
         currentInstagramWindowId = root.windowId
         val now = SystemClock.uptimeMillis()
         instagramResumeGeometryGate.begin(screen, root.windowId, now)
+        instagramOverlay.supportReason = "resume"
         if (instagramOverlay.show(bounds, screen, isEnglish(), forceRelayout = true)) {
             instagramResumePending = false
             mainHandler.removeCallbacks(instagramResumeRescan)
@@ -9403,6 +10086,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             scheduleOverlayForegroundCheck()
             Log.d(TAG, "IG_V2_RESUME_GUARD screen=$screen window=${root.windowId} " +
                 "retained=${retained != null} bounds=$bounds")
+            SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_RESUME_CURTAIN, mapOf("screen" to screen))
         }
     }
 
@@ -9505,15 +10189,20 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     private fun suspendInstagramProtection(destination: String? = null) {
-        // SystemUI panels (shade, quick settings, volume) return to the same
-        // viewer; an allowed Balanced Reel must survive the visit.
-        if (destination == "com.android.systemui" && lastInstagramScreen == InstagramScreen.REELS &&
-            instagramReelsSession.watching && !instagramReelsSession.exiting &&
-            ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) == ProtectionMode.BALANCED) {
-            instagramReelShadeHold.hold(instagramStateMachine.currentWindowId,
+        // Any visit outside Instagram (shade, Recents, home, another app) can
+        // return to the same viewer; an allowed Balanced Reel must survive it.
+        // On return its Back control is not yet published, so without the hold
+        // the Reel had no ingress and was closed at once.
+        if (InstagramReelShadeHold.holdsOnDeparture(
+                screen = lastInstagramScreen,
+                watching = instagramReelsSession.watching,
+                exiting = instagramReelsSession.exiting,
+                mode = ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM))) {
+            instagramReelShadeHold.hold(allowedReelWindowId(),
                 instagramBalancedReelOrigin, SystemClock.uptimeMillis())
             if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
-                "instagram.balanced.reel", "held=shade window=${instagramStateMachine.currentWindowId}")
+                "instagram.balanced.reel",
+                "held=departure to=$destination window=${allowedReelWindowId()}")
         }
         if (instagramOverlay.isNotificationShadeSuspended) {
             Log.d(TAG, "IG_SHADE_FULL_SUSPEND root=${rootInActiveWindow?.packageName} " +
@@ -9542,6 +10231,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE ||
             !ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM) ||
             instagramOverlay.visibleCurtain() != null || taskSwitcherOwner != null) return@Runnable
+        // A permission dialog still has focus: Instagram's own return event
+        // restores protection once the dialog is answered.
+        if (InstagramSurfacePolicy.foreignFocusedPackage(INSTAGRAM_PACKAGE,
+                focusedNonOverlayPackage()) != null) return@Runnable
         instagramResumePending = true
         beginInstagramResumeProtection(root)
         scheduleOverlayForegroundCheck()
@@ -9555,6 +10248,54 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         lastInstagramScreen = InstagramScreen.UNKNOWN
         lastVerifiedInstagramCurtain = null
         instagramOverlay.hideAll()
+    }
+
+    /**
+     * Instagram is being moved into Pixel's Recents (or shown there as a live
+     * card): its nodes are reported at the shrinking card's size while the
+     * curtain is still mounted. Moving the curtain to that geometry left it
+     * card-sized after returning (Pixel 11 Pro ticket). Seen on the Android 16
+     * emulator: the window itself stays full size, the home app becomes visible
+     * behind it, and only the nodes shrink (tab bar 2248 -> 1965 -> 1903).
+     */
+    private fun isMeasuredInScaledInstagramTask(bounds: Rect): Boolean {
+        val mounted = instagramOverlay.visibleCurtain()
+        // Only a move of a mounted curtain is held back; a first curtain (e.g.
+        // Instagram in a pop-up window over the home screen) still mounts.
+        if (mounted == null || mounted.second == bounds) return false
+        val root = rootInActiveWindow ?: return false
+        val activePackage = root.packageName?.toString()
+        if (activePackage in taskSwitcherPackages) {
+            // Reproduced on the Pixel emulator: a slow scan that started on
+            // Instagram finished after the home app took over, with the
+            // card-sized geometry (0,787-1080,1606). Mounted and saved as the
+            // last verified curtain, it came back card-sized on return.
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.recents.hold", "active=$activePackage mounted=${mounted.second} new=$bounds")
+            return true
+        }
+        if (activePackage != INSTAGRAM_PACKAGE) return false
+        // A pop-up window over the home screen also has the home app behind
+        // it; only a fullscreen Instagram window with the home app visible is
+        // the Recents transition. The pop-up's curtain must keep following it.
+        val window = Rect().also(root::getBoundsInScreen)
+        val homeBehind = isFullscreenWindow(window) && isHomeAppVisibleBehind(root)
+        if (homeBehind && ProtectionFlightRecorder.ENABLED) {
+            ProtectionFlightRecorder.record(this, "instagram.recents.hold",
+                "root=$window mounted=${mounted.second} new=$bounds")
+        }
+        return homeBehind
+    }
+
+    /** A home-app window is visible behind the active Instagram window. */
+    private fun isHomeAppVisibleBehind(root: AccessibilityNodeInfo): Boolean {
+        val switchers = taskSwitcherPackages
+        if (switchers.isEmpty()) return false
+        return windows.any { window ->
+            window.type == AccessibilityWindowInfo.TYPE_APPLICATION && window.id != root.windowId &&
+                (windowPackages[window.id] ?: window.root?.packageName?.toString()
+                    ?.also { windowPackages[window.id] = it }) in switchers
+        }
     }
 
     private fun instagramWindowBounds(root: AccessibilityNodeInfo): Rect {
@@ -9662,6 +10403,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (ProtectionFlightRecorder.ENABLED) {
             ProtectionFlightRecorder.record(this, "service.unbind")
         }
+        SupportDiagnostics.record(this, SupportEvent.SERVICE_UNBOUND)
         hideInstagramProtection()
         youtubeOverlay.hideAll()
         AccessibilityStreakPolicy.onServiceDisconnected(this)
@@ -9673,6 +10415,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (ProtectionFlightRecorder.ENABLED) {
             ProtectionFlightRecorder.record(this, "service.destroy")
         }
+        SupportDiagnostics.record(this, SupportEvent.SERVICE_DESTROYED)
         hideInstagramProtection()
         youtubeOverlay.hideAll()
         AccessibilityStreakPolicy.onServiceDisconnected(this)
@@ -9701,6 +10444,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (ProtectionFlightRecorder.ENABLED) {
             ProtectionFlightRecorder.record(this, "service.interrupt")
         }
+        SupportDiagnostics.record(this, SupportEvent.SERVICE_INTERRUPTED)
+    }
+
+    private fun supportAppName(packageName: String?): String = when (packageName) {
+        INSTAGRAM_PACKAGE -> "instagram"
+        YOUTUBE_PACKAGE -> "youtube"
+        TIKTOK_PACKAGE -> "tiktok"
+        else -> "other"
     }
 
 

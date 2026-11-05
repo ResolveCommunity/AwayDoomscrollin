@@ -40,7 +40,7 @@ Instagram and YouTube have two modes. TikTok has a single protection setting.
 | App | Both modes | Balanced | Strict |
 |---|---|---|---|
 | Instagram | Home and Explore are covered and the Reels tab is blocked. Messages and account search stay open; the suggested grid under keyword search results is covered. | Profiles, profile posts, Stories, Highlights and your Saved, Liked and Reposted lists stay open. One Reel you open can be watched with its comments; moving to the next video closes it. | Profile posts are covered. Reels, including those shared in messages, Stories and Highlights are blocked. Saved, Liked and Reposted lists are closed. |
-| YouTube | Home and Subscriptions are covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos stay open. | One Short opened from search, a channel or a link can be watched with its comments; moving to the next video closes it. | All Shorts are blocked, wherever they are opened. |
+| YouTube | Home is covered and the Shorts tab is blocked. Search results, channels, playlists, the You tab and long videos stay open. | Subscriptions stay open. One Short opened from Subscriptions, search, a channel or a link can be watched with its comments; moving to the next video closes it. | Subscriptions are covered. All Shorts are blocked, wherever they are opened. |
 
 TikTok: browsing, messages, profiles, search and comments stay open. The first
 swipe to the next video in a video feed takes you back, including a video
@@ -93,8 +93,8 @@ Menu names differ between phone makers. Step-by-step guides are available in
 
 - Screen information is read through Android's Accessibility Service and
   processed in memory on the device. The app does not take screenshots, record
-  the screen or log keystrokes, and it does not store or send what it reads
-  from the screen.
+  the screen or log keystrokes. It does not save on-screen text, and it does
+  not send what it reads from the screen.
 - Before Android's accessibility settings open, the app explains what the
   permission is used for. Declining leaves protection off.
 - The `INTERNET` permission is used only for optional usage data, which is off
@@ -105,6 +105,11 @@ Menu names differ between phone makers. Step-by-step guides are available in
 - An optional setup step can ask Android to stop battery optimization for the
   app, so phones such as Xiaomi, POCO and OnePlus do not stop protection in the
   background. It is requested only when you tap that step.
+- The troubleshooting log in About keeps a short record of protection events
+  (recognized screens, curtains, Reel and Short decisions, service restarts)
+  on the device for 24 hours. It contains no names, messages or screen text
+  and is never sent automatically; you can copy it into a support email,
+  delete it, or turn it off, which also deletes it.
 - The app contains no advertising, analytics or tracking libraries.
 
 The full [privacy policy](https://awaydoomscrollin.com/privacy) describes what
@@ -122,14 +127,13 @@ cd AwayDoomscrollin
 
 On Windows, use `gradlew.bat assembleDebug`. The debug APK is written to
 `app/build/outputs/apk/debug/app-debug.apk` and uses a separate `.debug`
-application ID, so it can be installed next to a release build. Unit tests run
-with `./gradlew testDebugUnitTest`.
+application ID, so it can be installed next to a release build.
 
 Release builds need a signing key. A release APK built without one is unsigned
 and only useful as a build check.
 
 Changes in the current version are listed in the
-[v1.4.0 release notes](RELEASE_NOTES.md).
+[v1.4.1 release notes](RELEASE_NOTES.md).
 
 ## Contributing and security
 

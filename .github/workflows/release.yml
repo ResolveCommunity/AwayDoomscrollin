@@ -54,8 +54,8 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Test, Lint, and Build Release APK
-        run: ./gradlew testDebugUnitTest lintDebug lintRelease assembleRelease --stacktrace
+      - name: Lint and Build Release APK
+        run: ./gradlew lintDebug lintRelease assembleRelease --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

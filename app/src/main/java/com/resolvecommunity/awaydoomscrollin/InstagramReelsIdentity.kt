@@ -11,6 +11,14 @@ internal object InstagramReelsIdentity {
     val safeSheetIds = setOf("comment_overswipe_dismiss_container", "recycler_view_container_id",
         "comment_composer_parent_updated", "layout_comment_thread_edittext_multiline")
 
+    /**
+     * A bottom sheet window over a Reel (options, audio row) without a Reel
+     * pager of its own. Seen on the S23: bottom_sheet_container and
+     * root_clips_layout, no clips_viewer_view_pager.
+     */
+    fun isSheetOverViewer(bottomSheetVisible: Boolean, ownPagerVisible: Boolean): Boolean =
+        bottomSheetVisible && !ownPagerVisible
+
     fun isVideoPagerPath(ids: Set<String>): Boolean =
         ids.any { it in pagerIds } && ids.none { it in safeSheetIds ||
             it == "bottom_sheet_container" || it == "layout_container_bottom_sheet" }

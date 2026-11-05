@@ -22,6 +22,25 @@ internal object InstagramSurfacePolicy {
         previouslySeen: Boolean
     ): Boolean = hasExploreSearchEditor || (continuingSearch && previouslySeen)
 
+    /**
+     * A system dialog started by Instagram (the runtime permission prompt)
+     * takes input focus while Instagram stays the active accessibility
+     * window, and the service receives no events from its package. The
+     * focused window is then the real foreground: a curtain must not cover
+     * the dialog. SystemUI keeps its own notification-shade handling.
+     */
+    fun foreignFocusedPackage(activePackage: String?, focusedPackage: String?): String? =
+        focusedPackage?.takeIf {
+            activePackage == "com.instagram.android" && it != "com.instagram.android" &&
+                it != "com.android.systemui"
+        }
+
+    /**
+     * One unreadable sample can be an Instagram transition (a root briefly
+     * missing); two consecutive checks (about half a second) are a dialog.
+     */
+    fun isUnreadableForeground(consecutiveChecks: Int): Boolean = consecutiveChecks >= 2
+
     /** Instagram's own modal dialog (promo/what's-new) is foreground; ids only. */
     fun isInstagramDialog(dialogContainerVisible: Boolean, promoHeadlineVisible: Boolean): Boolean =
         dialogContainerVisible || promoHeadlineVisible
@@ -47,6 +66,28 @@ internal object InstagramSurfacePolicy {
     // An unclassified tree is re-checked quickly while a transition may still
     // be publishing; once it has persisted it is a real (unknown) surface and
     // an 80 ms rescan loop would only occupy the main looper.
+    /**
+     * An unrecognized screen keeps the last verified curtain, because inside
+     * the same window it is a transition frame. A separate full-screen
+     * Instagram page that stays unrecognized is not: after a fresh login
+     * Instagram opened "Create a new password" (ModalActivity) over the new
+     * Home feed, and the Home curtain covered the password field for good.
+     * Another full-screen window without the tab bar, unrecognized for a
+     * while, is such a page; viewers (Reels, Stories, posts) are recognized
+     * long before. Small windows (the "For you" menu is a PopupWindow) are
+     * not: the feed stays visible around them.
+     */
+    fun stepsAsideForUnknownWindow(
+        unknownForMs: Long,
+        rootWindowId: Int,
+        verifiedWindowId: Int,
+        tabBarVisible: Boolean,
+        windowCoversScreen: Boolean
+    ): Boolean = verifiedWindowId >= 0 && rootWindowId != verifiedWindowId && !tabBarVisible &&
+        windowCoversScreen && unknownForMs >= UNKNOWN_WINDOW_STEP_ASIDE_MS
+
+    const val UNKNOWN_WINDOW_STEP_ASIDE_MS = 600L
+
     fun unknownRescanDelayMs(unknownForMs: Long): Long =
         if (unknownForMs < 1_500L) 80L else 400L
 

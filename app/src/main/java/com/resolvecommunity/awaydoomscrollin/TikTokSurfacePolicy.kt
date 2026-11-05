@@ -54,18 +54,37 @@ internal object TikTokSurfacePolicy {
     /**
      * A vertical scroll of the fullscreen short-video pager is the move to the
      * next video, in any feed and in any language.
+     *
+     * Galaxy S9+ (Android 10, TikTok 47.6.3): a feed swipe and a top-tab
+     * switch both reported deltas of -1/-1. The video pager reports the
+     * `ViewPager` class; the top-tab pager reports an obfuscated class and is
+     * matched only by its id. So an event without a direction counts only
+     * when it carries the pager class, not the id alone.
      */
     fun isFeedSwipe(
         className: CharSequence?,
         idFragment: String?,
-        isVerticalScroll: Boolean,
+        direction: ScrollDirection,
         top: Int,
         width: Int,
         height: Int,
         screenWidth: Int,
         screenHeight: Int
-    ): Boolean = isVerticalScroll && isPagerNode(className, idFragment) &&
-        isFeedPagerBounds(top, width, height, screenWidth, screenHeight)
+    ): Boolean {
+        val pager = when (direction) {
+            ScrollDirection.VERTICAL, ScrollDirection.PAGE_CHANGE -> isPagerNode(className, idFragment)
+            ScrollDirection.UNDEFINED -> isPagerClass(className)
+            ScrollDirection.HORIZONTAL, ScrollDirection.NONE -> false
+        }
+        return pager && isFeedPagerBounds(top, width, height, screenWidth, screenHeight)
+    }
+
+    /**
+     * The layout walk needs the video pager, the bottom bar and the top tab
+     * strip; once all three are found the rest of the tree adds nothing.
+     */
+    fun layoutWalkComplete(feedPagerVisible: Boolean, bottomBarSeen: Boolean, topTabCount: Int): Boolean =
+        feedPagerVisible && bottomBarSeen && topTabCount > 0
 
     fun isTopTabStrip(top: Int, screenHeight: Int): Boolean =
         screenHeight > 0 && top >= 0 && top <= screenHeight * TOP_TAB_STRIP_MAX_TOP_RATIO

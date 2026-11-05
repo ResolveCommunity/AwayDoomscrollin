@@ -35,7 +35,13 @@ internal class YouTubeProtectionOverlayController(
     private val onAllowedYouNavigation: () -> Unit,
     private val onAllowedBackNavigationDown: () -> Unit = {},
     private val onAllowedLaunchNavigation: (YouTubeCurtainScreen) -> Unit = {},
-    private val onCurtainVisibilityChanged: (Boolean) -> Unit = {}
+    private val onCurtainVisibilityChanged: (Boolean) -> Unit = {},
+    /**
+     * Balanced leaves Subscriptions open, so the curtain points there. The
+     * mode can only change in AwayDoomscrollin' itself, and leaving YouTube
+     * destroys the curtain, so its text never outlives a mode change.
+     */
+    private val subscriptionsOpen: () -> Boolean = { false }
 ) {
     companion object {
         private const val TAG = "YouTubeOverlay"
@@ -282,6 +288,7 @@ internal class YouTubeProtectionOverlayController(
                         "mode=$mode surface=$surface bounds=$target suspended=$isSystemUiSuspended")
                     recordCurtainDraw(content, surface, target, mode)
                 }
+                SupportDiagnostics.record(service, SupportEvent.YOUTUBE_CURTAIN_SHOWN, mapOf("surface" to surface))
                 true
             } catch (error: Exception) {
                 Log.w(TAG, "Could not show YouTube Home curtain", error)
@@ -298,6 +305,7 @@ internal class YouTubeProtectionOverlayController(
             // compositors defer child redraws during YouTube's tab animation, so changing labels
             // here would briefly expose a blank or stale message even though protection remains.
             curtainSurface = surface
+            SupportDiagnostics.record(service, SupportEvent.YOUTUBE_CURTAIN_SHOWN, mapOf("surface" to surface))
         }
 
         if (curtainBounds != target) {
@@ -347,6 +355,8 @@ internal class YouTubeProtectionOverlayController(
             ProtectionFlightRecorder.record(service, "youtube.curtain.hide",
                 "surface=${curtainSurface ?: "unknown"} bounds=$curtainBounds destroy=$destroy")
         }
+        SupportDiagnostics.record(service, SupportEvent.YOUTUBE_CURTAIN_HIDDEN,
+            mapOf("surface" to (curtainSurface?.name ?: "unknown")))
         val parkBounds = appliedMainCurtainBounds
         val parkLanguage = curtainLanguageEnglish
         curtain = null
@@ -935,16 +945,21 @@ internal class YouTubeProtectionOverlayController(
 
     private data class CurtainCopy(val message: String, val detail: String)
 
-    private fun curtainCopy(isEnglish: Boolean): CurtainCopy = if (isEnglish) {
-        CurtainCopy(
-            message = "YouTube feed paused",
-            detail = "Search for a video or channel, or open the You tab."
-        )
-    } else {
-        CurtainCopy(
-            message = "YouTube akışı duraklatıldı",
-            detail = "Bir video veya kanal arayabilir ya da You sekmesini açabilirsiniz."
-        )
+    private fun curtainCopy(isEnglish: Boolean): CurtainCopy {
+        val subscriptions = subscriptionsOpen()
+        return if (isEnglish) {
+            CurtainCopy(
+                message = "YouTube feed paused",
+                detail = if (subscriptions) "Subscriptions, search and the You tab stay open."
+                else "Search for a video or channel, or open the You tab."
+            )
+        } else {
+            CurtainCopy(
+                message = "YouTube akışı duraklatıldı",
+                detail = if (subscriptions) "Abonelikler, arama ve You sekmesi açık kalır."
+                else "Bir video veya kanal arayabilir ya da You sekmesini açabilirsiniz."
+            )
+        }
     }
 
     private fun createCurtain(isEnglish: Boolean): View {
@@ -1077,6 +1092,20 @@ internal class YouTubeProtectionOverlayController(
     }
 
     private fun conservativeCurtainBounds(): Rect {
+        // YouTube in a pop-up or floating window: stay inside that window.
+        // Display-sized, the fallback covered the home screen around a Honor
+        // floating window (Play v1.4.0 left it there, the phone was unusable).
+        val window = cachedWindowBounds
+        val display = currentDisplayBounds()
+        if (window != null && window.width() > 0 && window.height() > 0 &&
+            !TaskSwitcherPolicy.isFullscreen(window.left - display.left, window.top - display.top,
+                window.right - display.left, window.bottom - display.top, display.width(), display.height())) {
+            // A floating window is drawn scaled down, so its toolbar and tab
+            // bar are shorter than on the full screen: err toward covering.
+            val top = window.top + dp(40)
+            val bottom = (window.bottom - dp(40)).coerceAtLeast(top + dp(60))
+            return Rect(window.left, top, window.right, bottom)
+        }
         val metrics = service.resources.displayMetrics
         val width = metrics.widthPixels
         val height = metrics.heightPixels

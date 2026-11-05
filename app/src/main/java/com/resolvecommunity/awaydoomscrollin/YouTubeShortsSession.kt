@@ -22,7 +22,12 @@ internal data class YouTubeShortsObservation(
     val isScrollEvent: Boolean,
     val hasVerticalMovement: Boolean,
     val sourceIsShortsPager: Boolean,
-    val feedTabEntry: Boolean = false
+    val feedTabEntry: Boolean = false,
+    /**
+     * The Shorts pager row filling the screen, read only when the scroll
+     * event carries no direction. Null when unknown or mid-swipe.
+     */
+    val visiblePagerRow: Int? = null
 )
 
 /**
@@ -33,6 +38,11 @@ internal data class YouTubeShortsObservation(
  * real vertical movement whose source path is the Shorts pager can move a confirmed session to
  * EXITING. Duplicate events are suppressed only for a bounded exit attempt, not forever.
  * Each attempt has an identity so delayed work cannot act on a newly opened viewer.
+ *
+ * Android 9-10 can drop the scroll deltas (Galaxy S9+: the open and the swipe
+ * both arrived as -1/-1). The session then remembers the pager row of the
+ * Short it opened on, and a different row filling the screen counts as the
+ * move to the next Short.
  */
 internal class YouTubeShortsSession {
     companion object {
@@ -47,6 +57,20 @@ internal class YouTubeShortsSession {
     private var exitPendingUntilMs = 0L
     var generation: Long = 0L
         private set
+
+    /** Pager row of the Short this session opened on, tied to [anchorGeneration]. */
+    private var anchorRow: Int? = null
+    private var anchorGeneration = -1L
+
+    private fun movedToAnotherRow(row: Int?): Boolean {
+        if (row == null) return false
+        if (anchorGeneration != generation || anchorRow == null) {
+            anchorGeneration = generation
+            anchorRow = row
+            return false
+        }
+        return row != anchorRow
+    }
 
     fun isExitPending(token: Long, nowMs: Long): Boolean =
         token == generation && state == YouTubeShortsSessionState.EXITING &&
@@ -104,12 +128,14 @@ internal class YouTubeShortsSession {
         val inShortsContext = knownShortsContext ||
             state == YouTubeShortsSessionState.WATCHING ||
             state == YouTubeShortsSessionState.SAFE_SHEET
+        val rowMoved = observation.isScrollEvent && observation.sourceIsShortsPager &&
+            !observation.safeBottomSheetOpen && movedToAnotherRow(observation.visiblePagerRow)
         val shouldExit = YouTubeShortsPolicy.shouldExit(
             protectionEnabled = true,
             isScrollEvent = observation.isScrollEvent,
             packageInForeground = true,
             shortsVisible = inShortsContext && observation.sourceIsShortsPager,
-            isVerticalScroll = observation.hasVerticalMovement,
+            isVerticalScroll = observation.hasVerticalMovement || rowMoved,
             isSafeSourcePath = observation.safeBottomSheetOpen
         )
         if (!shouldExit) return YouTubeShortsDecision.ALLOW

@@ -24,6 +24,36 @@ internal fun YouTubeNavigationDestination.curtainScreen(): YouTubeCurtainScreen 
     }
 
 internal object YouTubeSurfacePolicy {
+    /**
+     * Home is the recommendation feed and stays covered in both modes.
+     * Subscriptions only lists channels the user chose to follow, so Balanced
+     * leaves it open (its Shorts still follow the Shorts rules); Strict keeps
+     * covering it.
+     */
+    fun subscriptionsProtected(mode: ProtectionMode): Boolean = mode == ProtectionMode.STRICT
+
+    /**
+     * A focused window the service cannot read (YouTube's runtime permission
+     * prompt) is another app over YouTube. One sample can be a transition, so
+     * hiding starts after two in a row; once hidden, the windows stay hidden
+     * until a check finds YouTube's own window focused again.
+     */
+    /**
+     * YouTube's own pop-ups (Premium and Music offers, menus, dialogs) open
+     * in a window of their own above the main window, which stays visible
+     * behind them. The curtain is drawn above every app window, so it hid
+     * them and the user could neither read nor close them. A focused YouTube
+     * window without the tab bar while another YouTube window is visible is
+     * such a pop-up. Full-screen pages (camera, update page) hide the main
+     * window and are not counted.
+     */
+    fun isPopUpOverMain(activeHasTabBar: Boolean, otherVisibleYouTubeWindows: Int): Boolean =
+        !activeHasTabBar && otherVisibleYouTubeWindows > 0
+
+    fun suspendForUnreadableFocus(alreadySuspended: Boolean, consecutiveChecks: Int): Boolean =
+        InstagramSurfacePolicy.isUnreadableForeground(consecutiveChecks) ||
+            (alreadySuspended && consecutiveChecks > 0)
+
     /** A loading frame with a Back arrow after Comments/watch is not evidence of Home. */
     fun preserveAllowedSecondaryDuringLoading(
         lastVerifiedScreen: YouTubeCurtainScreen,

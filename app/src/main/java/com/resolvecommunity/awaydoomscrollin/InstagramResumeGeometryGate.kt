@@ -86,3 +86,15 @@ internal class InstagramResumeGeometryGate(
         stableSamples = 0
     }
 }
+
+/** Which saved curtain may be put back when Instagram returns to the foreground. */
+internal object InstagramResumeCurtainPolicy {
+    /**
+     * Home and Explore curtains end at the bottom navigation. One measured
+     * while Instagram was shrinking into Pixel's Recents card ends far above
+     * it (seen: bottom 1606 instead of 2248) and must be measured again.
+     */
+    fun canReuse(screen: InstagramScreen, savedBottom: Int, navigationTop: Int, tolerancePx: Int): Boolean =
+        (screen != InstagramScreen.HOME_FEED && screen != InstagramScreen.EXPLORE) ||
+            kotlin.math.abs(savedBottom - navigationTop) <= tolerancePx
+}
