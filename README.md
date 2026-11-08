@@ -89,6 +89,9 @@ Menu names differ between phone makers. Step-by-step guides are available in
 [English](https://awaydoomscrollin.com/en/guide) and
 [Turkish](https://awaydoomscrollin.com/tr/rehber).
 
+Instagram's search keyboard stays above the Explore cover while search opens;
+returning to Explore keeps the feed protected.
+
 ## Privacy
 
 - Screen information is read through Android's Accessibility Service and

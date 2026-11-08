@@ -38,6 +38,12 @@ This app:
 - Executes all detection and protection logic locally on-device without remote dependencies
 - Stores blocking statistics locally via `SharedPreferences` in addition to the disclosed aggregate telemetry submissions
 
+Instagram Explore/search checks use a serial reader with at most one active read
+and one conflated follow-up. Back and navigation invalidate obsolete observations;
+positive results recheck foreground/window identity, and unsupported layouts retain
+protection and use the existing detector. Explore's keyboard-layer flag changes
+window stacking while preserving the feed cover's bounds and touch blocking.
+
 ## Beta Compatibility Scope
 
 Instagram Reels, TikTok, and YouTube Shorts detection are beta features. Third-party UI/accessibility-tree changes and manufacturer-specific Android behavior can cause missed detections or false positives. Reports about those compatibility failures are in scope as functional bugs, but the project does not claim perfect detection or universal device compatibility.

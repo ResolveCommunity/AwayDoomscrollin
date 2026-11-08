@@ -13,6 +13,8 @@ AntiFeatures:
       Opting out stops future submissions; an in-flight request may finish. The latest
       active server snapshot expires within 90 days, and encrypted local operational
       backups use a separate 14-day rotation.
+      Instagram search detection and feed blocking run locally and do not require
+      telemetry opt-in.
 Categories:
   - System
 License: GPL-3.0-only
