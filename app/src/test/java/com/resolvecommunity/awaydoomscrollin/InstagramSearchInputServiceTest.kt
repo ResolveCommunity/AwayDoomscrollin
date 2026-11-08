@@ -118,6 +118,12 @@ class InstagramSearchInputServiceTest {
         }
     }
     @Test fun nativeClicksKeepOfficialHandlingWithoutAForcedSlowPath() {
+        set("searchInputActive", true)
+        val queued = java.util.ArrayDeque<Runnable>()
+        val dispatcher = LatestObservationDispatcher(java.util.concurrent.Executor { queued.add(it) },
+            java.util.concurrent.Executor {},
+            { _: () -> Boolean -> InstagramSearchInputObservation(InstagramSearchInputSurface.OTHER) }, {})
+        set("searchInputDispatcher", lazy { dispatcher })
         val event = android.view.accessibility.AccessibilityEvent.obtain(
             android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED)
         val handled = AntiScrollService::class.java.getDeclaredMethod("handleSearchInputEvent",
@@ -125,6 +131,13 @@ class InstagramSearchInputServiceTest {
                 isAccessible = true
             }.invoke(service, event) as Boolean
         assertFalse(handled)
+        val state = Shadow.extract<ServiceShadow>(service)
+        state.rootQueries = 0
+        (AntiScrollService::class.java.getDeclaredField("overlayForegroundCheck").apply {
+            isAccessible = true
+        }.get(service) as Runnable).run()
+        assertEquals("A periodic check after the click must not query roots on the owner", 0, state.rootQueries)
+        assertEquals(1, queued.size)
         val bypass = AntiScrollService::class.java.getDeclaredField("searchInputBypassUntil").apply {
             isAccessible = true
         }.getLong(service)

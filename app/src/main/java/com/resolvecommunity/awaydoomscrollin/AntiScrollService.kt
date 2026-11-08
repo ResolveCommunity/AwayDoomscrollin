@@ -145,9 +145,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private fun handleSearchInputEvent(event: AccessibilityEvent): Boolean {
         if (!canObserveSearchInput()) return false
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            // All native clicks retain the official intent handling. The queued
-            // scan can use a fresh observation; a tap itself never uncovers a feed.
-            stopSearchInputObservation()
+            // Keep native intent handling and invalidate the old read. Leave
+            // this scope active until that handling changes it, so a foreground
+            // tick cannot put blocking IPC back ahead of the queued search scan.
+            if (searchInputDispatcher.isInitialized()) searchInputDispatcher.value.cancel()
             return false
         }
         return requestSearchInputObservation(invalidate =
