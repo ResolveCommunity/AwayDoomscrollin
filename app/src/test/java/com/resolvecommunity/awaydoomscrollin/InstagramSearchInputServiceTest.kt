@@ -28,7 +28,11 @@ class InstagramSearchInputServiceTest {
     @Implements(AccessibilityService::class)
     class ServiceShadow : ShadowAccessibilityService() {
         var root: AccessibilityNodeInfo? = null
-        @Implementation fun getRootInActiveWindow(): AccessibilityNodeInfo? = root
+        var rootQueries = 0
+        @Implementation fun getRootInActiveWindow(): AccessibilityNodeInfo? {
+            rootQueries++
+            return root
+        }
     }
     @Implements(AccessibilityNodeInfo::class)
     class NodeShadow : ShadowAccessibilityNodeInfo() {
@@ -127,6 +131,23 @@ class InstagramSearchInputServiceTest {
         assertEquals(0L, bypass)
         assertNotNull(overlay.visibleCurtain())
         event.recycle()
+    }
+    @Test fun periodicForegroundChecksStayOffTheOwnerForTheVerifiedSearchScope() {
+        val queued = java.util.ArrayDeque<Runnable>()
+        val worker = java.util.concurrent.Executor { queued.add(it) }
+        val dispatcher = LatestObservationDispatcher(worker, java.util.concurrent.Executor {},
+            { _: () -> Boolean -> InstagramSearchInputObservation(InstagramSearchInputSurface.OTHER) }, {})
+        set("searchInputDispatcher", lazy { dispatcher })
+        set("searchInputActive", true)
+        val state = Shadow.extract<ServiceShadow>(service)
+        state.rootQueries = 0
+        val check = AntiScrollService::class.java.getDeclaredField("overlayForegroundCheck").run {
+            isAccessible = true
+            get(service) as Runnable
+        }
+        check.run()
+        assertEquals("Foreground IPC must not run on the overlay thread", 0, state.rootQueries)
+        assertEquals(1, queued.size)
     }
     @Test fun unsupportedObservationKeepsProtection() {
         apply(InstagramSearchInputSurface.OTHER)
