@@ -278,10 +278,12 @@ private fun telemetryRenewedConsentText(isEn: Boolean): String = if (isEn) {
 
 private fun accessibilityDisclosureText(isEn: Boolean): String = if (isEn) {
     "AwayDoomscrollin' needs Accessibility access to recognize the feeds and short videos you choose to protect in Instagram, TikTok and YouTube.\n\n" +
+        "Instagram search and typing remain available while suggested feeds are covered.\n\n" +
         "In those apps, it examines accessibility text and labels, view identifiers, window changes, taps and scroll events on your device. It uses this information to place curtains in Instagram and YouTube and to perform specific, rule-based Back, tap and scroll actions on protected screens.\n\n" +
         "This screen information is processed only on your device and is never sent to a server. Text, labels and view identifiers are not saved; only a short troubleshooting log of what protection did stays on your device for 24 hours. You can turn it off in About, and sharing it is up to you. Messages, passwords, photos, screenshots and typed text are not included in optional usage reports. You can continue without granting access; protection will remain off."
 } else {
     "AwayDoomscrollin', Instagram, TikTok ve YouTube'da korumayı seçtiğiniz akışları ve kısa videoları tanımak için erişilebilirlik iznine ihtiyaç duyar.\n\n" +
+        "Önerilen akışlar kapalıyken Instagram'da arama ve yazma kullanılabilir.\n\n" +
         "Bu uygulamalarda ekrandaki erişilebilirlik metinlerini ve etiketlerini, görünüm kimliklerini, pencere değişikliklerini, dokunma ve kaydırma olaylarını cihazınızda inceler. Bu bilgileri Instagram ve YouTube'da perdeyi yerleştirmek ve korunan ekranlarda belirli kurallara göre Geri, dokunma veya kaydırma işlemleri uygulamak için kullanır.\n\n" +
         "İncelenen ekran bilgileri yalnızca cihazınızda işlenir ve sunucuya gönderilmez. Metinler, etiketler ve görünüm kimlikleri kaydedilmez; yalnızca korumanın ne yaptığını gösteren kısa bir sorun giderme kaydı 24 saat cihazınızda kalır. Bu kaydı Hakkında bölümünden kapatabilirsiniz; paylaşıp paylaşmamak size kalmıştır. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
 }
