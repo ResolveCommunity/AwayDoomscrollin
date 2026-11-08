@@ -129,6 +129,11 @@ On Windows, use `gradlew.bat assembleDebug`. The debug APK is written to
 `app/build/outputs/apk/debug/app-debug.apk` and uses a separate `.debug`
 application ID, so it can be installed next to a release build.
 
+Run `./gradlew testDebugUnitTest testReleaseUnitTest` for the search-input and
+observation-dispatch regression tests. Targeted checks for covered Explore and
+focused search run on a serial background reader; unsupported layouts use the existing
+detector, and the protected feed remains covered until search is verified.
+
 Release builds need a signing key. A release APK built without one is unsigned
 and only useful as a build check.
 
