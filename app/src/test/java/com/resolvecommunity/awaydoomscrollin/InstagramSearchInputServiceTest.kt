@@ -124,7 +124,7 @@ class InstagramSearchInputServiceTest {
             java.util.concurrent.Executor {},
             { _: () -> Boolean -> InstagramSearchInputObservation(InstagramSearchInputSurface.OTHER) }, {})
         set("searchInputDispatcher", lazy { dispatcher })
-        val event = android.view.accessibility.AccessibilityEvent.obtain(
+        val event = android.view.accessibility.AccessibilityEvent(
             android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED)
         val handled = AntiScrollService::class.java.getDeclaredMethod("handleSearchInputEvent",
             android.view.accessibility.AccessibilityEvent::class.java).apply {
@@ -143,7 +143,6 @@ class InstagramSearchInputServiceTest {
         }.getLong(service)
         assertEquals(0L, bypass)
         assertNotNull(overlay.visibleCurtain())
-        event.recycle()
     }
     @Test fun periodicForegroundChecksStayOffTheOwnerForTheVerifiedSearchScope() {
         val queued = java.util.ArrayDeque<Runnable>()
