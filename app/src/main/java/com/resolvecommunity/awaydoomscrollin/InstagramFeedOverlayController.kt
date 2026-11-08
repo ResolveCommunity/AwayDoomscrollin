@@ -72,7 +72,8 @@ internal class InstagramFeedOverlayController(
         val view = overlay ?: return
         val bounds = currentBounds ?: return
         try {
-            windowManager?.updateViewLayout(view, layoutParams(curtainWindowBounds(bounds), touchable = true))
+            windowManager?.updateViewLayout(view, layoutParams(curtainWindowBounds(bounds), touchable = true,
+                belowKeyboard = currentCopyKey?.startsWith("EXPLORE:") == true))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to apply side navigation", e)
         }
@@ -882,7 +883,8 @@ internal class InstagramFeedOverlayController(
                     Log.e(TAG, "WindowManager is null")
                     return false
                 }
-                wm.addView(view, layoutParams(curtainWindowBounds(bounds), touchable = true))
+                wm.addView(view, layoutParams(curtainWindowBounds(bounds), touchable = true,
+                    belowKeyboard = screen == InstagramScreen.EXPLORE))
                 overlay = view
                 currentBounds = Rect(bounds)
                 currentCopyKey = copyKey
@@ -902,6 +904,8 @@ internal class InstagramFeedOverlayController(
             }
         }
 
+        val keyboardLayerChanged = (currentCopyKey?.startsWith("EXPLORE:") == true) !=
+            (screen == InstagramScreen.EXPLORE)
         val copyChanged = currentCopyKey != copyKey
         // Reels strips and thin split pieces render without the message text:
         // letterboxing a full copy into a short opaque band clips illegibly.
@@ -921,12 +925,12 @@ internal class InstagramFeedOverlayController(
         val previous = currentBounds
         val boundsChanged = previous != bounds
 
-        if (boundsChanged || forceRelayout) {
+        if (boundsChanged || forceRelayout || keyboardLayerChanged) {
             // Identical-bounds re-applies originate from the resume gate and
             // transition scanners. Only the first per ~one animation window
             // needs a WindowManager transaction; later repeats during the same
             // settle are duplicate writes of the unchanged LayoutParams.
-            val forcedDuplicate = !boundsChanged && forceRelayout &&
+            val forcedDuplicate = !boundsChanged && !keyboardLayerChanged && forceRelayout &&
                 android.os.SystemClock.uptimeMillis() - lastForcedLayoutAtMs <
                     FORCED_LAYOUT_MIN_INTERVAL_MS
             if (forcedDuplicate) {
@@ -934,7 +938,8 @@ internal class InstagramFeedOverlayController(
             }
             return try {
                 val wm = windowManager ?: return false
-                wm.updateViewLayout(existing, layoutParams(curtainWindowBounds(bounds), touchable = true))
+                wm.updateViewLayout(existing, layoutParams(curtainWindowBounds(bounds), touchable = true,
+                    belowKeyboard = screen == InstagramScreen.EXPLORE))
                 if (!boundsChanged) lastForcedLayoutAtMs = android.os.SystemClock.uptimeMillis()
                 else lastForcedLayoutAtMs = 0L
                 currentBounds = Rect(bounds)
@@ -1084,7 +1089,8 @@ internal class InstagramFeedOverlayController(
         if (park && parkBounds != null && !parkBounds.isEmpty) {
             val parked = try {
                 windowManager?.updateViewLayout(view,
-                    layoutParams(parkBounds, touchable = false).apply { alpha = 0f })
+                    layoutParams(parkBounds, touchable = false,
+                        belowKeyboard = parkCopyKey?.startsWith("EXPLORE:") == true).apply { alpha = 0f })
                 true
             } catch (e: Exception) {
                 Log.w(TAG, "Could not park overlay", e)
@@ -1302,7 +1308,8 @@ internal class InstagramFeedOverlayController(
     private fun layoutParams(
         bounds: Rect,
         windowTitle: String = "AwayDoomscrollin Instagram content shield",
-        touchable: Boolean = true
+        touchable: Boolean = true,
+        belowKeyboard: Boolean = false
     ) = WindowManager.LayoutParams(
         bounds.width(),
         bounds.height(),
@@ -1310,7 +1317,10 @@ internal class InstagramFeedOverlayController(
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            (if (windowTitle == "account search" || windowTitle == "profile loading")
+            // A covered Explore must not obscure the IME while search opens.
+            // This changes stacking only: the curtain still covers/takes input
+            // over the protected feed, and never takes keyboard focus itself.
+            (if (belowKeyboard || windowTitle == "account search" || windowTitle == "profile loading")
                 WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM else 0) or
             (if (!touchable) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0),
         PixelFormat.TRANSLUCENT
