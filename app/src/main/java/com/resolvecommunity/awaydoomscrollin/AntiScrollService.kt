@@ -87,6 +87,111 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val searchInputThread = lazy { HandlerThread("instagram-search-input").apply { start() } }
+    private var searchInputActive = false
+    private var searchInputBypassUntil = 0L
+    private val searchInputDispatcher = lazy {
+        val worker = Handler(searchInputThread.value.looper)
+        val reader = InstagramSearchInputReader({ rootInActiveWindow }, { windows })
+        LatestObservationDispatcher(
+            worker = java.util.concurrent.Executor { worker.post(it) },
+            owner = java.util.concurrent.Executor { mainHandler.post(it) },
+            read = reader::read,
+            accept = { result: Result<InstagramSearchInputObservation> ->
+                if (searchInputActive) result.fold(::applySearchInputObservation) { fallBackFromSearchInput() }
+            })
+    }
+
+    private fun canObserveSearchInput(): Boolean {
+        val now = SystemClock.uptimeMillis()
+        return now >= searchInputBypassUntil && taskSwitcherOwner == null &&
+            !instagramOverlay.isNotificationShadeSuspended && !instagramResumePending &&
+            !instagramResumeGeometryGate.isActive && !instagramExitInProgress &&
+            !instagramProfileIngress.pending && !instagramProfileIngress.awaitingCurtainDraw &&
+            now >= precoverDrawPendingUntil &&
+            !instagramProtectedNavigation.isPending(InstagramTab.HOME, now) &&
+            !instagramProtectedNavigation.isPending(InstagramTab.SEARCH, now) &&
+            ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM) &&
+            currentInstagramWindowId >= 0 &&
+            ((lastInstagramScreen == InstagramScreen.EXPLORE &&
+                instagramOverlay.visibleCurtain()?.first == InstagramScreen.EXPLORE) ||
+                (lastInstagramScreen == InstagramScreen.SEARCH_RESULTS && instagramExploreSearchSeen))
+    }
+
+    private fun requestSearchInputObservation(invalidate: Boolean = false): Boolean {
+        if (!canObserveSearchInput()) {
+            stopSearchInputObservation()
+            return false
+        }
+        searchInputActive = true
+        searchInputDispatcher.value.request(invalidate)
+        return true
+    }
+
+    private fun stopSearchInputObservation() {
+        searchInputActive = false
+        if (searchInputDispatcher.isInitialized()) searchInputDispatcher.value.cancel()
+    }
+
+    private fun fallBackFromSearchInput() {
+        stopSearchInputObservation()
+        // Unsupported/unfocused surfaces keep their current protection. Give the
+        // existing detector ownership instead of repeatedly retrying this path.
+        searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
+        queueInstagramScan(0L)
+    }
+
+    private fun handleSearchInputEvent(event: AccessibilityEvent): Boolean {
+        if (!canObserveSearchInput()) return false
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            // All native clicks retain the official intent handling. The queued
+            // scan can use a fresh observation; a tap itself never uncovers a feed.
+            stopSearchInputObservation()
+            return false
+        }
+        return requestSearchInputObservation(invalidate =
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+    }
+
+    private fun applySearchInputObservation(observation: InstagramSearchInputObservation) {
+        if (!canObserveSearchInput() || observation.surface == InstagramSearchInputSurface.OTHER ||
+            observation.windowId != currentInstagramWindowId) {
+            fallBackFromSearchInput()
+            return
+        }
+        if (observation.surface == InstagramSearchInputSurface.EXPLORE) {
+            // Only skip rediscovery of exactly the already covered geometry.
+            // Resizing, scrolling chrome and returns still use the official path.
+            val cover = observation.cover
+            if (lastInstagramScreen != InstagramScreen.EXPLORE || cover == null ||
+                instagramOverlay.visibleCurtain()?.second != cover.rect()) {
+                fallBackFromSearchInput()
+            }
+            return
+        }
+        // One final foreground check on the owner, after queued navigation events
+        // invalidated older reads. Never let an old worker result hide a new cover.
+        val current = rootInActiveWindow
+        if (current?.packageName?.toString() != INSTAGRAM_PACKAGE ||
+            current.windowId != observation.windowId) {
+            fallBackFromSearchInput()
+            return
+        }
+        instagramExploreSearchSeen = true
+        hideInstagramContentOverlay()
+        instagramEntryTargets.clear()
+        instagramOverlay.updateEntryGuards(emptyList(), isEnglish())
+        instagramOverlay.updateNavigationGuards(emptyMap())
+        instagramOverlay.updateReelsTabGuard(observation.reelsTab?.rect())
+        instagramOverlay.updateSearchReturnGuard(observation.back?.rect(), ::onSearchReturnBack)
+        observeInstagramScreen(InstagramScreen.SEARCH_RESULTS, observation.windowId)
+        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+            this, "instagram.search.input", "focused=true window=${observation.windowId}")
+        if (instagramOverlay.hasVisibleWindows) scheduleOverlayForegroundCheck()
+    }
+
+    private fun InstagramGeometrySample.rect() = Rect(left, top, right, bottom)
     // Instagram can block the accessibility service's main looper for several
     // seconds while it rebuilds a notification/comment tree.  The second Back
     // for a verified notification comment viewer must not wait behind that
@@ -1086,6 +1191,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        stopSearchInputObservation()
+        searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
         // Folding, unfolding or rotating can recreate Instagram's viewer
         // window under a new id; the allowed Reel moves with it once.
         if (instagramReelsSession.watching) {
@@ -1301,6 +1408,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                         !igVisible(searchRoot, "search_row") && !igVisible(searchRoot, "echo_text")) {
                         clearInstagramResumeProtection()
                         currentInstagramWindowId = searchRoot.windowId
+                        stopSearchInputObservation()
+                        searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
                         supportCurtainReason = "back"
                         showInstagramCurtain(
                             calculateExploreBounds(searchRoot, instagramWindowBounds(searchRoot)),
@@ -1587,7 +1696,9 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val click = queuedClick
         queuedClick = null
         val started = SystemClock.uptimeMillis()
-        try { scanInstagram(click) } finally {
+        try {
+            if (!requestSearchInputObservation()) scanInstagram(click)
+        } finally {
             @Suppress("DEPRECATION")
             click?.recycle()
             clearNodeLookupCache()
@@ -2159,6 +2270,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             kickProfileGeometryWatch()
         }
+        if (handleSearchInputEvent(event)) return
         if (handleStrictInstagramStoryLaunch(event, eventNow)) return
         if (eventNow < instagramStoryLaunchUntil) {
             // No remote queries while the Story viewer starts (see above).
@@ -3533,6 +3645,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
      * there the first Back closes the IME, not the search surface.
      */
     private fun onSearchReturnBack() {
+        stopSearchInputObservation()
+        searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
         if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM) ||
             lastInstagramScreen != InstagramScreen.SEARCH_RESULTS) return
         val root = rootInActiveWindow ?: return
@@ -10191,6 +10305,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     private fun suspendInstagramProtection(destination: String? = null) {
+        stopSearchInputObservation()
         // Any visit outside Instagram (shade, Recents, home, another app) can
         // return to the same viewer; an allowed Balanced Reel must survive it.
         // On return its Back control is not yet published, so without the hold
@@ -10243,6 +10358,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     private fun hideInstagramProtection() {
+        stopSearchInputObservation()
         instagramReelShadeHold.clear()
         instagramStoryExitReadiness.reset()
         resetInstagramProtectionState()
@@ -10414,6 +10530,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     }
 
     override fun onDestroy() {
+        if (searchInputDispatcher.isInitialized()) searchInputDispatcher.value.close()
+        if (searchInputThread.isInitialized()) searchInputThread.value.quitSafely()
         if (ProtectionFlightRecorder.ENABLED) {
             ProtectionFlightRecorder.record(this, "service.destroy")
         }
