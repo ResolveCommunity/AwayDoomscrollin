@@ -1116,6 +1116,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         override fun run() {
             overlayForegroundCheckScheduled = false
             if (!instagramOverlay.hasVisibleWindows) return
+            if (searchInputActive && requestSearchInputObservation()) {
+                // The narrow reader already checks foreground/window identity.
+                // Do not put this periodic IPC back onto the overlay thread.
+                scheduleOverlayForegroundCheck()
+                return
+            }
 
             val activeRoot = rootInActiveWindow
             var activePkg = activeRoot?.packageName?.toString()
