@@ -23,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -87,7 +86,7 @@ internal fun SupportLogCard(isEn: Boolean) {
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = if (isEn) "Troubleshooting log" else "Sorun giderme kaydı",
+                    text = AppText.get(R.string.logcard_troubleshooting_log),
                     fontSize = 13.5.sp,
                     lineHeight = 17.sp,
                     fontWeight = FontWeight.Bold,
@@ -103,20 +102,12 @@ internal fun SupportLogCard(isEn: Boolean) {
                         logOn = checked
                         copied = false
                     },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF070A12),
-                        checkedTrackColor = Accent
-                    )
+                    colors = appSwitchColors(Accent)
                 )
             }
 
             Text(
-                text = when {
-                    !logOn && isEn -> "The log is off and nothing is recorded. To report a problem, turn it on and copy the log after it happens again."
-                    !logOn -> "Kayıt kapalı, hiçbir şey kaydedilmiyor. Bir sorun bildirmek için kaydı açın, sorun tekrar yaşanınca kopyalayın."
-                    isEn -> "If something isn't working as expected, copy this log and paste it into an email."
-                    else -> "Bir şey beklediğiniz gibi çalışmıyorsa bu kaydı kopyalayıp e-postaya yapıştırın."
-                },
+                text = if (logOn) AppText.get(R.string.logcard_on_hint) else AppText.get(R.string.logcard_off_hint),
                 fontSize = 11.5.sp,
                 color = Color.White.copy(alpha = 0.68f),
                 lineHeight = 16.sp,
@@ -125,13 +116,7 @@ internal fun SupportLogCard(isEn: Boolean) {
 
             if (logOn) {
                 Text(
-                    text = if (isEn) {
-                        "Even with usage data sharing turned on, this log is never sent anywhere unless you send it yourself. " +
-                            "It covers only the last 24 hours and doesn't include names, messages or on-screen text."
-                    } else {
-                        "Kullanım verisi paylaşımını açmış olsanız bile bu kayıt, siz göndermedikçe hiçbir yere iletilmez. " +
-                            "Yalnızca son 24 saati kapsar; isim, mesaj ya da ekrandaki yazıları içermez."
-                    },
+                    text = AppText.get(R.string.logcard_even_with_usage_data_sharing_turned),
                     fontSize = 10.5.sp,
                     color = Color.White.copy(alpha = 0.5f),
                     lineHeight = 14.5.sp,
@@ -157,9 +142,8 @@ internal fun SupportLogCard(isEn: Boolean) {
                 ) {
                     Text(
                         text = when {
-                            copied -> if (isEn) "Copied" else "Kopyalandı"
-                            isEn -> "Copy log"
-                            else -> "Kaydı kopyala"
+                            copied -> AppText.get(R.string.logcard_copied)
+                            else -> AppText.get(R.string.logcard_copy_log)
                         },
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -168,8 +152,7 @@ internal fun SupportLogCard(isEn: Boolean) {
 
                 if (copied) {
                     Text(
-                        text = if (isEn) "You can now paste it into your email."
-                        else "Artık e-postanıza yapıştırabilirsiniz.",
+                        text = AppText.get(R.string.logcard_you_can_now_paste_it_into),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF00FF87),
@@ -179,7 +162,7 @@ internal fun SupportLogCard(isEn: Boolean) {
                 }
 
                 Text(
-                    text = if (isEn) "Delete log" else "Kaydı sil",
+                    text = AppText.get(R.string.logcard_delete_log),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -197,20 +180,19 @@ internal fun SupportLogCard(isEn: Boolean) {
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text(if (isEn) "Delete this log?" else "Kayıt silinsin mi?") },
+            title = { Text(AppText.get(R.string.logcard_delete_this_log)) },
             text = {
-                Text(if (isEn) "Everything recorded so far will be removed from this phone. New events will still be recorded."
-                else "Şu ana kadar kaydedilenler bu telefondan silinir. Yeni olaylar kaydedilmeye devam eder.")
+                Text(AppText.get(R.string.logcard_everything_recorded_so_far_will_be))
             },
             confirmButton = {
                 TextButton(onClick = {
                     SupportDiagnostics.clear(context)
                     copied = false
                     confirmClear = false
-                }) { Text(if (isEn) "Delete" else "Sil") }
+                }) { Text(AppText.get(R.string.logcard_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text(if (isEn) "Cancel" else "Vazgeç") }
+                TextButton(onClick = { confirmClear = false }) { Text(AppText.get(R.string.logcard_cancel)) }
             }
         )
     }
@@ -218,7 +200,7 @@ internal fun SupportLogCard(isEn: Boolean) {
 
 private fun copyToClipboard(context: Context, text: String, isEn: Boolean) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-    val clip = ClipData.newPlainText(if (isEn) "AwayDoomscrollin' troubleshooting log" else "AwayDoomscrollin' sorun giderme kaydı", text)
+    val clip = ClipData.newPlainText(AppText.get(R.string.logcard_awaydoomscrollin_troubleshooting_log), text)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         // Keep the log out of the keyboard's clipboard preview.
         clip.description.extras = PersistableBundle().apply {

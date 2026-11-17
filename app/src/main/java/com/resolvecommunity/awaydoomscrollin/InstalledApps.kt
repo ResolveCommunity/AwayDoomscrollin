@@ -11,11 +11,18 @@ import android.content.pm.PackageManager
  * Visibility comes from the manifest's <queries> entries.
  */
 internal object InstalledApps {
-    fun isAvailable(context: Context, app: ProtectedApp): Boolean = try {
-        context.packageManager.getApplicationInfo(app.packageName, 0).enabled
-    } catch (_: PackageManager.NameNotFoundException) {
-        false
-    }
+    fun isAvailable(context: Context, app: ProtectedApp): Boolean =
+        installedPackage(context, app) != null
+
+    /** The installed, enabled package of [app], including a regional one. */
+    fun installedPackage(context: Context, app: ProtectedApp): String? =
+        app.packageNames.firstOrNull { pkg ->
+            try {
+                context.packageManager.getApplicationInfo(pkg, 0).enabled
+            } catch (_: PackageManager.NameNotFoundException) {
+                false
+            }
+        }
 
     fun available(context: Context): Set<ProtectedApp> =
         ProtectedApp.entries.filterTo(mutableSetOf()) { isAvailable(context, it) }

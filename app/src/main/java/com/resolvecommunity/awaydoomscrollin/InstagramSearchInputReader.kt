@@ -5,7 +5,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import java.util.concurrent.CancellationException
 
-internal enum class InstagramSearchInputSurface { EXPLORE, FOCUSED_SEARCH, OTHER }
+internal enum class InstagramSearchInputSurface { EXPLORE, FOCUSED_SEARCH, HOME, OTHER }
 
 /** Only geometry and a structural classification leave the serial reader. */
 internal data class InstagramSearchInputObservation(
@@ -16,10 +16,18 @@ internal data class InstagramSearchInputObservation(
     val reelsTab: InstagramGeometrySample? = null
 )
 
-/** Narrow fast path for an already covered Explore tab and its focused search editor. */
+/**
+ * Narrow fast path for an already covered Explore tab and its focused search
+ * editor, and for an already covered Home feed. Home is read only when
+ * [expectHome] says the service is on a covered Home; the feed under the cover
+ * keeps changing, and the full scan of each change held the main thread for
+ * 350–1100 ms, so a tap on another tab waited for it.
+ */
 internal class InstagramSearchInputReader(
     private val root: () -> AccessibilityNodeInfo?,
-    private val windows: () -> List<AccessibilityWindowInfo>
+    private val windows: () -> List<AccessibilityWindowInfo>,
+    private val expectHome: () -> Boolean = { false },
+    private val homeStoriesBlocked: () -> Boolean = { false }
 ) {
     fun read(isCurrent: () -> Boolean): InstagramSearchInputObservation {
         fun checkCurrent() {
@@ -45,6 +53,11 @@ internal class InstagramSearchInputReader(
             }?.sample()
         }
         checkCurrent()
+        if (expectHome()) {
+            val home = readCoveredHome(window, windowId, ::visible, ::bounds, ::checkCurrent)
+                ?: return other()
+            return confirmForeground(windowId, home, ::checkCurrent)
+        }
         val focus = current.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         val focusedSearch = focus != null && focus.packageName?.toString() == PACKAGE &&
             focus.windowId == windowId && focus.isVisibleToUser && focus.isFocused &&
@@ -77,8 +90,16 @@ internal class InstagramSearchInputReader(
             InstagramSearchInputObservation(InstagramSearchInputSurface.EXPLORE, windowId,
                 cover = InstagramGeometrySample(window.left, header.bottom, window.right, bottom))
         }
+        return confirmForeground(windowId, observation, ::checkCurrent)
+    }
+
+    /** Do not apply a positive result after another app/window took foreground. */
+    private fun confirmForeground(
+        windowId: Int,
+        observation: InstagramSearchInputObservation,
+        checkCurrent: () -> Unit
+    ): InstagramSearchInputObservation {
         checkCurrent()
-        // Do not apply a positive result after another app/window took foreground.
         val latest = root() ?: return other()
         checkCurrent()
         if (latest.packageName?.toString() != PACKAGE || latest.windowId != windowId) return other()
@@ -89,7 +110,45 @@ internal class InstagramSearchInputReader(
         return if (focusedApp.id == windowId) observation else other()
     }
 
+    /**
+     * The plain Home feed and the cover the official geometry gives it: from
+     * the Stories tray's bottom (the header's in Strict, where Stories are
+     * covered too) down to the bottom tab bar. Anything else, or any doubt,
+     * returns null and the full scan decides, exactly as before.
+     */
+    private fun readCoveredHome(
+        window: Rect,
+        windowId: Int,
+        visible: (String) -> AccessibilityNodeInfo?,
+        bounds: (String) -> InstagramGeometrySample?,
+        checkCurrent: () -> Unit
+    ): InstagramSearchInputObservation? {
+        if (visible("action_bar_button_back") != null) return null
+        val tab = visible("feed_tab") ?: return null
+        val selected = tab.isSelected || (0 until minOf(tab.childCount, 3)).any {
+            checkCurrent()
+            tab.getChild(it)?.isSelected == true
+        }
+        if (!selected) return null
+        val header = bounds("main_feed_action_bar") ?: return null
+        if (header.top < window.top || header.bottom >= window.centerY()) return null
+        // A viewer, Messages sliding in, or Explore: not the plain Home feed.
+        if (NOT_PLAIN_HOME_IDS.any { visible(it) != null }) return null
+        val bar = bounds("tab_bar") ?: return null
+        if (bar.right - bar.left < window.width() / 2 || bar.top <= window.centerY()) return null
+        val stories = if (homeStoriesBlocked()) null else InstagramHomeGeometry.storiesTrayIds
+            .firstNotNullOfOrNull { bounds(it) }?.bottom
+            ?.takeIf { it > window.top && it < window.centerY() }
+        val top = InstagramHomeGeometry.top(window.top, stories, header.bottom)
+        return InstagramSearchInputObservation(InstagramSearchInputSurface.HOME, windowId,
+            cover = InstagramGeometrySample(window.left, minOf(top, bar.top - 1), window.right, bar.top))
+    }
+
     private fun other() = InstagramSearchInputObservation(InstagramSearchInputSurface.OTHER)
     private fun Rect.sample() = InstagramGeometrySample(left, top, right, bottom)
-    private companion object { const val PACKAGE = "com.instagram.android" }
+    private companion object {
+        const val PACKAGE = "com.instagram.android"
+        val NOT_PLAIN_HOME_IDS = listOf(
+            "reel_viewer_root", "story_viewer_container", "direct_inbox_action_bar", "explore_action_bar")
+    }
 }

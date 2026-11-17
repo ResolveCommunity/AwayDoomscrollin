@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.Log
 import android.view.Gravity
@@ -13,10 +12,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 
 /**
  * Shared Balanced/Strict protection for YouTube's algorithmic entry surfaces.
@@ -45,6 +42,27 @@ internal class YouTubeProtectionOverlayController(
 ) {
     companion object {
         private const val TAG = "YouTubeOverlay"
+        private const val PARK_COMMIT_MAX_MS = 150L
+    }
+
+    /**
+     * Same as InstagramFeedOverlayController.parkCommitPendingUntil: a parked
+     * curtain stays on screen until this thread runs its relayout frame, so
+     * the service starts no scan before then (two frames, at most 150 ms).
+     */
+    var parkCommitPendingUntil = 0L
+        private set
+    private var parkCommitGeneration = 0
+
+    private fun holdScansUntilParkCommitted() {
+        val generation = ++parkCommitGeneration
+        parkCommitPendingUntil = android.os.SystemClock.uptimeMillis() + PARK_COMMIT_MAX_MS
+        val choreographer = android.view.Choreographer.getInstance()
+        choreographer.postFrameCallback {
+            choreographer.postFrameCallback {
+                if (generation == parkCommitGeneration) parkCommitPendingUntil = 0L
+            }
+        }
     }
 
     private val windowManager by lazy {
@@ -376,6 +394,7 @@ internal class YouTubeProtectionOverlayController(
         windowManager?.updateViewLayout(view, layoutParams(
             bounds, "AwayDoomscrollin YouTube feed shield", touchable = false
         ).apply { alpha = 0f })
+        holdScansUntilParkCommitted()
         true
     } catch (error: Exception) {
         Log.w(TAG, "Could not park YouTube curtain", error)
@@ -515,11 +534,7 @@ internal class YouTubeProtectionOverlayController(
                 setBackgroundColor(Color.argb(1, 0, 0, 0))
                 isClickable = true
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = if (isEnglish) {
-                    "AwayDoomscrollin': Shorts feed blocked"
-                } else {
-                    "AwayDoomscrollin': Shorts akışı engellendi"
-                }
+                contentDescription = AppText.get(R.string.yt_awaydoomscrollin_shorts_feed_blocked)
                 setOnClickListener { }
                 val tap = BlockedTapGesture(dp(12).toFloat())
                 setOnTouchListener { targetView, event ->
@@ -626,7 +641,7 @@ internal class YouTubeProtectionOverlayController(
                 setBackgroundColor(Color.argb(1, 0, 0, 0))
                 isClickable = true
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = if (isEnglish) "Open You" else "You sekmesini aç"
+                contentDescription = AppText.get(R.string.yt_open_you)
                 setOnClickListener { }
                 setOnTouchListener { targetView, event ->
                     if (event.actionMasked == MotionEvent.ACTION_UP) {
@@ -674,11 +689,7 @@ internal class YouTubeProtectionOverlayController(
                 setBackgroundColor(Color.argb(1, 0, 0, 0))
                 isClickable = true
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = if (isEnglish) {
-                    "AwayDoomscrollin': safely return to protected YouTube feed"
-                } else {
-                    "AwayDoomscrollin': korunan YouTube akışına güvenle dön"
-                }
+                contentDescription = AppText.get(R.string.yt_awaydoomscrollin_safely_return_to_protected_yout)
                 setOnClickListener { }
                 setOnTouchListener { targetView, event ->
                     when (event.actionMasked) {
@@ -708,11 +719,7 @@ internal class YouTubeProtectionOverlayController(
             return
         }
 
-        existing.contentDescription = if (isEnglish) {
-            "AwayDoomscrollin': safely return to protected YouTube feed"
-        } else {
-            "AwayDoomscrollin': korunan YouTube akışına güvenle dön"
-        }
+        existing.contentDescription = AppText.get(R.string.yt_awaydoomscrollin_safely_return_to_protected_yout)
         if (allowedBackGuardBounds != target) {
             try {
                 windowManager?.updateViewLayout(existing, layoutParams(
@@ -744,8 +751,8 @@ internal class YouTubeProtectionOverlayController(
             val target = Rect(targetBounds)
             val title = "AwayDoomscrollin YouTube ${screen.name.lowercase()} launch guard"
             val description = when (screen) {
-                YouTubeCurtainScreen.SEARCH -> if (isEnglish) "Open Search" else "Aramayı aç"
-                else -> if (isEnglish) "Open Notifications" else "Bildirimleri aç"
+                YouTubeCurtainScreen.SEARCH -> AppText.get(R.string.yt_open_search)
+                else -> AppText.get(R.string.yt_open_notifications)
             }
             val existing = allowedLaunchGuards[screen]
             if (existing == null) {
@@ -873,13 +880,10 @@ internal class YouTubeProtectionOverlayController(
         }
         if (!preserveBounds) stableProtectedNavigationBounds[surface] = Rect(target)
         val existing = protectedNavigationGuards[surface]
-        val description = when {
-            isEnglish && surface == YouTubeProtectedSurface.HOME ->
-                "AwayDoomscrollin': open protected Home feed"
-            isEnglish -> "AwayDoomscrollin': open protected Subscriptions feed"
-            surface == YouTubeProtectedSurface.HOME ->
-                "AwayDoomscrollin': korunan Ana Sayfa akışını aç"
-            else -> "AwayDoomscrollin': korunan Abonelik akışını aç"
+        val description = if (surface == YouTubeProtectedSurface.HOME) {
+            AppText.get(R.string.yt_guard_open_home)
+        } else {
+            AppText.get(R.string.yt_guard_open_subscriptions)
         }
         if (existing == null) {
             val view = View(service).apply {
@@ -947,19 +951,13 @@ internal class YouTubeProtectionOverlayController(
 
     private fun curtainCopy(isEnglish: Boolean): CurtainCopy {
         val subscriptions = subscriptionsOpen()
-        return if (isEnglish) {
-            CurtainCopy(
-                message = "YouTube feed paused",
-                detail = if (subscriptions) "Subscriptions, search and the You tab stay open."
-                else "Search for a video or channel, or open the You tab."
-            )
-        } else {
-            CurtainCopy(
-                message = "YouTube akışı duraklatıldı",
-                detail = if (subscriptions) "Abonelikler, arama ve You sekmesi açık kalır."
-                else "Bir video veya kanal arayabilir ya da You sekmesini açabilirsiniz."
-            )
-        }
+        // Neutral words, as on Instagram: what is closed, what is still open.
+        // Texts live in res/values*/strings.xml (curtain_yt_*).
+        return CurtainCopy(
+            message = AppText.get(R.string.curtain_yt_title),
+            detail = AppText.get(
+                if (subscriptions) R.string.curtain_yt_subscriptions_open else R.string.curtain_yt_search_open)
+        )
     }
 
     private fun createCurtain(isEnglish: Boolean): View {
@@ -987,40 +985,29 @@ internal class YouTubeProtectionOverlayController(
     }
 
     private fun createCurtainBody(copy: CurtainCopy): View {
+        // Text only, the same as the Instagram curtain: no icon or badge, and
+        // the app's cyan (not YouTube's red) on the line about what is open.
         val title = textView(
             copy.message,
-            20f,
+            18f,
             Color.rgb(241, 245, 249),
-            Typeface.BOLD
-        )
+            Typeface.NORMAL
+        ).apply {
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
         val detail = textView(
             copy.detail,
             14f,
-            Color.rgb(148, 163, 184),
+            CURTAIN_OPEN_TEXT_COLOR,
             Typeface.NORMAL
         ).apply {
             setLineSpacing(dp(3).toFloat(), 1f)
-            setPadding(0, dp(10), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
         return LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(28), dp(28), dp(28), dp(28))
-            val badge = FrameLayout(service).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(Color.argb(32, 255, 0, 0))
-                    setStroke(dp(1), Color.argb(80, 255, 0, 0))
-                }
-                addView(ImageView(service).apply {
-                    setImageDrawable(ContextCompat.getDrawable(service, R.drawable.ic_shield_check))
-                    setColorFilter(Color.rgb(255, 55, 55))
-                    contentDescription = null
-                }, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
-            }
-            addView(badge, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
-                bottomMargin = dp(18)
-            })
             addView(title)
             addView(detail)
         }

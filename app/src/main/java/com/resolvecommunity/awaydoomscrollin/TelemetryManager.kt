@@ -236,7 +236,8 @@ object TelemetryManager {
 
         val ownVersion = installedAppVersion(context, context.packageName)
         val instagramVersion = installedAppVersion(context, INSTAGRAM_PACKAGE)
-        val tiktokVersion = installedAppVersion(context, TIKTOK_PACKAGE)
+        val tiktokVersion = installedAppVersion(context,
+            InstalledApps.installedPackage(context, ProtectedApp.TIKTOK) ?: TIKTOK_PACKAGE)
         val youtubeVersion = installedAppVersion(context, YOUTUBE_PACKAGE)
         val display = context.resources.displayMetrics
 

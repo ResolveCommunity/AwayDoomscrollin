@@ -508,7 +508,9 @@ internal object InstagramProtectionEngine {
         }
 
         // Inside DM Inbox, navigating between conversations is always safe
-        val isInboxList = signals.ids.hasAny("inbox_refreshable_thread_list_recyclerview") ||
+        val isInboxList = signals.ids.hasAny(InstagramSurfacePolicy.INBOX_LIST_ID) ||
+            (signals.ids.hasAny("list_container") &&
+                InstagramSurfacePolicy.INBOX_HEADER_IDS.any(signals.ids::contains)) ||
             sourceIds.hasAnyContaining("inbox", "thread_row", "row_inbox")
         if (isInboxList) {
             return false

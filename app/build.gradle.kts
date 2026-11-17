@@ -29,8 +29,8 @@ android {
         applicationId = "com.resolvecommunity.awaydoomscrollin"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.4.1"
+        versionCode = 12
+        versionName = "1.5.0"
     }
     dependenciesInfo {
         includeInApk = false
@@ -75,6 +75,14 @@ android {
     }
     lint {
         abortOnError = true
+    }
+    bundle {
+        // The language is chosen inside the app, not only from the phone. Play
+        // would otherwise install just the phone's language and the others
+        // would fall back to English.
+        language {
+            enableSplit = false
+        }
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true

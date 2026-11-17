@@ -34,7 +34,10 @@ internal enum class SupportEvent(val code: String) {
     TIKTOK("tt"),
     SLOW("slow"),
     /** A curtain made room for a window it must not cover (unknown page, pop-up, other app). */
-    STEPPED_ASIDE("aside");
+    STEPPED_ASIDE("aside"),
+    INSTAGRAM_OPENED_MESSAGES("ig.dm"),
+    /** Found off without an unbind: the phone stopped the app in the background. */
+    SERVICE_STOPPED_BY_PHONE("svc.killed");
 
     companion object {
         fun fromCode(code: String): SupportEvent? = entries.firstOrNull { it.code == code }
@@ -179,7 +182,11 @@ internal object SupportLogFormatter {
                 if (en) "Protection stopped" else "Koruma durdu"
             SupportEvent.SERVICE_PREVIOUS_EXIT ->
                 (if (en) "Before this, protection was stopped at ${f["at"]}: " else "Bundan önce koruma ${f["at"]} saatinde durmuştu: ") +
-                    exitCause(f["reason"], en)
+                    exitCause(f["reason"], en) + exitDescription(f["desc"])
+            SupportEvent.SERVICE_STOPPED_BY_PHONE ->
+                (if (en) "Protection was found switched off without being turned off (the app was stopped in the background). Android's reason: "
+                    else "Koruma kapatılmadan kapanmış bulundu (uygulama arka planda durduruldu). Android'in verdiği neden: ") +
+                    exitCause(f["reason"], en) + exitDescription(f["desc"])
             SupportEvent.SETTINGS_CHANGED -> settings(f, en)
             SupportEvent.DISPLAY_CHANGED ->
                 if (en) "Screen size changed to ${f["w"]}x${f["h"]} (folded, unfolded or rotated)"
@@ -239,6 +246,14 @@ internal object SupportLogFormatter {
                 if (en) "${appName(f["app"])}: $cause, so the curtain stepped aside"
                 else "${appName(f["app"])}: $cause; perde kenara çekildi"
             }
+            SupportEvent.INSTAGRAM_OPENED_MESSAGES ->
+                if (f["ok"] == "false") {
+                    if (en) "Instagram opened on Home, but the Messages button could not be tapped (Open in Messages is on)"
+                    else "Instagram Ana Sayfa'da açıldı ama Mesajlar düğmesine dokunulamadı (Mesajlar'da aç ayarı açık)"
+                } else {
+                    if (en) "Instagram opened on Home, so Messages was opened (Open in Messages is on)"
+                    else "Instagram Ana Sayfa'da açıldı; Mesajlar'da aç ayarı açık olduğu için Mesajlar açıldı"
+                }
         }
     }
 
@@ -277,6 +292,10 @@ internal object SupportLogFormatter {
         else -> if (en) "screen recognized as protected" else "korunan ekran olarak tanındı"
     }
 
+    /** Android's own words on who ended the process, e.g. "fully_stop_by_user_request". */
+    private fun exitDescription(desc: String?): String =
+        if (desc.isNullOrBlank()) "" else " [$desc]"
+
     private fun exitCause(name: String?, en: Boolean) = when (name) {
         "user" -> if (en) "the app was closed by the user (swiped away from recent apps or force stopped)"
             else "uygulama kullanıcı tarafından kapatıldı (son uygulamalardan kaydırma ya da zorla durdurma)"
@@ -291,6 +310,9 @@ internal object SupportLogFormatter {
         "updated" -> if (en) "the app was updated" else "uygulama güncellendi"
         "permission" -> if (en) "a permission was changed" else "bir izin değiştirildi"
         "frozen" -> if (en) "Android froze the app in the background" else "Android uygulamayı arka planda dondurdu"
+        "self" -> if (en) "the app's process ended on its own" else "uygulamanın işlemi kendi kendine sonlandı"
+        "system-other" -> if (en) "the system ended it for another reason (often the phone's own manager)"
+            else "sistem başka bir nedenle sonlandırdı (çoğunlukla telefonun kendi yöneticisi)"
         else -> (if (en) "other reason " else "başka bir neden ") + "(${name.orEmpty()})"
     }
 

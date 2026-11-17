@@ -8,11 +8,16 @@
     <!-- Optional: lets the user exempt protection from battery optimization so
          vendor battery managers do not stop the accessibility service. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- After a reboot, checks that Android bound protection again. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <queries>
         <package android:name="com.instagram.android" />
         <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
         <package android:name="com.google.android.youtube" />
+        <!-- Xiaomi's Security app holds the Autostart list (opened from a notification). -->
+        <package android:name="com.miui.securitycenter" />
         <!-- Home apps draw the Recents task switcher; seeing their window behind
              a still active protected app is how curtains leave Recents. -->
         <intent>
@@ -54,5 +59,19 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <!-- Fires only if the phone ended the process while protection was on. -->
+        <receiver
+            android:name=".ProtectionWatchdogReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".ProtectionRestartReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

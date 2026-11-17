@@ -45,15 +45,38 @@ Instagram and YouTube have two modes. TikTok has a single protection setting.
 TikTok: browsing, messages, profiles, search and comments stay open. The first
 swipe to the next video in a video feed takes you back, including a video
 opened from search or a profile. On Home, every top tab other than For You
-switches back to For You.
+switches back to For You. The regional TikTok app used in Korea, Japan and
+Southeast Asia is protected the same way; TikTok Lite is not supported yet.
 
 Detection reads the structure of the screen rather than its text, so
 protection works the same whatever language your phone or these apps use.
+
+Open in Messages (Instagram, optional, off by default in the Apps tab): when
+Instagram opens and lands on Home, the app taps Instagram's Messages button so
+you start in your messages instead of the feed. Moving around inside
+Instagram, notifications and links are left alone.
+
+The app itself is available in English, Turkish, French, Italian, Spanish,
+Russian and Korean. You can pick the language in the app; it does not have to match the
+phone's.
 
 The app also keeps local statistics: blocks per app, the hour with the most
 attempts, measured Instagram and YouTube curtain time, a daily streak and
 achievements. Every day with protection on counts toward the streak, whether
 or not anything was blocked. These stay on the device.
+
+### When the phone stops protection
+
+Some phones end apps in the background, and Android then leaves protection
+off. If that happens, a "Protection is not running" notification appears about
+a minute later; turning AwayDoomscrollin' off and on in Accessibility settings
+brings protection back. Protection is also checked again after the phone
+restarts or the app updates.
+
+On Xiaomi, Redmi and POCO, clearing Recent apps ends the app, and protection
+comes back by itself only when Autostart is on. Setup asks for both Autostart
+and running in the background on these phones, Home shows a short reminder,
+and the notification leads to Autostart.
 
 ## Installation
 
@@ -89,9 +112,6 @@ Menu names differ between phone makers. Step-by-step guides are available in
 [English](https://awaydoomscrollin.com/en/guide) and
 [Turkish](https://awaydoomscrollin.com/tr/rehber).
 
-Instagram's search keyboard stays above the Explore cover while search opens;
-returning to Explore keeps the feed protected.
-
 ## Privacy
 
 - Screen information is read through Android's Accessibility Service and
@@ -106,9 +126,13 @@ returning to Explore keeps the feed protected.
   block counts and measured curtain time; automatic reports are sent at most
   once every 24 hours. It never includes messages or screen content.
 - An optional setup step can ask Android to stop battery optimization for the
-  app, so phones such as Xiaomi, POCO and OnePlus do not stop protection in the
-  background. It is requested only when you tap that step.
-- The troubleshooting log in About keeps a short record of protection events
+  app, which helps keep protection on in the background. On Xiaomi, Redmi and
+  POCO it also opens the phone's Autostart list. Both are requested only when
+  you tap them.
+- After the phone restarts or the app updates, the app checks once whether
+  protection is running (`RECEIVE_BOOT_COMPLETED`). Nothing is sent.
+- The troubleshooting log in About is off on a new installation. Once you turn
+  it on, it keeps a short record of protection events
   (recognized screens, curtains, Reel and Short decisions, service restarts)
   on the device for 24 hours. It contains no names, messages or screen text
   and is never sent automatically; you can copy it into a support email,
@@ -132,16 +156,14 @@ On Windows, use `gradlew.bat assembleDebug`. The debug APK is written to
 `app/build/outputs/apk/debug/app-debug.apk` and uses a separate `.debug`
 application ID, so it can be installed next to a release build.
 
-Run `./gradlew testDebugUnitTest testReleaseUnitTest` for the search-input and
-observation-dispatch regression tests. Targeted checks for covered Explore and
-focused search run on a serial background reader; unsupported layouts use the existing
-detector, and the protected feed remains covered until search is verified.
+Run `./gradlew testDebugUnitTest testReleaseUnitTest` for the Instagram search
+regression tests.
 
 Release builds need a signing key. A release APK built without one is unsigned
 and only useful as a build check.
 
 Changes in the current version are listed in the
-[v1.4.1 release notes](RELEASE_NOTES.md).
+[v1.5.0 release notes](RELEASE_NOTES.md).
 
 ## Contributing and security
 

@@ -4,6 +4,38 @@ internal object InstagramHomeGeometry {
     fun canMeasureDuringNavigation(homeNavigationPending: Boolean, selectedHome: Boolean): Boolean =
         !homeNavigationPending || selectedHome
 
+    /**
+     * Top of the cover mounted when the Home tab is tapped, before Home has
+     * drawn. Without a measurement it starts under the header, which in
+     * Balanced first hides the Stories and then slides below them once Home is
+     * verified. Instagram returns to Home where it was left, so the top the
+     * Home curtain last had in the same window is reused: under the Stories
+     * when Home was left at the top, under the header when it was scrolled,
+     * from the window top when Instagram had hidden its top bar (the header
+     * cover then left the feed's first rows visible for ~0.7 s, Galaxy S23).
+     * Never outside the window, and never so low that the cover is thin.
+     */
+    /**
+     * The Home curtain's top in Balanced: the bottom of the Stories tray, but
+     * never lower than where the tray rests under the header. Instagram's
+     * refresh (pull-down, or the Home reselect at the top) pushes the tray
+     * down and back up; a curtain that followed it down lagged on the way up
+     * and showed the first post's header row for ~0.5 s (Galaxy S23). Capped,
+     * the curtain covers part of the moving tray instead.
+     */
+    fun storiesAnchor(storiesTop: Int, storiesBottom: Int, headerBottom: Int?): Int =
+        if (headerBottom == null || storiesBottom <= storiesTop) storiesBottom
+        else minOf(storiesBottom, headerBottom + (storiesBottom - storiesTop))
+
+    fun tabPrecoverTop(
+        windowTop: Int,
+        conservativeTop: Int,
+        bottom: Int,
+        rememberedTop: Int?,
+        minHeight: Int
+    ): Int = rememberedTop?.takeIf { it >= windowTop && bottom - it >= minHeight }
+        ?: conservativeTop
+
     val storiesTrayIds = listOf("reels_tray_container", "tray_recycler_view",
         "stories_tray", "overlay_stories_tray_container")
 

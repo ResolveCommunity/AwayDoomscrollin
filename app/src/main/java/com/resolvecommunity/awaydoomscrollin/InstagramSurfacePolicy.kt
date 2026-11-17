@@ -1,10 +1,25 @@
 package com.resolvecommunity.awaydoomscrollin
 
 internal object InstagramSurfacePolicy {
+    const val INBOX_LIST_ID = "inbox_refreshable_thread_list_recyclerview"
+
+    /** Ids that only the Direct inbox header carries. */
+    val INBOX_HEADER_IDS = setOf("direct_inbox_action_bar", "direct_inbox_search_bar")
+
+    /**
+     * The Direct inbox's thread list. Instagram 454 (November 2026) renamed it
+     * to list_container. That id is generic, so it only counts as the inbox
+     * list together with the inbox's own header. Without the old id, the inbox
+     * shortcut never matched and every inbox scan walked all thread rows
+     * (1.4-1.6 s on a Galaxy S23).
+     */
+    fun isInboxList(id: String, inboxHeaderSeen: Boolean): Boolean =
+        id == INBOX_LIST_ID || (id == "list_container" && inboxHeaderSeen)
+
     // Inbox rows cannot establish the foreground screen. Preserve the list's
     // own ID and inspect sibling headers, tabs and viewer layers instead.
-    fun skipInboxRows(id: String): Boolean =
-        id == "inbox_refreshable_thread_list_recyclerview"
+    fun skipInboxRows(id: String, inboxHeaderSeen: Boolean = false): Boolean =
+        isInboxList(id, inboxHeaderSeen)
 
     // Only Instagram's own search editors carry a "search" id. Story text,
     // captions and the Bloks settings search (no id at all) are plain editable

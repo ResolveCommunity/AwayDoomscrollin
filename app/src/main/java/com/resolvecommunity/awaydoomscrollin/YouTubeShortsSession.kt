@@ -43,11 +43,20 @@ internal data class YouTubeShortsObservation(
  * both arrived as -1/-1). The session then remembers the pager row of the
  * Short it opened on, and a different row filling the screen counts as the
  * move to the next Short.
+ *
+ * The opening row is only fixed once the viewer has settled. Opened from a
+ * list (a channel's Shorts, a shelf), YouTube first lays the viewer out at
+ * row 0 and then jumps to the tapped Short (Galaxy S23, YouTube 21.44: row 0,
+ * then row 2 273 ms later). Fixing row 0 read that jump as a swipe and closed
+ * the Short the user had just chosen.
  */
 internal class YouTubeShortsSession {
     companion object {
         const val LAUNCH_PENDING_MS = 2_000L
         const val EXIT_PENDING_MS = 750L
+
+        /** How long the opening row may still change before it is fixed. */
+        const val ROW_ANCHOR_SETTLE_MS = 1_200L
     }
 
     var state: YouTubeShortsSessionState = YouTubeShortsSessionState.OUTSIDE
@@ -61,11 +70,22 @@ internal class YouTubeShortsSession {
     /** Pager row of the Short this session opened on, tied to [anchorGeneration]. */
     private var anchorRow: Int? = null
     private var anchorGeneration = -1L
+    private var anchorSinceMs = 0L
 
-    private fun movedToAnotherRow(row: Int?): Boolean {
+    private fun movedToAnotherRow(row: Int?, nowMs: Long): Boolean {
         if (row == null) return false
+        // A closing viewer can still report a row after the session ended;
+        // only a viewer this session is entering or watching sets the anchor.
+        if (state != YouTubeShortsSessionState.ENTERING &&
+            state != YouTubeShortsSessionState.WATCHING) return false
         if (anchorGeneration != generation || anchorRow == null) {
             anchorGeneration = generation
+            anchorRow = row
+            anchorSinceMs = nowMs
+            return false
+        }
+        if (nowMs - anchorSinceMs < ROW_ANCHOR_SETTLE_MS) {
+            // Still opening: follow the jump to the tapped Short.
             anchorRow = row
             return false
         }
@@ -129,7 +149,8 @@ internal class YouTubeShortsSession {
             state == YouTubeShortsSessionState.WATCHING ||
             state == YouTubeShortsSessionState.SAFE_SHEET
         val rowMoved = observation.isScrollEvent && observation.sourceIsShortsPager &&
-            !observation.safeBottomSheetOpen && movedToAnotherRow(observation.visiblePagerRow)
+            !observation.safeBottomSheetOpen &&
+            movedToAnotherRow(observation.visiblePagerRow, observation.nowMs)
         val shouldExit = YouTubeShortsPolicy.shouldExit(
             protectionEnabled = true,
             isScrollEvent = observation.isScrollEvent,

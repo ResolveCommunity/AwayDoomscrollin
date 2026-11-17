@@ -25,6 +25,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
@@ -104,6 +105,7 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
         super.onCreate(savedInstanceState)
+        AppText.init(this)
         preferSmoothUiRefreshRate()
 
         if (TelemetryManager.isTelemetryEnabled(this)) {
@@ -120,12 +122,32 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
+            // Texts come from AppText in the app's own language. Switching
+            // between two non-Turkish languages leaves every `isEn` unchanged,
+            // so a static local makes the whole UI redraw on any switch.
+            var uiLanguage by remember { mutableStateOf(getAppLanguage(prefs)) }
+            DisposableEffect(prefs) {
+                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+                    if (key == KEY_APP_LANGUAGE) uiLanguage = getAppLanguage(p)
+                }
+                prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
+            CompositionLocalProvider(LocalAppLanguage provides uiLanguage) {
             ZenTheme {
                 var isOnboardingCompleted by remember { mutableStateOf(initialOnboardingDone) }
                 var onboardingStartStep by remember { mutableIntStateOf(1) }
                 var showRenewedTelemetryConsent by remember {
                     mutableStateOf(
                         initialOnboardingDone && TelemetryManager.requiresRenewedConsent(this@MainActivity)
+                    )
+                }
+                // Once after an update. An install still owed the older modes
+                // card sees that one first and this summary on the next launch.
+                var showReleaseNotice by remember {
+                    mutableStateOf(
+                        initialOnboardingDone && !ModeIntroNotice.isPending(prefs) &&
+                            ReleaseNotice.isPending(this@MainActivity, prefs)
                     )
                 }
 
@@ -152,7 +174,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showRenewedTelemetryConsent) {
-                    val isEn = getAppLanguage(prefs) == "en"
+                    val isEn = getAppLanguage(prefs) != "tr"
                     TelemetryConsentDialog(
                         isEn = isEn,
                         isRenewal = true,
@@ -166,6 +188,17 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+
+                if (isOnboardingCompleted && showReleaseNotice && !showRenewedTelemetryConsent) {
+                    ReleaseNoticeDialog(
+                        versionName = ReleaseNotice.versionName(this@MainActivity),
+                        onDismiss = {
+                            ReleaseNotice.markSeen(this@MainActivity, prefs)
+                            showReleaseNotice = false
+                        }
+                    )
+                }
+            }
             }
         }
     }
@@ -173,10 +206,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         preferSmoothUiRefreshRate()
-        AccessibilityStreakPolicy.syncState(
-            this,
-            isAccessibilityServiceEnabled(this, AntiScrollService::class.java)
-        )
+        val serviceEnabled = isAccessibilityServiceEnabled(this, AntiScrollService::class.java)
+        // Only noted in the troubleshooting log; nothing is shown.
+        ProtectionStopWatch.consumeUnexpectedStop(this, serviceEnabled)
+        AccessibilityStreakPolicy.syncState(this, serviceEnabled)
     }
 
     /**
@@ -237,83 +270,72 @@ fun ZenTheme(
         titleSmall = base.titleSmall.copy(lineHeight = 1.3.em)
     )
 
+    val korean = LocalAppLanguage.current == AppLanguage.KO.code
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = typography,
+        typography = if (korean) typography.koreanLineBreaks() else typography,
         content = content
+    )
+}
+
+/**
+ * Korean wraps at the spaces between words, as Korean text is set, instead of
+ * between any two syllables ("열 / 려 있는 것"). Android does this from 13 on
+ * when the text is marked Korean; older versions ignore it.
+ */
+private fun Typography.koreanLineBreaks(): Typography {
+    val lineBreak = androidx.compose.ui.text.style.LineBreak(
+        strategy = androidx.compose.ui.text.style.LineBreak.Strategy.HighQuality,
+        strictness = androidx.compose.ui.text.style.LineBreak.Strictness.Default,
+        wordBreak = androidx.compose.ui.text.style.LineBreak.WordBreak.Phrase
+    )
+    val locale = androidx.compose.ui.text.intl.LocaleList("ko")
+    fun androidx.compose.ui.text.TextStyle.ko() = copy(lineBreak = lineBreak, localeList = locale)
+    return copy(
+        displayLarge = displayLarge.ko(), displayMedium = displayMedium.ko(), displaySmall = displaySmall.ko(),
+        headlineLarge = headlineLarge.ko(), headlineMedium = headlineMedium.ko(), headlineSmall = headlineSmall.ko(),
+        titleLarge = titleLarge.ko(), titleMedium = titleMedium.ko(), titleSmall = titleSmall.ko(),
+        bodyLarge = bodyLarge.ko(), bodyMedium = bodyMedium.ko(), bodySmall = bodySmall.ko(),
+        labelLarge = labelLarge.ko(), labelMedium = labelMedium.ko(), labelSmall = labelSmall.ko()
     )
 }
 
 
 
-fun getAppLanguage(prefs: android.content.SharedPreferences): String {
-    val saved = prefs.getString("app_language", null)
-    if (saved == "tr" || saved == "en") return saved
+/**
+ * The interface language code. Texts not yet moved to string resources still
+ * pick between English and Turkish inline; their `isEn` is "not Turkish", so
+ * every other language shows English there, never Turkish.
+ */
+fun getAppLanguage(prefs: android.content.SharedPreferences): String = appLanguage(prefs).code
 
-    val deviceLang = java.util.Locale.getDefault().language.lowercase()
-    val resolved = if (deviceLang.startsWith("tr")) "tr" else "en"
-    prefs.edit().putString("app_language", resolved).apply()
-    return resolved
-}
+private fun telemetryDisclosureText(isEn: Boolean): String = AppText.get(R.string.main_you_can_help_us_improve_protection)
 
-private fun telemetryDisclosureText(isEn: Boolean): String = if (isEn) {
-    "You can help us improve protection across different phones by sharing an optional pseudonymous usage summary. Sharing is off by default, and protection works without it.\n\n" +
-        "Shared: a random installation ID; device brand, model and screen metrics; Android, AwayDoomscrollin', Instagram, TikTok and YouTube versions; total and per-app intervention counts; measured visibility time for the Instagram and YouTube protection curtains. Curtain time is not blocked-video duration or an estimate of time saved.\n\n" +
-        "Never shared: your name, email address, messages, text you type, passwords, screenshots, videos, video titles or links, channel information, browsing history, or individual tap and swipe records.\n\n" +
-        "The server keeps the latest active snapshot for up to 90 days. Encrypted local backups use a separate 14-day rotation. Turning sharing off stops new reports, though a request already in progress may finish."
-} else {
-    "İsterseniz kimliğinizle doğrudan ilişkilendirilmeyen bir kullanım özetini paylaşarak korumanın farklı telefonlarda daha iyi çalışmasına yardımcı olabilirsiniz. Paylaşım varsayılan olarak kapalıdır ve paylaşmayı kabul etmeseniz de koruma çalışır.\n\n" +
-        "Paylaşılan bilgiler: yalnızca bu kuruluma ait rastgele kimlik; cihazın marka, model ve ekran ölçüleri; Android, AwayDoomscrollin', Instagram, TikTok ve YouTube sürümleri; toplam ve uygulama bazında müdahale sayıları; Instagram ve YouTube koruma perdelerinin ölçülen görünürlük süreleri. Perde süresi, engellenen video süresi veya kazanılan zamanın tahmini değildir.\n\n" +
-        "Adınız, e-posta adresiniz, mesajlarınız, yazdığınız metinler, şifreleriniz, ekran görüntüleriniz, videolar, video başlıkları veya bağlantıları, kanal bilgileri, gezinme geçmişiniz ve tek tek dokunma ya da kaydırma kayıtları paylaşılmaz.\n\n" +
-        "Sunucudaki son etkin özet en fazla 90 gün tutulur. Şifreli yerel yedekler ayrı bir 14 günlük döngüye tabidir. Paylaşımı kapatmak yeni raporları durdurur; ancak başlamış bir istek tamamlanabilir."
-}
+private fun telemetryRenewedConsentText(isEn: Boolean): String =
+    telemetryDisclosureText(isEn) + "\n\n" + AppText.get(R.string.main_renewed_consent_youtube_curtain)
 
-private fun telemetryRenewedConsentText(isEn: Boolean): String = if (isEn) {
-    telemetryDisclosureText(true) +
-        "\n\nThis release adds measured YouTube-curtain visibility time to the previously disclosed summary. Because this expands your earlier choice, we are asking again. No YouTube curtain time will be sent unless you choose Agree to share. Choosing Do not share does not affect protection."
-} else {
-    telemetryDisclosureText(false) +
-        "\n\nBu sürüm, daha önce açıklanan özete ölçülen YouTube perde görünürlük süresini ekler. Önceki seçimin kapsamı genişlediği için yeniden soruyoruz. Paylaşmayı kabul etmediğiniz sürece YouTube perde süresi gönderilmez. Paylaşmamak korumayı etkilemez."
-}
-
-private fun accessibilityDisclosureText(isEn: Boolean): String = if (isEn) {
-    "AwayDoomscrollin' needs Accessibility access to recognize the feeds and short videos you choose to protect in Instagram, TikTok and YouTube.\n\n" +
-        "Instagram search and typing remain available while suggested feeds are covered.\n\n" +
-        "In those apps, it examines accessibility text and labels, view identifiers, window changes, taps and scroll events on your device. It uses this information to place curtains in Instagram and YouTube and to perform specific, rule-based Back, tap and scroll actions on protected screens.\n\n" +
-        "This screen information is processed only on your device and is never sent to a server. Text, labels and view identifiers are not saved; only a short troubleshooting log of what protection did stays on your device for 24 hours. You can turn it off in About, and sharing it is up to you. Messages, passwords, photos, screenshots and typed text are not included in optional usage reports. You can continue without granting access; protection will remain off."
-} else {
-    "AwayDoomscrollin', Instagram, TikTok ve YouTube'da korumayı seçtiğiniz akışları ve kısa videoları tanımak için erişilebilirlik iznine ihtiyaç duyar.\n\n" +
-        "Önerilen akışlar kapalıyken Instagram'da arama ve yazma kullanılabilir.\n\n" +
-        "Bu uygulamalarda ekrandaki erişilebilirlik metinlerini ve etiketlerini, görünüm kimliklerini, pencere değişikliklerini, dokunma ve kaydırma olaylarını cihazınızda inceler. Bu bilgileri Instagram ve YouTube'da perdeyi yerleştirmek ve korunan ekranlarda belirli kurallara göre Geri, dokunma veya kaydırma işlemleri uygulamak için kullanır.\n\n" +
-        "İncelenen ekran bilgileri yalnızca cihazınızda işlenir ve sunucuya gönderilmez. Metinler, etiketler ve görünüm kimlikleri kaydedilmez; yalnızca korumanın ne yaptığını gösteren kısa bir sorun giderme kaydı 24 saat cihazınızda kalır. Bu kaydı Hakkında bölümünden kapatabilirsiniz; paylaşıp paylaşmamak size kalmıştır. Mesajlar, şifreler, fotoğraflar, ekran görüntüleri ve yazdığınız metinler isteğe bağlı kullanım raporlarına eklenmez. İzin vermeden devam edebilirsiniz; koruma kapalı kalır."
-}
+private fun accessibilityDisclosureText(isEn: Boolean): String = AppText.get(R.string.main_awaydoomscrollin_needs_accessibility_access_to_r)
 
 private fun getAccessibilityPathGuidance(isEn: Boolean): String {
     val m = Build.MANUFACTURER.lowercase(java.util.Locale.US)
     return when {
         m.contains("honor") || m.contains("huawei") ->
-            if (isEn) "Settings > Accessibility > Downloaded services > AwayDoomscrollin'"
-            else "Ayarlar > Erişilebilirlik > İndirilen servisler > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_accessibility_downloaded_services_awayd)
 
         m.contains("xiaomi") || m.contains("redmi") || m.contains("poco") ->
-            if (isEn) "Settings > Additional settings > Accessibility > Downloaded apps > AwayDoomscrollin'"
-            else "Ayarlar > Ek ayarlar > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_additional_settings_accessibility_downl)
 
         m.contains("samsung") ->
-            if (isEn) "Settings > Accessibility > Installed apps > AwayDoomscrollin'"
-            else "Ayarlar > Erişilebilirlik > Yüklü uygulamalar > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_accessibility_installed_apps_awaydoomsc)
 
         m.contains("oppo") || m.contains("realme") || m.contains("oneplus") ->
-            if (isEn) "Settings > Additional settings > Accessibility > Downloaded apps > AwayDoomscrollin'"
-            else "Ayarlar > Ek ayarlar > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_additional_settings_accessibility_downl)
 
         m.contains("vivo") || m.contains("iqoo") ->
-            if (isEn) "Settings > Shortcuts & accessibility > Accessibility > Downloaded apps > AwayDoomscrollin'"
-            else "Ayarlar > Kısayollar ve erişilebilirlik > Erişilebilirlik > İndirilen uygulamalar > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_shortcuts_accessibility_accessibility_d)
 
         else ->
-            if (isEn) "Settings > Accessibility > Downloaded apps (or Installed services) > AwayDoomscrollin'"
-            else "Ayarlar > Erişilebilirlik > İndirilen uygulamalar (veya Yüklü servisler) > AwayDoomscrollin'"
+            AppText.get(R.string.main_settings_accessibility_downloaded_apps_or_instal)
     }
 }
 
@@ -321,20 +343,16 @@ private fun getAccessibilityGuidanceTip(isEn: Boolean): String {
     val m = Build.MANUFACTURER.lowercase(java.util.Locale.US)
     return when {
         m.contains("honor") || m.contains("huawei") ->
-            if (isEn) "Tip: In Settings, find it under \"Downloaded services\"."
-            else "İpucu: Ayarlarda \"İndirilen servisler\" başlığı altında bulabilirsiniz."
+            AppText.get(R.string.main_tip_in_settings_find_it_under)
 
         m.contains("xiaomi") || m.contains("redmi") || m.contains("poco") ->
-            if (isEn) "Tip: In Settings, find it under \"Downloaded apps\"."
-            else "İpucu: Ayarlarda \"İndirilen uygulamalar\" başlığı altında bulabilirsiniz."
+            AppText.get(R.string.main_tip_in_settings_find_it_under_2)
 
         m.contains("samsung") ->
-            if (isEn) "Tip: In Settings, find it under \"Installed apps\"."
-            else "İpucu: Ayarlarda \"Yüklü uygulamalar\" başlığı altında bulabilirsiniz."
+            AppText.get(R.string.main_tip_in_settings_find_it_under_3)
 
         else ->
-            if (isEn) "Tip: In Settings, find it under \"Downloaded apps\" or \"Installed services\"."
-            else "İpucu: Ayarlarda \"İndirilen uygulamalar\" veya \"Yüklü servisler\" başlığı altında bulabilirsiniz."
+            AppText.get(R.string.main_tip_in_settings_find_it_under_4)
     }
 }
 
@@ -345,7 +363,7 @@ private fun openAccessibilitySettings(context: Context, isEn: Boolean = false) {
         Toast.LENGTH_LONG
     ).show()
     runCatching {
-        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        context.startActivity(AccessibilitySettingsLink.intent(context, newTask = context !is android.app.Activity))
     }.onFailure {
         context.startActivity(Intent(Settings.ACTION_SETTINGS))
     }
@@ -357,7 +375,7 @@ private fun acceptAccessibilityDisclosure(context: Context, isEn: Boolean) {
     } else {
         Toast.makeText(
             context,
-            if (isEn) "Your preference could not be saved. Please try again." else "Tercih kaydedilemedi. Lütfen tekrar deneyin.",
+            AppText.get(R.string.main_your_preference_could_not_be_saved),
             Toast.LENGTH_SHORT
         ).show()
     }
@@ -379,7 +397,7 @@ private fun AccessibilityConsentDialog(
             )
         },
         title = {
-            Text(if (isEn) "Accessibility access" else "Erişilebilirlik izni")
+            Text(AppText.get(R.string.main_accessibility_access))
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -393,14 +411,14 @@ private fun AccessibilityConsentDialog(
         confirmButton = {
             Button(onClick = onAccept) {
                 Text(
-                    if (isEn) "Agree and open settings" else "Kabul et ve ayarları aç",
+                    AppText.get(R.string.main_agree_and_open_settings),
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(if (isEn) "Not now" else "Şimdi değil")
+                Text(AppText.get(R.string.main_not_now))
             }
         },
         containerColor = MaterialTheme.colorScheme.surface
@@ -431,26 +449,14 @@ private fun ModeIntroDialog(
             Text(
                 // No version number: installs updated straight from v1.2.0 to a
                 // later release see this card too.
-                if (isEn) "New: protection modes" else "Yeni: koruma modları",
+                AppText.get(R.string.main_new_protection_modes),
                 textAlign = TextAlign.Center
             )
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    text = if (isEn) {
-                        "Instagram and YouTube now have two protection modes:\n\n" +
-                            "• Balanced: you can watch one Reel or Short you choose, but not move on to the next. On Instagram, profile posts and Saved lists stay open.\n\n" +
-                            "• Strict: Reels and Shorts are blocked completely. On Instagram, profile posts and Saved lists are closed and Stories are blocked.\n\n" +
-                            "After the update, both apps started in Balanced. On Instagram, Strict is closest to the previous version.\n\n" +
-                            "On YouTube, Home is covered in both modes. Subscriptions stay open in Balanced and are covered in Strict."
-                    } else {
-                        "Instagram ve YouTube için artık iki koruma modu var:\n\n" +
-                            "• Dengeli: Seçtiğiniz tek bir Reel veya Short izlenebilir, sonraki videoya geçilemez. Instagram'da profil gönderileri ve Kaydedilenler açık kalır.\n\n" +
-                            "• Sert: Reels ve Shorts tamamen engellenir. Instagram'da profil gönderileri ve Kaydedilenler kapanır, hikâyeler engellenir.\n\n" +
-                            "Güncellemeden sonra iki uygulama da Dengeli modda başladı. Instagram'da önceki sürüme en yakın koruma Sert moddur.\n\n" +
-                            "YouTube'da Ana Sayfa iki modda da perdeli. Abonelikler Dengeli modda açık, Sert modda perdeli."
-                    },
+                    text = AppText.get(R.string.main_instagram_and_youtube_now_have_two),
                     fontSize = 13.sp,
                     lineHeight = 19.sp
                 )
@@ -465,13 +471,15 @@ private fun ModeIntroDialog(
                     onClick = onChooseModes,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (isEn) "Choose modes" else "Modları seç", textAlign = TextAlign.Center)
+                    Text(AppText.get(R.string.main_choose_modes), textAlign = TextAlign.Center)
                 }
                 OutlinedButton(
                     onClick = onLater,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    border = dialogButtonBorder(),
+                    colors = dialogOutlinedButtonColors()
                 ) {
-                    Text(if (isEn) "Later" else "Daha sonra", textAlign = TextAlign.Center)
+                    Text(AppText.get(R.string.main_later), textAlign = TextAlign.Center)
                 }
             }
         },
@@ -479,6 +487,71 @@ private fun ModeIntroDialog(
         containerColor = MaterialTheme.colorScheme.surface
     )
 }
+
+/** The short summary of an update; see ReleaseNotice. */
+@Composable
+private fun ReleaseNoticeDialog(
+    versionName: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_shield),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                AppText.get(R.string.release_notice_title, versionName),
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    text = AppText.get(R.string.release_notice_body),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+                Text(
+                    text = AppText.get(R.string.release_notice_thanks),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(AppText.get(R.string.main_got_it), textAlign = TextAlign.Center)
+            }
+        },
+        dismissButton = {},
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+/**
+ * Outlined buttons in dialogs. The theme's outline color is kept faint for
+ * card edges and disappears on the dialog surface (about 1.3:1), so these
+ * buttons draw a border that reaches ~3:1 against it.
+ */
+private val DialogButtonShape = RoundedCornerShape(12.dp)
+
+@Composable
+private fun dialogButtonBorder() =
+    androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+
+@Composable
+private fun dialogOutlinedButtonColors() =
+    ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
 
 @Composable
 private fun TelemetryConsentDialog(
@@ -499,9 +572,9 @@ private fun TelemetryConsentDialog(
         title = {
             Text(
                 if (isRenewal) {
-                    if (isEn) "Review usage-data sharing" else "Kullanım verisi paylaşımı"
+                    AppText.get(R.string.main_review_usage_data_sharing)
                 } else {
-                    if (isEn) "Share optional usage data?" else "İsteğe bağlı kullanım verileri paylaşılsın mı?"
+                    AppText.get(R.string.main_share_optional_usage_data)
                 }
             )
         },
@@ -515,22 +588,30 @@ private fun TelemetryConsentDialog(
             }
         },
         confirmButton = {
+            // Same height even when one label wraps to two lines.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Both choices look the same: declining is as easy to see as agreeing.
                 OutlinedButton(
                     onClick = onDecline,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    shape = DialogButtonShape,
+                    border = dialogButtonBorder(),
+                    colors = dialogOutlinedButtonColors()
                 ) {
-                    Text(if (isEn) "Do not share" else "Paylaşma", textAlign = TextAlign.Center)
+                    Text(AppText.get(R.string.main_do_not_share), textAlign = TextAlign.Center)
                 }
                 OutlinedButton(
                     onClick = onAccept,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    shape = DialogButtonShape,
+                    border = dialogButtonBorder(),
+                    colors = dialogOutlinedButtonColors()
                 ) {
                     Text(
-                        if (isEn) "Agree to share" else "Paylaşmayı kabul et",
+                        AppText.get(R.string.main_agree_to_share),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -545,39 +626,28 @@ private fun TelemetryConsentDialog(
     )
 }
 
-fun isAccessibilityServiceEnabled(context: Context, serviceClass: Class<*>): Boolean {
-    val expectedComponentName = ComponentName(context, serviceClass)
-    val enabledServicesSetting = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-    val colonSplitter = TextUtils.SimpleStringSplitter(':')
-    colonSplitter.setString(enabledServicesSetting)
-    while (colonSplitter.hasNext()) {
-        val componentNameString = colonSplitter.next()
-        val enabledComponentName = ComponentName.unflattenFromString(componentNameString)
-        if (enabledComponentName != null && enabledComponentName == expectedComponentName) {
-            return true
-        }
-    }
-    return false
-}
+/** True only while the system really runs the service; see ProtectionServiceStatus. */
+fun isAccessibilityServiceEnabled(context: Context, serviceClass: Class<*>): Boolean =
+    ProtectionServiceStatus.read(context, serviceClass) == ProtectionServiceState.RUNNING
 
 @Composable
-fun rememberAccessibilityStatus(): Boolean {
+fun rememberAccessibilityStatus(): Boolean =
+    rememberProtectionServiceState() == ProtectionServiceState.RUNNING
+
+@Composable
+internal fun rememberProtectionServiceState(): ProtectionServiceState {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var isAccessibilityActive by remember {
-        mutableStateOf<Boolean>(isAccessibilityServiceEnabled(context, AntiScrollService::class.java))
-    }
+    var state by remember { mutableStateOf(ProtectionServiceStatus.read(context)) }
+    var resumes by remember { mutableIntStateOf(0) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val active = isAccessibilityServiceEnabled(context, AntiScrollService::class.java)
-                isAccessibilityActive = active
-                AccessibilityStreakPolicy.syncState(context, active)
+                state = ProtectionServiceStatus.read(context)
+                AccessibilityStreakPolicy.syncState(context, state == ProtectionServiceState.RUNNING)
+                resumes++
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -586,7 +656,17 @@ fun rememberAccessibilityStatus(): Boolean {
         }
     }
 
-    return isAccessibilityActive
+    // Just after a restart, or right after the switch was turned on, the
+    // system may not have bound the service yet: look again before saying so.
+    LaunchedEffect(resumes, state) {
+        if (state == ProtectionServiceState.LISTED_NOT_RUNNING) {
+            delay(1500)
+            state = ProtectionServiceStatus.read(context)
+            if (state == ProtectionServiceState.RUNNING) AccessibilityStreakPolicy.syncState(context, true)
+        }
+    }
+
+    return state
 }
 
 /**
@@ -635,11 +715,11 @@ fun Modifier.tabScroll(horizontal: Dp, vertical: Dp): Modifier = composed {
 }
 
 fun onboardingStepName(step: Int, isEn: Boolean): String = when (step) {
-    1 -> if (isEn) "Welcome" else "Hoş geldiniz"
-    2 -> if (isEn) "How it works" else "Nasıl çalışır"
-    3 -> if (isEn) "Scope and privacy" else "Kapsam ve gizlilik"
-    4 -> if (isEn) "Apps" else "Uygulamalar"
-    else -> if (isEn) "Permissions" else "İzinler"
+    1 -> AppText.get(R.string.main_welcome)
+    2 -> AppText.get(R.string.main_how_it_works)
+    3 -> AppText.get(R.string.main_scope_and_privacy)
+    4 -> AppText.get(R.string.main_apps)
+    else -> AppText.get(R.string.main_permissions)
 }
 
 fun isBatteryUnrestricted(context: Context): Boolean =
@@ -679,6 +759,63 @@ fun openBackgroundSettings(context: Context) {
 }
 
 /**
+ * Xiaomi, Redmi and POCO (MIUI / HyperOS) stop apps in the background the way
+ * a force stop does, and Android then switches the accessibility service off
+ * until the user turns it on again: the most common support ticket.
+ */
+fun isXiaomiFamily(): Boolean {
+    val m = Build.MANUFACTURER.lowercase(java.util.Locale.US)
+    return m.contains("xiaomi") || m.contains("redmi") || m.contains("poco")
+}
+
+/**
+ * Xiaomi's Autostart list when this phone has it, the app's info page
+ * otherwise; for places that cannot catch a failed start, like notifications.
+ */
+fun autostartIntent(context: Context): Intent {
+    val autostart = Intent().setComponent(ComponentName(
+        "com.miui.securitycenter",
+        "com.miui.permcenter.autostart.AutoStartManagementActivity"
+    )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return if (autostartPageAvailable(context)) autostart else Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null)
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+
+/**
+ * Asks the package manager whether the page exists. Intent.resolveActivity()
+ * returns an explicit component unchecked, so it said "yes" on a Galaxy S23.
+ * Needs the com.miui.securitycenter <queries> entry on Android 11+.
+ */
+private fun autostartPageAvailable(context: Context): Boolean = runCatching {
+    context.packageManager.resolveActivity(
+        Intent().setComponent(ComponentName(
+            "com.miui.securitycenter",
+            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+        )), 0
+    ) != null
+}.getOrDefault(false)
+
+/**
+ * Whether this phone has Xiaomi's Autostart switch: the Autostart page is
+ * there, or the maker is Xiaomi, Redmi or POCO (where app info holds the
+ * switch if the page moved). Other phones have no such switch, and the button
+ * only opened app info there (Galaxy S23).
+ */
+fun hasAutostartSetting(context: Context): Boolean =
+    isXiaomiFamily() || autostartPageAvailable(context)
+
+/** MIUI's Autostart list, where the app can be allowed to restart; app info otherwise. */
+fun openAutostartSettings(context: Context) {
+    val autostart = Intent().setComponent(ComponentName(
+        "com.miui.securitycenter",
+        "com.miui.permcenter.autostart.AutoStartManagementActivity"
+    )).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(autostart) }.onFailure { openBackgroundSettings(context) }
+}
+
+/**
  * Optional step for phones whose battery manager stops background services
  * (common on Xiaomi, POCO and OnePlus), which turns protection off until a
  * restart. Refreshes when the user comes back from settings.
@@ -688,6 +825,7 @@ fun BackgroundRunCard(isEn: Boolean, modifier: Modifier = Modifier, stepNumber: 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var unrestricted by remember { mutableStateOf(isBatteryUnrestricted(context)) }
+    val autostart = remember { hasAutostartSetting(context) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) unrestricted = isBatteryUnrestricted(context)
@@ -723,46 +861,71 @@ fun BackgroundRunCard(isEn: Boolean, modifier: Modifier = Modifier, stepNumber: 
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    if (isEn) "Run in the background (optional)" else "Arka planda çalışma (isteğe bağlı)",
+                    AppText.get(R.string.main_run_in_the_background_optional),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
+            // Optional on most phones; the one sentence for Xiaomi, Redmi and POCO
+            // is set apart in bold amber, without a box.
             Text(
-                if (isEn) {
-                    "On phones such as Xiaomi, POCO and OnePlus, the system can stop protection in the background. " +
-                        "On these phones, we recommend allowing it to run in the background. " +
-                        "On Xiaomi and POCO, also turn on Autostart in app info."
-                } else {
-                    "Xiaomi, POCO, OnePlus gibi cihazlarda sistem korumayı arka planda kapatabilir. " +
-                        "Bu cihazlarda arka planda çalışmaya izin vermeniz önerilir. " +
-                        "Xiaomi ve POCO'da uygulama bilgilerinden Otomatik başlatma'yı da açın."
+                buildAnnotatedString {
+                    append(AppText.get(R.string.main_on_phones_such_as_xiaomi_poco))
+                    append(" ")
+                    withStyle(SpanStyle(color = Color(0xFFFFB800), fontWeight = FontWeight.Bold)) {
+                        append(AppText.get(R.string.main_background_xiaomi_recommended))
+                    }
                 },
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 lineHeight = 16.sp
             )
+            // Tested on a Xiaomi 14 (HyperOS 2): clearing Recents ends the app every
+            // time, and only with Autostart on does Android restart protection. It is
+            // off on a new installation and the app cannot read it.
+            if (autostart) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    AppText.get(R.string.main_xiaomi_autostart_note),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { openAutostartSettings(context) },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(AppText.get(R.string.main_xiaomi_autostart_button), fontWeight = FontWeight.Bold)
+                }
+            }
             Spacer(modifier = Modifier.height(10.dp))
-            Button(
+            // Secondary to Autostart above: on Xiaomi it opens the phone's own battery
+            // page; protection came back without it once Autostart was on.
+            OutlinedButton(
                 onClick = {
-                    // Once allowed, the button leads to app info for Xiaomi's Autostart switch.
-                    if (unrestricted) openBackgroundSettings(context) else requestBatteryUnrestricted(context)
+                    if (!unrestricted) requestBatteryUnrestricted(context)
+                    else openBackgroundSettings(context)
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (unrestricted) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
-                    contentColor = if (unrestricted) MaterialTheme.colorScheme.secondary else Color.White
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (unrestricted) MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (unrestricted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    when {
-                        unrestricted && isEn -> "Allowed"
-                        unrestricted -> "İzin verildi"
-                        isEn -> "Allow running in the background"
-                        else -> "Arka planda çalışmaya izin ver"
-                    },
+                    if (unrestricted) AppText.get(R.string.main_battery_allowed) else AppText.get(R.string.main_battery_allow),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -807,13 +970,13 @@ fun NotInstalledAppRow(
     textColor: Color = Color.White
 ) {
     val name = InstalledApps.displayName(app)
-    val badge = if (isEn) "NOT INSTALLED" else "YÜKLÜ DEĞİL"
+    val badge = AppText.get(R.string.main_not_installed)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .alpha(0.6f)
             .semantics(mergeDescendants = true) {
-                contentDescription = if (isEn) "$name, not installed" else "$name, yüklü değil"
+                contentDescription = AppText.get(R.string.main_x_not_installed, name)
             },
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -861,11 +1024,7 @@ fun NotInstalledAppRow(
             }
             Spacer(modifier = Modifier.height(3.dp))
             Text(
-                text = if (isEn) {
-                    "Not on this phone. Install it and protection can be turned on here."
-                } else {
-                    "Bu telefonda yok. Yüklediğinizde korumayı buradan açabilirsiniz."
-                },
+                text = AppText.get(R.string.main_not_on_this_phone_install_it),
                 fontSize = 11.sp,
                 lineHeight = 14.sp,
                 color = textColor.copy(alpha = 0.6f)
@@ -887,7 +1046,7 @@ fun OnboardingScreen(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val isAccessibilityActive = rememberAccessibilityStatus()
-    val isEn = getAppLanguage(prefs) == "en"
+    val isEn = getAppLanguage(prefs) != "tr"
     val stepShiftPx = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.roundToPx() }
 
     LaunchedEffect(step) {
@@ -951,7 +1110,9 @@ fun OnboardingScreen(
                     label = "OnboardingStepLabel"
                 ) { labelStep ->
                     Text(
-                        text = (if (isEn) "Step $labelStep / 5 · " else "Adım $labelStep / 5 · ") +
+                        // Android drops the trailing space of a string resource, so
+                        // "Adım 1 / 5 ·" and the step name were glued together.
+                        text = AppText.get(R.string.main_step_x_5, labelStep).trimEnd() + " " +
                             onboardingStepName(labelStep, isEn),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -998,7 +1159,7 @@ fun OnboardingScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            if (isEn) "← Back" else "← Geri",
+                            AppText.get(R.string.main_back),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium
@@ -1055,10 +1216,10 @@ fun OnboardingScreen(
                         label = "BottomNavButtonTransition"
                     ) { visualState ->
                         val buttonText = when (visualState) {
-                            3 -> if (isEn) "Finish setup" else "Kurulumu tamamla"
-                            2 -> if (isEn) "Continue without permission" else "İzin vermeden devam et"
-                            0 -> if (isEn) "Start setup →" else "Kuruluma başla →"
-                            else -> if (isEn) "Next →" else "Devam et →"
+                            3 -> AppText.get(R.string.main_finish_setup)
+                            2 -> AppText.get(R.string.main_continue_without_permission)
+                            0 -> AppText.get(R.string.main_start_setup)
+                            else -> AppText.get(R.string.main_next)
                         }
                         Text(
                             text = buttonText,
@@ -1132,7 +1293,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 Text(
-                    text = if (isEn) "Why AwayDoomscrollin'?" else "Neden AwayDoomscrollin'?",
+                    text = AppText.get(R.string.main_why_awaydoomscrollin),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -1141,7 +1302,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (isEn) "On-device protection for feeds and short videos" else "Akışlar ve kısa videolar için cihazda çalışan koruma",
+                    text = AppText.get(R.string.main_on_device_protection_for_feeds_and),
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.6f)
                 )
@@ -1149,11 +1310,8 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SetupReason(
-                    title = if (isEn) "Why not just use a timer?" else "Neden sadece bir süre sınırı kullanılmıyor?",
-                    body = if (isEn)
-                        "A timer limits how long you use an app. AwayDoomscrollin' takes a different approach: it blocks supported feeds and short-video loops while keeping purposeful use available."
-                    else
-                        "Süre sınırı, bir uygulamada geçirdiğiniz zamanı kısıtlar. AwayDoomscrollin' ise farklı bir yol izler: amaçlı kullanıma alan bırakırken desteklenen akışları ve kısa video döngülerini engeller."
+                    title = AppText.get(R.string.main_why_not_just_use_a_timer),
+                    body = AppText.get(R.string.main_a_timer_limits_how_long_you)
                 )
 
                 Box(
@@ -1165,11 +1323,8 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                 )
 
                 SetupReason(
-                    title = if (isEn) "Communication stays available" else "İletişim açık kalır",
-                    body = if (isEn)
-                        "Messages, search and YouTube long videos remain available. Choose Strict or Balanced for Instagram and YouTube; Stories and selected short videos depend on your mode."
-                    else
-                        "Mesajlar, arama ve YouTube'daki uzun videolar açık kalır. Instagram ve YouTube için Sert veya Dengeli modu seçebilirsiniz; hikâyelere ve seçilen kısa videolara erişim modunuza bağlıdır."
+                    title = AppText.get(R.string.main_communication_stays_available),
+                    body = AppText.get(R.string.main_messages_search_and_youtube_long_videos)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1182,13 +1337,13 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SetupFact(
-                            title = if (isEn) "Any language" else "Her dilde",
-                            body = if (isEn) "Works whatever language your apps use." else "Uygulamalarınızın dili ne olursa olsun çalışır.",
+                            title = AppText.get(R.string.main_any_language),
+                            body = AppText.get(R.string.main_works_whatever_language_your_apps_use),
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         SetupFact(
-                            title = if (isEn) "On-device" else "Cihazda çalışır",
-                            body = if (isEn) "Protection decisions are made on your device." else "Koruma kararları telefonunuzda verilir.",
+                            title = AppText.get(R.string.main_on_device),
+                            body = AppText.get(R.string.main_protection_decisions_are_made_on_your),
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
@@ -1199,13 +1354,13 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SetupFact(
-                            title = if (isEn) "Open source" else "Açık kaynak",
-                            body = if (isEn) "The source code can be reviewed on GitHub." else "Kaynak kod GitHub üzerinden incelenebilir.",
+                            title = AppText.get(R.string.main_open_source),
+                            body = AppText.get(R.string.main_the_source_code_can_be_reviewed),
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         SetupFact(
-                            title = if (isEn) "No ads" else "Reklamsız",
-                            body = if (isEn) "No ads. No subscription required." else "Reklamsızdır, abonelik gerektirmez.",
+                            title = AppText.get(R.string.main_no_ads),
+                            body = AppText.get(R.string.main_no_ads_no_subscription_required),
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
@@ -1248,13 +1403,13 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (isEn) "I'm one of you." else "Ben de sizden biriyim.",
+                            text = AppText.get(R.string.main_i_m_one_of_you),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isEn) "A letter from Resolve Community" else "Resolve Community'den bir mektup",
+                            text = AppText.get(R.string.main_a_letter_from_resolve_community),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary
@@ -1266,17 +1421,14 @@ fun OnboardingStepOne(isEn: Boolean = false) {
 
                 // Bölüm 1: Hikayenin Başlangıcı
                 Text(
-                    text = if (isEn) "Hi, I'm the independent developer behind Resolve Community and AwayDoomscrollin'." else "Merhaba, ben Resolve Community'nin ve AwayDoomscrollin' uygulamasının arkasındaki bağımsız geliştiriciyim.",
+                    text = AppText.get(R.string.main_hi_i_m_the_independent_developer),
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isEn)
-                        "During the COVID-19 pandemic, I started spending almost all day on my computer or phone. Life outside felt complicated. Gaming or scrolling for hours felt easier and safer than socializing. Looking back, I think I was trying to escape real life."
-                    else
-                        "COVID-19 pandemisi döneminde günümün neredeyse tamamı bilgisayar ve telefon ekranı karşısında geçmeye başladı. Dışarıdaki hayat karmaşıktı; sosyalleşmek yerine ekran başında oyun oynamak veya saatlerce akış kaydırmak daha keyifli ve güvenli geliyordu. Sanırım asıl sebebim, gerçek hayattan kaçmaktı.",
+                    text = AppText.get(R.string.main_during_the_covid_19_pandemic_i),
                     fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     lineHeight = 19.sp
@@ -1300,7 +1452,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isEn) "What I noticed" else "Fark ettiğim sorun",
+                                text = AppText.get(R.string.main_what_i_noticed),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -1308,10 +1460,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (isEn)
-                                "I realized that short-content habits were taking more time and attention than I wanted.\n\nI wanted a clearer boundary that would help me get back to my studies and my goals."
-                            else
-                                "Kısa içerik alışkanlığının istediğimden daha fazla zamanımı ve dikkatimi aldığını fark ettim.\n\nOkula ve hayat hedeflerime odaklanmamı sağlayacak daha net bir sınır istedim.",
+                            text = AppText.get(R.string.main_i_realized_that_short_content_habits),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 18.sp,
@@ -1324,17 +1473,14 @@ fun OnboardingStepOne(isEn: Boolean = false) {
 
                 // Bölüm 3: Çözüm Arayışı
                 Text(
-                    text = if (isEn) "Why did I build this app under Resolve Community?" else "Bu uygulamayı neden Resolve Community bünyesinde geliştirdim?",
+                    text = AppText.get(R.string.main_why_did_i_build_this_app),
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isEn)
-                        "Even when I was busy with something else, I'd find myself opening short videos without thinking. I built AwayDoomscrollin' under Resolve Community to create a clear boundary that holds even on tired days. I use it myself, and it keeps improving through testing and feedback from people who use it."
-                    else
-                        "Başka bir şeyle ilgilenirken bile düşünmeden kısa videolara yöneldiğimi fark ediyordum. AwayDoomscrollin' uygulamasını, yorgun günlerde bile esnemeyen net bir sınır oluşturmak için Resolve Community çatısı altında geliştirdim. Ben de kullanıyorum; uygulama testlerle ve kullanıcıların geri bildirimleriyle gelişmeye devam ediyor.",
+                    text = AppText.get(R.string.main_even_when_i_was_busy_with),
                     fontSize = 12.5.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     lineHeight = 19.sp
@@ -1359,7 +1505,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isEn) "Why short-content feeds never end" else "Kısa içerik akışları neden bitmez?",
+                                text = AppText.get(R.string.main_why_short_content_feeds_never_end),
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFF85149)
@@ -1367,14 +1513,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = if (isEn)
-                                "• Feeds automatically load the next item.\n" +
-                                "• Watch time and interactions can be used to personalize what appears next.\n" +
-                                "• Because there is no natural stopping point, a short visit can last longer than intended."
-                            else
-                                "• Akışlar sıradaki içeriği otomatik olarak yükler.\n" +
-                                "• İzleme süresi ve etkileşimler, sonraki içerikleri kişiselleştirmek için kullanılabilir.\n" +
-                                "• Doğal bir durma noktası olmadığı için kısa bir ziyaret planlanandan uzun sürebilir.",
+                            text = AppText.get(R.string.main_feeds_automatically_load_the_next_item),
                             fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 17.sp
@@ -1386,10 +1525,7 @@ fun OnboardingStepOne(isEn: Boolean = false) {
 
                 // Bölüm 5: Çağrı & Kapanış
                 Text(
-                    text = if (isEn)
-                        "AwayDoomscrollin' was created to make room for study, work and intentional time. Protection is a tool; you can review its scope and choose the apps that fit your needs."
-                    else
-                        "Bu uygulama ders, iş ve bilinçli geçirilen zamana alan açmak için geliştirildi. Koruma bir araçtır; kapsamını inceleyebilir ve ihtiyacınıza uygun uygulamaları seçebilirsiniz.",
+                    text = AppText.get(R.string.main_awaydoomscrollin_was_created_to_make_room),
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -1423,7 +1559,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isEn) "How does protection work?" else "Koruma nasıl çalışır?",
+            text = AppText.get(R.string.main_how_does_protection_work),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -1433,7 +1569,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = if (isEn) "Clear boundaries for feeds and short videos" else "Akışlar ve kısa videolar için net sınırlar",
+            text = AppText.get(R.string.main_clear_boundaries_for_feeds_and_short),
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary,
@@ -1461,7 +1597,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isEn) "How it works" else "Nasıl çalışır?",
+                        text = AppText.get(R.string.main_how_it_works_2),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -1474,7 +1610,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                     iconTint = Color(0xFFE1306C),
                     title = "Instagram",
                     isEn = isEn,
-                    modes = ProtectionCopy.instagramScope(isEn)
+                    modes = ProtectionCopy.instagramScope()
                 )
 
                 // 2. TikTok
@@ -1482,7 +1618,7 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                     iconRes = R.drawable.ic_tiktok,
                     iconTint = Color(0xFF00F2FE),
                     title = "TikTok",
-                    description = ProtectionCopy.tiktok(isEn)
+                    description = ProtectionCopy.tiktok()
                 )
 
                 // 3. YouTube Shorts
@@ -1491,18 +1627,15 @@ fun OnboardingStepTwo(isEn: Boolean = false) {
                     iconTint = Color(0xFFFF0055),
                     title = "YouTube",
                     isEn = isEn,
-                    modes = ProtectionCopy.youtubeScope(isEn)
+                    modes = ProtectionCopy.youtubeScope()
                 )
 
                 // 4. On-Device Shield
                 AppMechanismRow(
                     iconRes = R.drawable.ic_shield,
                     iconTint = Color(0xFF00FF87),
-                    title = if (isEn) "On-device protection" else "Cihazda çalışan koruma",
-                    description = if (isEn)
-                        "Screen information is processed on your device and never sent to a server; only a short troubleshooting log stays on the phone. Optional usage-data sharing is a separate choice. App or Android updates can affect detection."
-                    else
-                        "Ekran bilgileri cihazınızda işlenir ve sunucuya gönderilmez; telefonda yalnızca kısa bir sorun giderme kaydı kalır. İsteğe bağlı kullanım verisi paylaşımı ayrı bir tercihtir. Uygulama veya Android güncellemeleri algılamayı etkileyebilir."
+                    title = AppText.get(R.string.main_on_device_protection),
+                    description = AppText.get(R.string.main_screen_information_is_processed_on_your)
                 )
             }
         }
@@ -1556,13 +1689,13 @@ private fun AppMechanismRow(
             if (modes != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 ModeScopeBlock(
-                    label = if (isEn) "BALANCED" else "DENGELİ",
+                    label = AppText.get(R.string.main_balanced),
                     accent = Color(0xFF00FF87),
                     text = modes.balanced
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 ModeScopeBlock(
-                    label = if (isEn) "STRICT" else "SERT",
+                    label = AppText.get(R.string.main_strict),
                     accent = Color(0xFFFF4D6D),
                     text = modes.strict
                 )
@@ -1629,7 +1762,7 @@ private fun ProtectionScopeDialog(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = if (isEn) "Protection scope" else "Koruma kapsamı",
+                        text = AppText.get(R.string.main_protection_scope),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = Color.White,
@@ -1638,7 +1771,7 @@ private fun ProtectionScopeDialog(
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_close),
-                            contentDescription = if (isEn) "Close" else "Kapat",
+                            contentDescription = AppText.get(R.string.main_close),
                             tint = Color.White.copy(alpha = 0.6f),
                             modifier = Modifier.size(16.dp)
                         )
@@ -1707,14 +1840,14 @@ private fun ProtectionScopeDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     val scope = when (selected) {
-                        ProtectedApp.INSTAGRAM -> ProtectionCopy.instagramScope(isEn)
-                        ProtectedApp.YOUTUBE -> ProtectionCopy.youtubeScope(isEn)
+                        ProtectedApp.INSTAGRAM -> ProtectionCopy.instagramScope()
+                        ProtectedApp.YOUTUBE -> ProtectionCopy.youtubeScope()
                         ProtectedApp.TIKTOK -> null
                     }
                     if (scope == null) {
-                        val tiktok = ProtectionCopy.tiktokScope(isEn)
+                        val tiktok = ProtectionCopy.tiktokScope()
                         Text(
-                            text = if (isEn) "ONE PROTECTION SETTING" else "TEK KORUMA AYARI",
+                            text = AppText.get(R.string.main_one_protection_setting),
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White.copy(alpha = 0.45f),
@@ -1722,31 +1855,27 @@ private fun ProtectionScopeDialog(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (isEn) {
-                                "Protection takes you out of the video feed instead of covering it, so TikTok has no modes."
-                            } else {
-                                "TikTok'ta akış perdelenmez, akıştan çıkılır; bu yüzden mod seçimi yoktur."
-                            },
+                            text = AppText.get(R.string.main_protection_takes_you_out_of_the),
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
                             color = bodyText
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         ModeScopeBlock(
-                            label = if (isEn) "STOPPED" else "DURDURULANLAR",
+                            label = AppText.get(R.string.main_stopped),
                             accent = Color(0xFFFF4D6D),
                             text = tiktok.stopped
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         ModeScopeBlock(
-                            label = if (isEn) "STAYS OPEN" else "AÇIK KALANLAR",
+                            label = AppText.get(R.string.main_stays_open),
                             accent = Color(0xFF00FF87),
                             text = tiktok.open
                         )
                     } else {
                         val current = if (selected == ProtectedApp.INSTAGRAM) instagramMode else youtubeMode
                         Text(
-                            text = if (isEn) "BOTH MODES" else "İKİ MODDA DA",
+                            text = AppText.get(R.string.main_both_modes),
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White.copy(alpha = 0.45f),
@@ -1760,9 +1889,9 @@ private fun ProtectionScopeDialog(
                             color = bodyText
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        val currentLabel = if (isEn) "Current mode" else "Seçili mod"
+                        val currentLabel = AppText.get(R.string.main_current_mode)
                         ModeScopeBlock(
-                            label = if (isEn) "BALANCED" else "DENGELİ",
+                            label = AppText.get(R.string.main_balanced),
                             accent = Color(0xFF00FF87),
                             text = scope.balanced,
                             current = current == ProtectionMode.BALANCED,
@@ -1770,7 +1899,7 @@ private fun ProtectionScopeDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         ModeScopeBlock(
-                            label = if (isEn) "STRICT" else "SERT",
+                            label = AppText.get(R.string.main_strict),
                             accent = Color(0xFFFF4D6D),
                             text = scope.strict,
                             current = current == ProtectionMode.STRICT,
@@ -1788,7 +1917,7 @@ private fun ProtectionScopeDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = ProtectionCopy.detectionNote(isEn),
+                    text = ProtectionCopy.detectionNote(),
                     fontSize = 10.sp,
                     lineHeight = 14.sp,
                     color = Color.White.copy(alpha = 0.42f)
@@ -1902,17 +2031,14 @@ fun OnboardingStepThree(isEn: Boolean = false) {
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isEn) "What it can and cannot do" else "Ne yapabilir, ne yapamaz?",
+            text = AppText.get(R.string.main_what_it_can_and_cannot_do),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
-            text = if (isEn)
-                "Here's what protection covers and how your information is handled:"
-            else
-                "Korumanın kapsamını ve bilgilerinizin nasıl işlendiğini burada görebilirsiniz:",
+            text = AppText.get(R.string.main_here_s_what_protection_covers_and),
             fontSize = 12.sp,
             lineHeight = 16.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -1945,7 +2071,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (isEn) "WHAT PROTECTION DOES" else "KORUMA NELERİ YAPAR?",
+                        AppText.get(R.string.main_what_protection_does),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF00FF87),
@@ -1955,10 +2081,10 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                 Spacer(modifier = Modifier.height(10.dp))
                 // What each app covers is the previous step; this one is about
                 // how protection works and how your information is handled.
-                MatrixBullet(if (isEn) "All analysis and protection happen directly on your device. When optional usage data is off, nothing is sent to our server." else "Tüm analiz ve koruma işlemleri doğrudan telefonunuzda çalışır; isteğe bağlı kullanım verileri kapalıyken sunucumuza hiçbir bilgi gitmez.")
-                MatrixBullet(if (isEn) "Protection reads the structure of the screen, not its text, so it works the same in any language." else "Koruma ekrandaki yazıları değil ekranın yapısını okur; bu yüzden her dilde aynı çalışır.")
-                MatrixBullet(if (isEn) "You can turn protection off at any time, in the app or in Android's accessibility settings." else "Korumayı istediğiniz zaman uygulamadan veya Android'in erişilebilirlik ayarlarından kapatabilirsiniz.")
-                MatrixBullet(if (isEn) "Changes to Instagram, TikTok or YouTube can affect how reliably protected screens are detected." else "Instagram, TikTok veya YouTube arayüzü değişirse algılama bundan etkilenebilir.")
+                MatrixBullet(AppText.get(R.string.main_all_analysis_and_protection_happen_directly))
+                MatrixBullet(AppText.get(R.string.main_protection_reads_the_structure_of_the))
+                MatrixBullet(AppText.get(R.string.main_you_can_turn_protection_off_at))
+                MatrixBullet(AppText.get(R.string.main_changes_to_instagram_tiktok_or_youtube))
             }
         }
 
@@ -1978,7 +2104,7 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (isEn) "WHAT IT NEVER DOES OR COLLECTS" else "NELERİ ASLA YAPMAZ VE TOPLAMAZ?",
+                        AppText.get(R.string.main_what_it_never_does_or_collects),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFF5252),
@@ -1986,9 +2112,9 @@ fun PermissionMatrixCard(isEn: Boolean = false) {
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                MatrixBullet(if (isEn) "Does not save on-screen text or send screen information anywhere. Messages, passwords, photos and screenshots are never collected." else "Ekrandaki yazıları kaydetmez, ekran bilgilerini hiçbir yere göndermez; mesajlarınız, şifreleriniz, fotoğraflarınız ve ekran görüntüleriniz asla toplanmaz.", isNegative = true)
-                MatrixBullet(if (isEn) "Does not include your name, messages or browsing history in usage reports. Sharing usage data is optional and off by default." else "Kullanım raporlarına adınızı, mesajlarınızı veya gezinme geçmişinizi eklemez. Kullanım verisi paylaşımı isteğe bağlıdır ve başlangıçta kapalıdır.", isNegative = true)
-                MatrixBullet(if (isEn) "Does not show ads or sell personal data." else "Reklam göstermez ve kişisel verilerinizi asla satmaz.", isNegative = true)
+                MatrixBullet(AppText.get(R.string.main_does_not_save_on_screen_text), isNegative = true)
+                MatrixBullet(AppText.get(R.string.main_does_not_include_your_name_messages), isNegative = true)
+                MatrixBullet(AppText.get(R.string.main_does_not_show_ads_or_sell), isNegative = true)
             }
         }
     }
@@ -2037,7 +2163,7 @@ fun OnboardingStepFourAppsAndPrefs(
     if (showTelemetryDetails) {
         ScrollableTextDialog(
             isEn = isEn,
-            title = if (isEn) "Optional usage data" else "İsteğe bağlı kullanım verileri",
+            title = AppText.get(R.string.main_optional_usage_data),
             content = telemetryDisclosureText(isEn),
             iconRes = R.drawable.ic_handshake,
             iconTint = MaterialTheme.colorScheme.primary,
@@ -2082,7 +2208,7 @@ fun OnboardingStepFourAppsAndPrefs(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isEn) "Apps and preferences" else "Uygulamalar ve seçenekler",
+            text = AppText.get(R.string.main_apps_and_preferences),
             fontSize = 23.sp,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary,
@@ -2092,7 +2218,7 @@ fun OnboardingStepFourAppsAndPrefs(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (isEn) "Choose the apps where protection will be active:" else "Korumanın çalışacağı uygulamaları seçin:",
+            text = AppText.get(R.string.main_choose_the_apps_where_protection_will),
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
@@ -2105,14 +2231,14 @@ fun OnboardingStepFourAppsAndPrefs(
         if (ProtectedApp.INSTAGRAM in installedApps) {
             CompactOnboardingAppCard(
                 appName = "Instagram",
-                subtitle = if (isEn) "Feeds, plus Reels and Stories by mode" else "Akışlar, Reels ve hikâyeler (moda göre)",
+                subtitle = AppText.get(R.string.main_feeds_plus_reels_and_stories_by),
                 iconRes = R.drawable.ic_instagram,
                 brandColor = Color(0xFFE1306C),
                 isEnabled = isInstaEnabled,
                 isBeta = true,
                 isEn = isEn,
                 protectionMode = instagramMode,
-                modeDescription = ProtectionCopy.modeSummary(ProtectedApp.INSTAGRAM, instagramMode, isEn),
+                modeDescription = ProtectionCopy.modeSummary(ProtectedApp.INSTAGRAM, instagramMode),
                 onModeChange = { mode ->
                     if (ProtectionPreferences.setMode(prefs, ProtectedApp.INSTAGRAM, mode)) {
                         instagramMode = mode
@@ -2131,7 +2257,7 @@ fun OnboardingStepFourAppsAndPrefs(
         if (ProtectedApp.TIKTOK in installedApps) {
             CompactOnboardingAppCard(
                 appName = "TikTok",
-                subtitle = if (isEn) "Video feed scrolling" else "Video akışında kaydırma",
+                subtitle = AppText.get(R.string.main_video_feed_scrolling),
                 iconRes = R.drawable.ic_tiktok,
                 brandColor = Color(0xFF00F2FE),
                 isEnabled = isTiktokEnabled,
@@ -2149,14 +2275,14 @@ fun OnboardingStepFourAppsAndPrefs(
         if (ProtectedApp.YOUTUBE in installedApps) {
             CompactOnboardingAppCard(
                 appName = "YouTube",
-                subtitle = if (isEn) "Home feed and Shorts" else "Ana Sayfa ve Shorts",
+                subtitle = AppText.get(R.string.main_home_feed_and_shorts),
                 iconRes = R.drawable.ic_youtube,
                 brandColor = Color(0xFFFF0055),
                 isEnabled = isYoutubeEnabled,
                 isBeta = true,
                 isEn = isEn,
                 protectionMode = youtubeMode,
-                modeDescription = ProtectionCopy.modeSummary(ProtectedApp.YOUTUBE, youtubeMode, isEn),
+                modeDescription = ProtectionCopy.modeSummary(ProtectedApp.YOUTUBE, youtubeMode),
                 onModeChange = { mode ->
                     if (ProtectionPreferences.setMode(prefs, ProtectedApp.YOUTUBE, mode)) {
                         youtubeMode = mode
@@ -2215,7 +2341,7 @@ fun OnboardingStepFourAppsAndPrefs(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isEn) "Help improve protection (optional)" else "Korumayı geliştirmemize yardımcı olun (isteğe bağlı)",
+                            text = AppText.get(R.string.main_help_improve_protection_optional),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
@@ -2233,19 +2359,12 @@ fun OnboardingStepFourAppsAndPrefs(
                                 isTelemetryOn = false
                             }
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF070A12),
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = appSwitchColors(MaterialTheme.colorScheme.primary)
                     )
                 }
 
                 Text(
-                    text = if (isEn) {
-                        "If you turn this on, a random installation ID, device and app information, intervention counts, and measured Instagram and YouTube curtain time are shared to help improve compatibility. Messages and screen content are never included."
-                    } else {
-                        "Açarsanız rastgele bir kurulum kimliği, cihaz ve uygulama bilgileri, müdahale sayıları ve ölçülen Instagram ile YouTube perde süreleri paylaşılır. Mesajlarınız ve ekran içeriği paylaşılmaz."
-                    },
+                    text = AppText.get(R.string.main_if_you_turn_this_on_a),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     lineHeight = 15.5.sp,
@@ -2257,7 +2376,7 @@ fun OnboardingStepFourAppsAndPrefs(
                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = if (isEn) "See exactly what is shared" else "Nelerin paylaşıldığını görün",
+                        text = AppText.get(R.string.main_see_exactly_what_is_shared),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -2358,10 +2477,7 @@ fun CompactOnboardingAppCard(
                 Switch(
                     checked = isEnabled,
                     onCheckedChange = onToggle,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF070A12),
-                        checkedTrackColor = brandColor
-                    )
+                    colors = appSwitchColors(brandColor)
                 )
             }
 
@@ -2393,7 +2509,7 @@ private fun OnboardingProtectionModeSelector(
             .padding(start = 46.dp)
     ) {
         Text(
-            text = if (isEn) "Protection mode" else "Koruma modu",
+            text = AppText.get(R.string.main_protection_mode),
             fontSize = 10.5.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
@@ -2411,8 +2527,8 @@ private fun OnboardingProtectionModeSelector(
             listOf(ProtectionMode.BALANCED, ProtectionMode.STRICT).forEach { option ->
                 val selected = mode == option
                 val label = when (option) {
-                    ProtectionMode.BALANCED -> if (isEn) "Balanced" else "Dengeli"
-                    ProtectionMode.STRICT -> if (isEn) "Strict" else "Sert"
+                    ProtectionMode.BALANCED -> AppText.get(R.string.main_balanced_2)
+                    ProtectionMode.STRICT -> AppText.get(R.string.main_strict_2)
                 }
                 Box(
                     modifier = Modifier
@@ -2513,7 +2629,7 @@ fun OnboardingStepFivePermissions(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isEn) "Turn on protection" else "Korumayı aç",
+            text = AppText.get(R.string.main_turn_on_protection),
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary
@@ -2522,7 +2638,7 @@ fun OnboardingStepFivePermissions(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (isEn) "Accessibility is required for protection. Notifications are optional." else "Koruma için erişilebilirlik izni gerekir. Bildirimler isteğe bağlıdır.",
+            text = AppText.get(R.string.main_accessibility_is_required_for_protection_notific),
             fontSize = 13.5.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
             textAlign = TextAlign.Center
@@ -2553,11 +2669,11 @@ fun OnboardingStepFivePermissions(
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(if (isEn) "Accessibility access" else "Erişilebilirlik izni", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(AppText.get(R.string.main_accessibility_access), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    if (isEn) "Used to detect protected apps and show the curtain or return you to a safe screen." else "Korunan ekranları tanımak, perdeyi göstermek veya güvenli ekrana dönmek için cihazınızda kullanılır.",
+                    AppText.get(R.string.main_used_to_detect_protected_apps_and),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
@@ -2583,13 +2699,13 @@ fun OnboardingStepFivePermissions(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                if (isEn) "Access enabled" else "İzin verildi",
+                                AppText.get(R.string.main_access_enabled),
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     } else {
                         Text(
-                            if (isEn) "Open settings" else "Ayarları aç",
+                            AppText.get(R.string.main_open_settings),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -2655,7 +2771,7 @@ fun OnboardingStepFivePermissions(
                         Spacer(modifier = Modifier.width(10.dp))
 
                         Text(
-                            text = if (isEn) "Can't toggle or \"Restricted setting\"?" else "İzin açılmıyor veya \"Kısıtlanmış ayar\" mı diyor?",
+                            text = AppText.get(R.string.main_can_t_toggle_or_restricted_setting),
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White
@@ -2665,11 +2781,7 @@ fun OnboardingStepFivePermissions(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (isEn) {
-                            "If Android shows a restricted-setting warning, see the setup guide for help. Settings names and steps can vary by phone."
-                        } else {
-                            "Android kısıtlanmış ayar uyarısı gösteriyorsa kurulum rehberinden yardım alabilirsiniz. Menü adları ve adımlar telefona göre değişebilir."
-                        },
+                        text = AppText.get(R.string.main_if_android_shows_a_restricted_setting),
                         fontSize = 11.5.sp,
                         lineHeight = 15.5.sp,
                         color = Color.White.copy(alpha = 0.72f)
@@ -2684,7 +2796,7 @@ fun OnboardingStepFivePermissions(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                val guideUrl = if (isEn) "https://awaydoomscrollin.com/en/guide" else "https://awaydoomscrollin.com/tr/rehber"
+                                val guideUrl = AppText.get(R.string.main_https_awaydoomscrollin_com_en_guide)
                                 try {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guideUrl)))
                                 } catch (_: Exception) {}
@@ -2703,7 +2815,7 @@ fun OnboardingStepFivePermissions(
                             )
                             Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = if (isEn) "Open guide" else "Rehberi aç",
+                                text = AppText.get(R.string.main_open_guide),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFFB703)
@@ -2740,11 +2852,11 @@ fun OnboardingStepFivePermissions(
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(if (isEn) "Notifications (optional)" else "Bildirimler (isteğe bağlı)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(AppText.get(R.string.main_notifications_optional), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        if (isEn) "Receive protection status and permission reminders." else "Koruma durumu ve izin hatırlatmaları alın.",
+                        AppText.get(R.string.main_receive_protection_status_and_permission_reminde),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         lineHeight = 16.sp
@@ -2773,13 +2885,13 @@ fun OnboardingStepFivePermissions(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    if (isEn) "Notifications enabled" else "Bildirimlere izin verildi",
+                                    AppText.get(R.string.main_notifications_enabled),
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         } else {
                             Text(
-                                if (isEn) "Allow notifications" else "Bildirimlere izin ver",
+                                AppText.get(R.string.main_allow_notifications),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -2818,7 +2930,7 @@ fun OnboardingStepFivePermissions(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isEn) "Privacy & Terms" else "Gizlilik ve kullanım koşulları",
+                        text = AppText.get(R.string.main_privacy_terms),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF00F2FE)
@@ -2826,18 +2938,19 @@ fun OnboardingStepFivePermissions(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (isEn) 
-                        "The app is licensed under GPL-3.0. Online service terms apply only if you use optional online features (telemetry/feedback). Personal data is never sold." 
-                    else 
-                        "Uygulama GPL-3.0 ile lisanslanmıştır. Kullanım koşulları yalnızca isteğe bağlı çevrim içi hizmetleri (telemetri/geri bildirim) kullandığınızda geçerlidir. Kişisel veriler satılmaz.",
+                    text = AppText.get(R.string.main_the_app_is_licensed_under_gpl),
                     fontSize = 10.5.sp,
                     color = Color.White.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     lineHeight = 14.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                // Each link gets at most half the row and wraps between words:
+                // the Russian labels did not fit side by side, and the second one
+                // was broken into single letters (Galaxy S23).
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(
@@ -2845,14 +2958,15 @@ fun OnboardingStepFivePermissions(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/privacy"))
                             context.startActivity(intent)
                         },
+                        modifier = Modifier.weight(1f, fill = false),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (isEn) "Privacy policy" else "Gizlilik politikası",
+                            ShrinkToFitLabel(
+                                AppText.get(R.string.main_privacy_policy),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF00F2FE)
+                                color = Color(0xFF00F2FE),
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
@@ -2869,14 +2983,15 @@ fun OnboardingStepFivePermissions(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/terms"))
                             context.startActivity(intent)
                         },
+                        modifier = Modifier.weight(1f, fill = false),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (isEn) "Terms of use" else "Kullanım koşulları",
+                            ShrinkToFitLabel(
+                                AppText.get(R.string.main_terms_of_use),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF00F2FE)
+                                color = Color(0xFF00F2FE),
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
@@ -2891,6 +3006,47 @@ fun OnboardingStepFivePermissions(
             }
         }
     }
+}
+
+/**
+ * A short label that must stay whole: when it would break inside a word or
+ * run past [maxLines], the font shrinks in half-point steps down to
+ * [minFontSize]. Single long words ("конфиденциальности") were cut off or
+ * split into letters on a Galaxy S23. Nothing changes where the text fits.
+ */
+@Composable
+private fun ShrinkToFitLabel(
+    text: String,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 2,
+    minFontSize: androidx.compose.ui.unit.TextUnit = 9.sp
+) {
+    var size by remember(text, fontSize) { mutableStateOf(fontSize) }
+    var settled by remember(text, fontSize) { mutableStateOf(false) }
+    Text(
+        text = text,
+        fontSize = size,
+        lineHeight = (size.value * 1.25f).sp,
+        fontWeight = FontWeight.Bold,
+        color = color,
+        maxLines = maxLines,
+        overflow = TextOverflow.Clip,
+        textAlign = TextAlign.Center,
+        modifier = modifier.drawWithContent { if (settled) drawContent() },
+        onTextLayout = { layout ->
+            val splitWord = (0 until layout.lineCount - 1).any { line ->
+                val end = layout.getLineEnd(line)
+                end in 1 until text.length && !text[end - 1].isWhitespace() && !text[end].isWhitespace()
+            }
+            if ((layout.hasVisualOverflow || splitWord) && size.value > minFontSize.value) {
+                size = (size.value - 0.5f).sp
+            } else {
+                settled = true
+            }
+        }
+    )
 }
 
 @Composable
@@ -2937,7 +3093,7 @@ fun ScrollableTextDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(
-                    buttonText ?: if (isEn) "Got it" else "Anladım",
+                    buttonText ?: AppText.get(R.string.main_got_it),
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
@@ -2957,7 +3113,7 @@ fun FeedbackSubmissionDialog(
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("away_doomscroll_prefs", Context.MODE_PRIVATE) }
-    val isEn = getAppLanguage(prefs) == "en"
+    val isEn = getAppLanguage(prefs) != "tr"
     val appVersionName = remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
@@ -2966,14 +3122,17 @@ fun FeedbackSubmissionDialog(
     
     val categories = remember(isEn) {
         listOf(
-            Triple("bug", R.drawable.ic_bug_report, if (isEn) "Bug" else "Hata"),
-            Triple("idea", R.drawable.ic_lightbulb, if (isEn) "Idea" else "Öneri"),
-            Triple("general", R.drawable.ic_chat, if (isEn) "General" else "Genel")
+            Triple("bug", R.drawable.ic_bug_report, AppText.get(R.string.main_bug)),
+            Triple("idea", R.drawable.ic_lightbulb, AppText.get(R.string.main_idea)),
+            Triple("general", R.drawable.ic_chat, AppText.get(R.string.main_general))
         )
     }
     var selectedCategoryIndex by remember { mutableIntStateOf(0) }
     var feedbackText by remember { mutableStateOf("") }
-    val isFormValid = feedbackText.isNotBlank()
+    var attachLog by remember { mutableStateOf(false) }
+    val logOn = remember { SupportDiagnostics.isEnabled(context) }
+    // A word or two ("send") cannot be answered; ask for a sentence.
+    val isFormValid = feedbackText.trim().length >= 10
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2989,7 +3148,7 @@ fun FeedbackSubmissionDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isEn) "Send feedback" else "Geri bildirim gönder",
+                    text = AppText.get(R.string.main_send_feedback),
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface
@@ -3047,7 +3206,7 @@ fun FeedbackSubmissionDialog(
                 OutlinedTextField(
                     value = feedbackText,
                     onValueChange = { feedbackText = it },
-                    placeholder = { Text(if (isEn) "Describe your issue or suggestion…" else "Karşılaştığınız sorunu veya önerinizi yazın…", fontSize = 11.5.sp, lineHeight = 15.sp) },
+                    placeholder = { Text(AppText.get(R.string.main_describe_your_issue_or_suggestion), fontSize = 11.5.sp, lineHeight = 15.sp) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(110.dp),
@@ -3060,6 +3219,47 @@ fun FeedbackSubmissionDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Most bug reports cannot be diagnosed without the log, and
+                // most users never see our reply in an inbox they do not read.
+                if (categories[selectedCategoryIndex].first == "bug") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = logOn) { attachLog = !attachLog }
+                    ) {
+                        Checkbox(
+                            checked = attachLog && logOn,
+                            onCheckedChange = { attachLog = it },
+                            enabled = logOn
+                        )
+                        Text(
+                            text = AppText.get(R.string.main_feedback_attach_log),
+                            fontSize = 12.5.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (logOn) Color(0xFFFFB800)
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                    if (!logOn) {
+                        Text(
+                            text = AppText.get(R.string.main_feedback_log_off_note),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Text(
+                    text = AppText.get(R.string.main_feedback_reply_note),
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // 3. MİNİ CİHAZ BİLGİSİ DİPNOTU
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -3070,7 +3270,7 @@ fun FeedbackSubmissionDialog(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isEn) "Device info ($manufacturer $model, Android ${Build.VERSION.RELEASE}) will be attached automatically." else "Cihaz bilgisi ($manufacturer $model, Android ${Build.VERSION.RELEASE}) otomatik eklenecektir.",
+                        text = AppText.get(R.string.main_device_info_x_x_android_x, manufacturer, model, Build.VERSION.RELEASE),
                         fontSize = 9.5.sp,
                         lineHeight = 13.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -3085,11 +3285,15 @@ fun FeedbackSubmissionDialog(
 
                     val currentCat = categories[selectedCategoryIndex].third
                     val subject = "AwayDoomscrollin' [$currentCat] - $manufacturer $model"
-                    val body = if (isEn) {
-                        "Category: $currentCat\n\nUser Message:\n$feedbackText\n\n------------------------------\nDevice Info: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nApp Version: v$appVersionName"
-                    } else {
-                        "Kategori: $currentCat\n\nKullanıcı Mesajı:\n$feedbackText\n\n------------------------------\nCihaz Bilgisi: $manufacturer $model (Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT})\nUygulama Sürümü: v$appVersionName"
-                    }
+                    val message = AppText.get(R.string.main_category_x_user_message_x_device, currentCat, feedbackText, manufacturer, model, Build.VERSION.RELEASE, Build.VERSION.SDK_INT, appVersionName)
+                    // Only when the user ticked the box, and only in the draft:
+                    // nothing leaves the phone unless they send the email.
+                    // The newest part is kept so the mailto link stays short
+                    // enough for every mail app.
+                    val body = if (attachLog && logOn) {
+                        val report = SupportDiagnostics.buildReport(context, english = true)
+                        message + "\n\n" + (if (report.length > 12_000) "…\n" + report.takeLast(12_000) else report)
+                    } else message
 
                     try {
                         val mailtoUrl = "mailto:support@awaydoomscrollin.com" +
@@ -3102,11 +3306,11 @@ fun FeedbackSubmissionDialog(
                             putExtra(Intent.EXTRA_TEXT, body)
                         }
                         
-                        context.startActivity(Intent.createChooser(mailIntent, if (isEn) "Send email with…" else "E-posta gönder…"))
+                        context.startActivity(Intent.createChooser(mailIntent, AppText.get(R.string.main_send_email_with)))
                         
                         Toast.makeText(
                             context,
-                            if (isEn) "Opening your email app…" else "E-posta uygulamanız açılıyor…",
+                            AppText.get(R.string.main_opening_your_email_app),
                             Toast.LENGTH_SHORT
                         ).show()
                         
@@ -3114,7 +3318,7 @@ fun FeedbackSubmissionDialog(
                     } catch (e: Exception) {
                         Toast.makeText(
                             context,
-                            if (isEn) "Mail client not found. Please email support@awaydoomscrollin.com" else "E-posta uygulaması bulunamadı. Lütfen support@awaydoomscrollin.com adresine yazın.",
+                            AppText.get(R.string.main_mail_client_not_found_please_email),
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -3134,7 +3338,7 @@ fun FeedbackSubmissionDialog(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isEn) "Send email" else "E-posta gönder",
+                        text = AppText.get(R.string.main_send_email),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = Color(0xFF070A12),
@@ -3146,7 +3350,7 @@ fun FeedbackSubmissionDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(if (isEn) "Cancel" else "İptal", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 12.sp)
+                Text(AppText.get(R.string.main_cancel), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 12.sp)
             }
         }
     )
@@ -3209,7 +3413,7 @@ fun AboutScreen(
     var isTelemetryOnInAbout by remember { mutableStateOf(TelemetryManager.isTelemetryEnabled(context)) }
 
     var currentLang by remember { mutableStateOf<String>(getAppLanguage(prefs)) }
-    val isEn = currentLang == "en"
+    val isEn = currentLang != "tr"
 
     val appVersion = remember {
         try {
@@ -3231,7 +3435,7 @@ fun AboutScreen(
     if (showTelemetryDetails) {
         ScrollableTextDialog(
             isEn = isEn,
-            title = if (isEn) "Optional usage data" else "İsteğe bağlı kullanım verileri",
+            title = AppText.get(R.string.main_optional_usage_data),
             content = telemetryDisclosureText(isEn),
             iconRes = R.drawable.ic_handshake,
             iconTint = Color(0xFF00F2FE),
@@ -3269,19 +3473,15 @@ fun AboutScreen(
             Spacer(modifier = Modifier.height(4.dp))
 
             DashboardSectionHeader(
-                title = if (isEn) "About" else "Hakkında",
-                subtitle = if (isEn) {
-                    "App information, privacy and support"
-                } else {
-                    "Uygulama bilgileri, gizlilik ve destek"
-                }
+                title = AppText.get(R.string.main_about),
+                subtitle = AppText.get(R.string.main_app_information_privacy_and_support)
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // 1. KATEGORİ: UYGULAMA KÜNYESİ
             Text(
-                text = if (isEn) "APP INFORMATION" else "UYGULAMA BİLGİLERİ",
+                text = AppText.get(R.string.main_app_information),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3311,7 +3511,7 @@ fun AboutScreen(
                             Box(contentAlignment = Alignment.Center) {
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_splash_logo),
-                                    contentDescription = if (isEn) "App logo" else "Uygulama logosu",
+                                    contentDescription = AppText.get(R.string.main_app_logo),
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(RoundedCornerShape(7.dp))
@@ -3329,7 +3529,7 @@ fun AboutScreen(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isEn) "Version $appVersion" else "Sürüm $appVersion",
+                                text = AppText.get(R.string.main_version_x, appVersion),
                                 fontSize = 11.5.sp,
                                 color = Color(0xFF00F2FE),
                                 fontWeight = FontWeight.SemiBold,
@@ -3341,11 +3541,7 @@ fun AboutScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = if (isEn) {
-                            "Break the scrolling loop without losing touch. Messaging, search and long videos stay available."
-                        } else {
-                            "Kaydırma döngüsünü kırın, iletişimden kopmayın. Mesajlaşma, arama ve uzun videolar açık kalır."
-                        },
+                        text = AppText.get(R.string.main_break_the_scrolling_loop_without_losing),
                         fontSize = 11.5.sp,
                         lineHeight = 16.sp,
                         color = Color.White.copy(alpha = 0.68f)
@@ -3363,16 +3559,16 @@ fun AboutScreen(
                             Triple(
                                 R.drawable.ic_lock,
                                 Pair(
-                                    if (isEn) "On-device" else "Cihazda çalışır",
-                                    if (isEn) "Screen content stays private" else "Ekran içeriği paylaşılmaz"
+                                    AppText.get(R.string.main_on_device),
+                                    AppText.get(R.string.main_screen_content_stays_private)
                                 ),
                                 Color(0xFF00F2FE)
                             ),
                             Triple(
                                 R.drawable.ic_slash_ban,
                                 Pair(
-                                    if (isEn) "Ad-free" else "Reklamsız",
-                                    if (isEn) "No ads or subscriptions" else "Reklam ve abonelik yok"
+                                    AppText.get(R.string.main_ad_free),
+                                    AppText.get(R.string.main_no_ads_or_subscriptions)
                                 ),
                                 Color(0xFF00FF87)
                             )
@@ -3456,7 +3652,7 @@ fun AboutScreen(
                             Spacer(modifier = Modifier.width(9.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (isEn) "Open source" else "Açık kaynak",
+                                    text = AppText.get(R.string.main_open_source),
                                     fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -3487,7 +3683,7 @@ fun AboutScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (isEn) "View on GitHub" else "GitHub'da görüntüle",
+                                        text = AppText.get(R.string.main_view_on_github),
                                         fontSize = 9.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFFFFB703)
@@ -3510,7 +3706,7 @@ fun AboutScreen(
 
             // 2. KATEGORİ: DİL SEÇİMİ
             Text(
-                text = if (isEn) "LANGUAGE" else "DİL",
+                text = AppText.get(R.string.main_language),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3520,58 +3716,49 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // DİL SEÇİMİ (EN / TR)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isEn) Color(0xFF00F2FE).copy(alpha = 0.2f) else Color(0xFF0F1523),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.2.dp,
-                        if (isEn) Color(0xFF00F2FE) else Color(0xFF1E2A40)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            prefs.edit().putString("app_language", "en").apply()
-                            currentLang = "en"
-                        }
+            // DİL SEÇİMİ: every interface language, each named in its own
+            // language, three per row. A pick is the user's own choice and is
+            // never changed by the app afterwards (see AppLanguage.resolve).
+            AppLanguage.entries.chunked(3).forEachIndexed { rowIndex, rowLanguages ->
+                if (rowIndex > 0) Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
-                        Text(
-                            text = "English",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isEn) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (!isEn) Color(0xFF00F2FE).copy(alpha = 0.2f) else Color(0xFF0F1523),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.2.dp,
-                        if (!isEn) Color(0xFF00F2FE) else Color(0xFF1E2A40)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            prefs.edit().putString("app_language", "tr").apply()
-                            currentLang = "tr"
+                    rowLanguages.forEach { language ->
+                        val selected = currentLang == language.code
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (selected) Color(0xFF00F2FE).copy(alpha = 0.2f) else Color(0xFF0F1523),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.2.dp,
+                                if (selected) Color(0xFF00F2FE) else Color(0xFF1E2A40)
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .selectable(
+                                    selected = selected,
+                                    role = androidx.compose.ui.semantics.Role.RadioButton,
+                                    onClick = {
+                                        setAppLanguage(prefs, language)
+                                        currentLang = language.code
+                                    }
+                                )
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
+                                Text(
+                                    text = language.nativeName,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    color = if (selected) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f)
+                                )
+                            }
                         }
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
-                        Text(
-                            text = "Türkçe",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!isEn) Color(0xFF00F2FE) else Color.White.copy(alpha = 0.6f)
-                        )
                     }
+                    // A shorter last row keeps the same chip width as the rows above.
+                    repeat(3 - rowLanguages.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
 
@@ -3579,7 +3766,7 @@ fun AboutScreen(
 
             // 3. KATEGORİ: BAĞLANTILAR
             Text(
-                text = if (isEn) "LINKS" else "BAĞLANTILAR",
+                text = AppText.get(R.string.main_links),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3631,7 +3818,7 @@ fun AboutScreen(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isEn) "Updates and app information" else "Güncellemeler ve uygulama bilgileri",
+                                text = AppText.get(R.string.main_updates_and_app_information),
                                 fontSize = 10.5.sp,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -3687,7 +3874,7 @@ fun AboutScreen(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isEn) "Developer and other projects" else "Geliştirici ve diğer projeler",
+                                text = AppText.get(R.string.main_developer_and_other_projects),
                                 fontSize = 10.5.sp,
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -3706,7 +3893,7 @@ fun AboutScreen(
 
             // 4. KATEGORİ: DESTEK VE BİLGİLER
             Text(
-                text = if (isEn) "SUPPORT & INFORMATION" else "DESTEK VE BİLGİLER",
+                text = AppText.get(R.string.main_support_information),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3740,7 +3927,7 @@ fun AboutScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                if (isEn) "Send feedback or report a bug" else "Geri bildirim gönder veya hata bildir",
+                                AppText.get(R.string.main_send_feedback_or_report_a_bug),
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -3750,8 +3937,10 @@ fun AboutScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // GİZLİLİK POLİTİKASI & KULLANIM ŞARTLARI YAN YANA (YARI YARIYA)
+                    // Long labels (Russian, Italian, French) take two lines instead of
+                    // being cut off; both buttons keep the same height.
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
@@ -3759,7 +3948,7 @@ fun AboutScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/privacy"))
                                 context.startActivity(intent)
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                             shape = RoundedCornerShape(12.dp),
                             border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
@@ -3772,13 +3961,11 @@ fun AboutScreen(
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    if (isEn) "Privacy policy" else "Gizlilik politikası",
+                                ShrinkToFitLabel(
+                                    AppText.get(R.string.main_privacy_policy),
                                     fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
                                     color = Color(0xFF00F2FE),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                             }
                         }
@@ -3788,7 +3975,7 @@ fun AboutScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://awaydoomscrollin.com/terms"))
                                 context.startActivity(intent)
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                             shape = RoundedCornerShape(12.dp),
                             border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF00F2FE)),
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
@@ -3801,13 +3988,11 @@ fun AboutScreen(
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    if (isEn) "Terms of use" else "Kullanım koşulları",
+                                ShrinkToFitLabel(
+                                    AppText.get(R.string.main_terms_of_use),
                                     fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
                                     color = Color(0xFF00F2FE),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                             }
                         }
@@ -3820,7 +4005,7 @@ fun AboutScreen(
 
             // 5. KATEGORİ: REHBER
             Text(
-                text = if (isEn) "GUIDE" else "REHBER",
+                text = AppText.get(R.string.main_guide),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3860,14 +4045,13 @@ fun AboutScreen(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isEn) "Setup and protection guide" else "Kurulum ve koruma rehberi",
+                            text = AppText.get(R.string.main_setup_and_protection_guide),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = if (isEn) "Review setup steps, protection modes and permissions"
-                            else "Kurulum adımlarını, koruma modlarını ve izinleri inceleyin",
+                            text = AppText.get(R.string.main_review_setup_steps_protection_modes_and),
                             fontSize = 10.5.sp,
                             color = Color.White.copy(alpha = 0.6f),
                             lineHeight = 13.5.sp,
@@ -3887,7 +4071,7 @@ fun AboutScreen(
 
             // 6. KATEGORİ: TOPLULUK KATKISI
             Text(
-                text = if (isEn) "OPTIONAL USAGE DATA" else "İSTEĞE BAĞLI KULLANIM VERİLERİ",
+                text = AppText.get(R.string.main_optional_usage_data_2),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -3926,14 +4110,14 @@ fun AboutScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isEn) "Help improve protection" else "Korumayı geliştirmemize yardımcı olun",
+                                text = AppText.get(R.string.main_help_improve_protection),
                                 fontSize = 13.5.sp,
                                 lineHeight = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             Text(
-                                text = if (isEn) "Optional device and usage summary" else "İsteğe bağlı cihaz ve kullanım özeti",
+                                text = AppText.get(R.string.main_optional_device_and_usage_summary),
                                 fontSize = 10.5.sp,
                                 color = Color.White.copy(alpha = 0.6f),
                                 lineHeight = 13.5.sp,
@@ -3951,19 +4135,12 @@ fun AboutScreen(
                                     isTelemetryOnInAbout = false
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFF070A12),
-                                checkedTrackColor = Color(0xFF00F2FE)
-                            )
+                            colors = appSwitchColors(Color(0xFF00F2FE))
                         )
                     }
 
                     Text(
-                        text = if (isEn) {
-                            "If you turn this on, a random installation ID, device and app information, intervention counts, and measured Instagram and YouTube curtain time are shared. Messages and screen content are never included."
-                        } else {
-                            "Açarsanız rastgele bir kurulum kimliği, cihaz ve uygulama bilgileri, müdahale sayıları ve ölçülen Instagram ile YouTube perde süreleri paylaşılır. Mesajlarınız ve ekran içeriği paylaşılmaz."
-                        },
+                        text = AppText.get(R.string.main_if_you_turn_this_on_a_2),
                         fontSize = 11.5.sp,
                         color = Color.White.copy(alpha = 0.68f),
                         lineHeight = 16.sp,
@@ -3972,9 +4149,9 @@ fun AboutScreen(
 
                     Text(
                         text = if (isTelemetryOnInAbout) {
-                            if (isEn) "On · Automatic attempts are limited to once every 24 hours" else "Açık · Otomatik gönderim en fazla 24 saatte bir denenir"
+                            AppText.get(R.string.main_on_automatic_attempts_are_limited_to)
                         } else {
-                            if (isEn) "Off · No report is sent to the server" else "Kapalı · Sunucuya rapor gönderilmez"
+                            AppText.get(R.string.main_off_no_report_is_sent_to)
                         },
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -3987,7 +4164,7 @@ fun AboutScreen(
                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = if (isEn) "See shared data and retention" else "Paylaşılan veriler ve saklama süresi",
+                            text = AppText.get(R.string.main_see_shared_data_and_retention),
                             color = Color(0xFF00F2FE),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
@@ -4000,7 +4177,7 @@ fun AboutScreen(
 
             // 7. KATEGORİ: DESTEK
             Text(
-                text = if (isEn) "SUPPORT" else "DESTEK",
+                text = AppText.get(R.string.main_support),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White.copy(alpha = 0.5f),
@@ -4069,7 +4246,7 @@ fun MainNavigationDashboard(
 
     if (showModeIntro && modeIntroAllowed) {
         ModeIntroDialog(
-            isEn = currentLang == "en",
+            isEn = currentLang != "tr",
             onChooseModes = {
                 ModeIntroNotice.markSeen(prefs)
                 showModeIntro = false
@@ -4088,7 +4265,7 @@ fun MainNavigationDashboard(
     var showJourneyDialogFromNotification by remember { mutableStateOf(false) }
     var notificationTargetTab by remember { mutableIntStateOf(0) }
 
-    val isEn = currentLang == "en"
+    val isEn = currentLang != "tr"
 
     val requestAccessibility: () -> Unit = {
         if (AccessibilityConsent.isAccepted(prefs)) {
@@ -4120,8 +4297,9 @@ fun MainNavigationDashboard(
 
         if (currentTier.level > lastSeenTier) {
             prefs.edit().putInt("last_seen_tier_level", currentTier.level).apply()
-            val title = if (isEn) "New tier: ${currentTier.nameEn}!" else "Yeni kademe: ${currentTier.nameTr}!"
-            val desc = if (isEn) "You reached Tier ${currentTier.level} (${currentTier.minDays}+ day streak)!" else "${currentTier.level}. kademeye ulaştınız (${currentTier.minDays}+ günlük seri)!"
+            val title = AppText.get(R.string.main_new_tier_x, currentTier.name)
+            val desc = AppText.plural(R.plurals.tier_reached, currentTier.minDays,
+                currentTier.level, currentTier.minDays)
             val tierItem = UnlockedNotificationItem(
                 title = title,
                 description = desc,
@@ -4138,8 +4316,8 @@ fun MainNavigationDashboard(
         if (newlyUnlockedAchievements.isNotEmpty()) {
             newlyUnlockedAchievements.forEach { newAch ->
                 seenAchievements.add(newAch.id)
-                val title = if (isEn) "Achievement Unlocked: ${newAch.titleEn}!" else "Başarım açıldı: ${newAch.titleTr}!"
-                val desc = if (isEn) newAch.descEn else newAch.descTr
+                val title = AppText.get(R.string.main_achievement_unlocked_x, newAch.title)
+                val desc = newAch.desc
                 val achItem = UnlockedNotificationItem(
                     title = title,
                     description = desc,
@@ -4228,28 +4406,29 @@ fun MainNavigationDashboard(
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
                         iconRes = R.drawable.ic_nav_home,
-                        label = if (isEn) "Home" else "Ana Sayfa",
+                        label = AppText.get(R.string.main_home),
                         isSelected = selectedTab == 0,
                         onClick = { selectedTab = 0 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
                         iconRes = R.drawable.ic_nav_apps,
-                        label = if (isEn) "Apps" else "Uygulamalar",
+                        label = AppText.get(R.string.main_apps),
                         isSelected = selectedTab == 1,
                         onClick = { selectedTab = 1 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
                         iconRes = R.drawable.ic_nav_analytics,
-                        label = if (isEn) "Analytics" else "Analiz",
+                        label = AppText.get(R.string.main_analytics),
                         isSelected = selectedTab == 2,
                         onClick = { selectedTab = 2 }
                     )
                     CyberNavItem(
                         modifier = Modifier.weight(1f),
                         iconRes = R.drawable.ic_nav_about,
-                        label = if (isEn) "About" else "Hakkında",
+                        // Short form: the tab is a quarter of the bar.
+                        label = AppText.get(R.string.nav_about),
                         isSelected = selectedTab == 3,
                         onClick = { selectedTab = 3 }
                     )
@@ -4416,6 +4595,7 @@ fun BorderlessHeroStatusSection(
     isEn: Boolean,
     isAccessibilityActive: Boolean,
     todayInterventions: Int,
+    serviceStuck: Boolean = false,
     onActivateClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "LedPulse")
@@ -4452,9 +4632,9 @@ fun BorderlessHeroStatusSection(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = if (isAccessibilityActive) {
-                    if (isEn) "PROTECTION ON" else "KORUMA AÇIK"
+                    AppText.get(R.string.main_protection_on)
                 } else {
-                    if (isEn) "PERMISSION REQUIRED" else "İZİN GEREKLİ"
+                    AppText.get(R.string.main_permission_required)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -4467,7 +4647,7 @@ fun BorderlessHeroStatusSection(
 
         if (isAccessibilityActive) {
             Text(
-                text = if (isEn) (if (todayInterventions == 1) "1 block" else "$todayInterventions blocks") else "$todayInterventions engelleme",
+                text = AppText.plural(R.plurals.blocks_count, todayInterventions),
                 fontSize = if (todayInterventions >= 10_000) 32.sp else 40.sp,
                 lineHeight = 46.sp,
                 fontWeight = FontWeight.Black,
@@ -4476,14 +4656,14 @@ fun BorderlessHeroStatusSection(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = if (isEn) "protection stepped in today" else "bugün yapılan koruma müdahaleleri",
+                text = AppText.get(R.string.main_protection_stepped_in_today),
                 fontSize = 13.sp,
                 color = Color.White.copy(alpha = 0.55f),
                 fontWeight = FontWeight.Medium
             )
         } else {
             Text(
-                text = if (isEn) "Protection is off" else "Koruma kapalı",
+                text = AppText.get(R.string.main_protection_is_off),
                 fontSize = 30.sp,
                 lineHeight = 36.sp,
                 fontWeight = FontWeight.Black,
@@ -4492,10 +4672,12 @@ fun BorderlessHeroStatusSection(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = if (isEn)
-                    "Turn on Accessibility so AwayDoomscrollin' can protect you automatically."
-                else
-                    "Otomatik korumayı başlatmak için Erişilebilirlik iznini açın.",
+                // HyperOS can stop the service while its switch still shows on;
+                // only turning it off and on brings it back.
+                text = AppText.get(
+                    if (serviceStuck) R.string.main_protection_stuck_hint
+                    else R.string.main_turn_on_accessibility_so_awaydoomscrollin_can
+                ),
                 fontSize = 13.sp,
                 color = Color.White.copy(alpha = 0.7f),
                 lineHeight = 18.sp
@@ -4523,7 +4705,7 @@ fun BorderlessHeroStatusSection(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isEn) "TURN ON PROTECTION" else "KORUMAYI AÇ",
+                        text = AppText.get(R.string.main_turn_on_protection_2),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 13.sp
                     )
@@ -4541,8 +4723,8 @@ fun BorderlessPeakHourRow(
     if (peakHour.first >= 0 && peakHour.second >= 1) {
         val h = peakHour.first
         val cnt = peakHour.second
-        val endHour = (h + 1) % 24
-        val timeRange = "${h.toString().padStart(2, '0')}:00 - ${endHour.toString().padStart(2, '0')}:00"
+        // Same range format and wording as the Analysis tab.
+        val timeRange = PeakHourStats.formatRange(h)
 
         Row(
             modifier = Modifier
@@ -4560,7 +4742,7 @@ fun BorderlessPeakHourRow(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = if (isEn) "BUSIEST HOUR TODAY: $timeRange" else "BUGÜN EN YOĞUN SAAT: $timeRange",
+                    text = AppText.get(R.string.main_busiest_hour_today_x, timeRange),
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFFFF0055),
@@ -4568,10 +4750,7 @@ fun BorderlessPeakHourRow(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (isEn) {
-                        if (cnt == 1) "1 attempt was blocked during this hour."
-                        else "$cnt attempts were blocked during this hour."
-                    } else "Bu saat aralığında $cnt girişim engellendi.",
+                    text = RecentBlockTime.peakHourBlocks(cnt),
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -4587,136 +4766,114 @@ data class FocusTier(
     val level: Int,
     val minDays: Int,
     val maxDays: Int,
-    val nameTr: String,
-    val nameEn: String,
+    val nameRes: Int,
     val iconRes: Int,
     val color: Color,
-    val descTr: String,
-    val descEn: String,
-    val neuroBenefitTr: String,
-    val neuroBenefitEn: String
-)
+    val descRes: Int,
+    val benefitRes: Int
+) {
+    /** Texts in the app's language (res/values*: tier_<level>_name/desc/benefit). */
+    val name: String get() = AppText.get(nameRes)
+    val desc: String get() = AppText.get(descRes)
+    val neuroBenefit: String get() = AppText.get(benefitRes)
+}
 
 val ALL_FOCUS_TIERS = listOf(
     FocusTier(
         level = 1, minDays = 0, maxDays = 0,
-        nameTr = "Tohum", nameEn = "Seed",
+        nameRes = R.string.tier_1_name,
         iconRes = R.drawable.ic_tier_seed,
         color = Color(0xFF00F2FE),
-        descTr = "Yeni bir başlangıç. Dijital farkındalığın ilk adımı atıldı.",
-        descEn = "A fresh start. The first step toward digital awareness.",
-        neuroBenefitTr = "Kısa içerik alışkanlığını gözlemlemeye başlama",
-        neuroBenefitEn = "Starting to notice short-content habits"
+        descRes = R.string.tier_1_desc,
+        benefitRes = R.string.tier_1_benefit
     ),
     FocusTier(
         level = 2, minDays = 1, maxDays = 2,
-        nameTr = "İlk Kıvılcım", nameEn = "First Spark",
+        nameRes = R.string.tier_2_name,
         iconRes = R.drawable.ic_tier_spark,
         color = Color(0xFF00FF87),
-        descTr = "İlk koruma günlerini tamamladınız ve düzenli kullanıma başladınız.",
-        descEn = "You completed your first days of protection and started building consistency.",
-        neuroBenefitTr = "Dürtü geldiğinde kısa bir ara verme pratiği",
-        neuroBenefitEn = "Practicing a brief pause when the urge appears"
+        descRes = R.string.tier_2_desc,
+        benefitRes = R.string.tier_2_benefit
     ),
     FocusTier(
         level = 3, minDays = 3, maxDays = 5,
-        nameTr = "Yeni Ritim", nameEn = "New Rhythm",
+        nameRes = R.string.tier_3_name,
         iconRes = R.drawable.ic_tier_fire,
         color = Color(0xFFFF5500),
-        descTr = "Koruma seriniz üç güne ulaştı. Daha bilinçli kullanıma alan açıyorsunuz.",
-        descEn = "Your protection streak has reached three days. You're making room for more intentional use.",
-        neuroBenefitTr = "Koruma düzenini sürdürme",
-        neuroBenefitEn = "Maintaining a consistent protection routine"
+        descRes = R.string.tier_3_desc,
+        benefitRes = R.string.tier_3_benefit
     ),
     FocusTier(
         level = 4, minDays = 6, maxDays = 9,
-        nameTr = "Kararlı Adım", nameEn = "Steady Step",
+        nameRes = R.string.tier_4_name,
         iconRes = R.drawable.ic_tier_bolt,
         color = Color(0xFFFFB700),
-        descTr = "Bir haftaya yaklaşan koruma seriniz istikrarlı biçimde devam ediyor.",
-        descEn = "Your protection streak is approaching one week with steady progress.",
-        neuroBenefitTr = "Günlük tercihlerde daha fazla süreklilik",
-        neuroBenefitEn = "More consistency in daily choices"
+        descRes = R.string.tier_4_desc,
+        benefitRes = R.string.tier_4_benefit
     ),
     FocusTier(
         level = 5, minDays = 10, maxDays = 13,
-        nameTr = "Akışa Hâkim", nameEn = "Flow Master",
+        nameRes = R.string.tier_5_name,
         iconRes = R.drawable.ic_tier_water,
         color = Color(0xFF00E5FF),
-        descTr = "Koruma seriniz 10 güne ulaştı. Kısa içerik sınırlarınızı koruyorsunuz.",
-        descEn = "Your protection streak reached 10 days. You are keeping your boundaries with short content.",
-        neuroBenefitTr = "Koruma tercihini sürdürme",
-        neuroBenefitEn = "Sticking with your protection routine"
+        descRes = R.string.tier_5_desc,
+        benefitRes = R.string.tier_5_benefit
     ),
     FocusTier(
         level = 6, minDays = 14, maxDays = 20,
-        nameTr = "İki Haftalık Seri", nameEn = "Two-Week Streak",
+        nameRes = R.string.tier_6_name,
         iconRes = R.drawable.ic_tier_crystal,
         color = Color(0xFFBD00FF),
-        descTr = "İki haftalık koruma serisini geride bıraktınız.",
-        descEn = "You have completed a two-week protection streak.",
-        neuroBenefitTr = "Kısa içerik kullanımında daha bilinçli sınırlar",
-        neuroBenefitEn = "Clearer boundaries around short content"
+        descRes = R.string.tier_6_desc,
+        benefitRes = R.string.tier_6_benefit
     ),
     FocusTier(
         level = 7, minDays = 21, maxDays = 29,
-        nameTr = "Üç Haftalık Seri", nameEn = "Three-Week Streak",
+        nameRes = R.string.tier_7_name,
         iconRes = R.drawable.ic_tier_brain,
         color = Color(0xFFFF2A85),
-        descTr = "Koruma seriniz üç haftaya ulaştı. Düzeninizi korumaya devam ediyorsunuz.",
-        descEn = "Your protection streak reached three weeks. You continue maintaining your routine.",
-        neuroBenefitTr = "Düzenli koruma kullanımını sürdürme",
-        neuroBenefitEn = "Sustaining regular protection use"
+        descRes = R.string.tier_7_desc,
+        benefitRes = R.string.tier_7_benefit
     ),
     FocusTier(
         level = 8, minDays = 30, maxDays = 44,
-        nameTr = "Odak Şampiyonu", nameEn = "Focus Champion",
+        nameRes = R.string.tier_8_name,
         iconRes = R.drawable.ic_tier_crown,
         color = Color(0xFFFFD700),
-        descTr = "Bir aylık koruma serisine ulaştınız.",
-        descEn = "You reached a one-month protection streak.",
-        neuroBenefitTr = "Kısa içerik sınırlarını uzun süre koruma",
-        neuroBenefitEn = "Holding short-content boundaries over a longer period"
+        descRes = R.string.tier_8_desc,
+        benefitRes = R.string.tier_8_benefit
     ),
     FocusTier(
         level = 9, minDays = 45, maxDays = 59,
-        nameTr = "Elmas Disiplin", nameEn = "Diamond Discipline",
+        nameRes = R.string.tier_9_name,
         iconRes = R.drawable.ic_tier_gem,
         color = Color(0xFF00F5D4),
-        descTr = "Koruma seriniz 45 günü geçti.",
-        descEn = "Your protection streak passed 45 days.",
-        neuroBenefitTr = "Kısa içerik sınırlarına bağlı kalma",
-        neuroBenefitEn = "Staying with your short-content boundaries"
+        descRes = R.string.tier_9_desc,
+        benefitRes = R.string.tier_9_benefit
     ),
     FocusTier(
         level = 10, minDays = 60, maxDays = 89,
-        nameTr = "Zaman Mimarı", nameEn = "Time Architect",
+        nameRes = R.string.tier_10_name,
         iconRes = R.drawable.ic_tier_monument,
         color = Color(0xFF9D4EDD),
-        descTr = "İki aylık koruma serisine ulaştınız.",
-        descEn = "You reached a two-month protection streak.",
-        neuroBenefitTr = "Uzun vadeli koruma düzenini sürdürme",
-        neuroBenefitEn = "Maintaining a long-term protection routine"
+        descRes = R.string.tier_10_desc,
+        benefitRes = R.string.tier_10_benefit
     ),
     FocusTier(
         level = 11, minDays = 90, maxDays = 99,
-        nameTr = "Döngü Kırıcı", nameEn = "Loop Breaker",
+        nameRes = R.string.tier_11_name,
         iconRes = R.drawable.ic_tier_galaxy,
         color = Color(0xFFFF0055),
-        descTr = "Koruma seriniz 90 güne ulaştı.",
-        descEn = "Your protection streak reached 90 days.",
-        neuroBenefitTr = "Dijital sınırlarınızı koruma",
-        neuroBenefitEn = "Keeping your digital boundaries"
+        descRes = R.string.tier_11_desc,
+        benefitRes = R.string.tier_11_benefit
     ),
     FocusTier(
         level = 12, minDays = 100, maxDays = Int.MAX_VALUE,
-        nameTr = "Zen Ustası", nameEn = "Zen Master",
+        nameRes = R.string.tier_12_name,
         iconRes = R.drawable.ic_tier_zen,
         color = Color(0xFFFFE600),
-        descTr = "100 günlük koruma serisini aştınız.",
-        descEn = "You completed a 100-day protection streak.",
-        neuroBenefitTr = "Uzun süreli ve tutarlı koruma kullanımı",
-        neuroBenefitEn = "Long-term, consistent protection use"
+        descRes = R.string.tier_12_desc,
+        benefitRes = R.string.tier_12_benefit
     )
 )
 
@@ -4753,15 +4910,16 @@ enum class AchievementCategory {
 data class FocusAchievement(
     val id: String,
     val category: AchievementCategory,
-    val titleTr: String,
-    val titleEn: String,
-    val descTr: String,
-    val descEn: String,
+    val titleRes: Int,
+    val descRes: Int,
     val iconRes: Int,
     val brandColor: Color,
     val currentVal: Int,
     val targetVal: Int
 ) {
+    /** Texts in the app's language (res/values*: ach_<id>_title/desc). */
+    val title: String get() = AppText.get(titleRes)
+    val desc: String get() = AppText.get(descRes)
     val isUnlocked: Boolean get() = currentVal >= targetVal
     val progress: Float get() = if (targetVal <= 0) 1f else (currentVal.toFloat() / targetVal.toFloat()).coerceIn(0f, 1f)
 }
@@ -4778,10 +4936,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "ig_1",
             category = AchievementCategory.INSTAGRAM,
-            titleTr = "İlk Reels Freni",
-            titleEn = "First Reels Block",
-            descTr = "Instagram'da ilk engelleme",
-            descEn = "First block on Instagram",
+            titleRes = R.string.ach_ig_1_title,
+            descRes = R.string.ach_ig_1_desc,
             iconRes = R.drawable.ic_instagram,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4790,10 +4946,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "ig_10",
             category = AchievementCategory.INSTAGRAM,
-            titleTr = "Reels Direnci",
-            titleEn = "Reels Resistance",
-            descTr = "Instagram'da 10 engelleme",
-            descEn = "10 blocks on Instagram",
+            titleRes = R.string.ach_ig_10_title,
+            descRes = R.string.ach_ig_10_desc,
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4802,10 +4956,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "ig_50",
             category = AchievementCategory.INSTAGRAM,
-            titleTr = "Algoritma Fatihi",
-            titleEn = "Algorithm Conqueror",
-            descTr = "Instagram'da 50 engelleme",
-            descEn = "50 blocks on Instagram",
+            titleRes = R.string.ach_ig_50_title,
+            descRes = R.string.ach_ig_50_desc,
             iconRes = R.drawable.ic_tier_bolt,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4814,10 +4966,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "ig_100",
             category = AchievementCategory.INSTAGRAM,
-            titleTr = "Reels Muhafızı",
-            titleEn = "Reels Sentinel",
-            descTr = "Instagram'da 100 engelleme",
-            descEn = "100 blocks on Instagram",
+            titleRes = R.string.ach_ig_100_title,
+            descRes = R.string.ach_ig_100_desc,
             iconRes = R.drawable.ic_tier_crown,
             brandColor = Color(0xFFE1306C),
             currentVal = blocksInsta,
@@ -4828,10 +4978,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "tt_1",
             category = AchievementCategory.TIKTOK,
-            titleTr = "İlk TikTok Kalkanı",
-            titleEn = "First TikTok Shield",
-            descTr = "TikTok'ta ilk engelleme",
-            descEn = "First block on TikTok",
+            titleRes = R.string.ach_tt_1_title,
+            descRes = R.string.ach_tt_1_desc,
             iconRes = R.drawable.ic_tiktok,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4840,10 +4988,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "tt_10",
             category = AchievementCategory.TIKTOK,
-            titleTr = "Akış Freni",
-            titleEn = "Feed Breaker",
-            descTr = "TikTok'ta 10 engelleme",
-            descEn = "10 blocks on TikTok",
+            titleRes = R.string.ach_tt_10_title,
+            descRes = R.string.ach_tt_10_desc,
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4852,10 +4998,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "tt_50",
             category = AchievementCategory.TIKTOK,
-            titleTr = "Sonsuz Akış Kırıcı",
-            titleEn = "Endless Feed Breaker",
-            descTr = "TikTok'ta 50 engelleme",
-            descEn = "50 blocks on TikTok",
+            titleRes = R.string.ach_tt_50_title,
+            descRes = R.string.ach_tt_50_desc,
             iconRes = R.drawable.ic_tier_crystal,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4864,10 +5008,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "tt_100",
             category = AchievementCategory.TIKTOK,
-            titleTr = "TikTok Ustası",
-            titleEn = "TikTok Master",
-            descTr = "TikTok'ta 100 engelleme",
-            descEn = "100 blocks on TikTok",
+            titleRes = R.string.ach_tt_100_title,
+            descRes = R.string.ach_tt_100_desc,
             iconRes = R.drawable.ic_tier_gem,
             brandColor = Color(0xFF00F2FE),
             currentVal = blocksTiktok,
@@ -4878,10 +5020,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "yt_1",
             category = AchievementCategory.YOUTUBE,
-            titleTr = "Shorts Kilidi",
-            titleEn = "Shorts Lock",
-            descTr = "YouTube'da ilk engelleme",
-            descEn = "First block on YouTube",
+            titleRes = R.string.ach_yt_1_title,
+            descRes = R.string.ach_yt_1_desc,
             iconRes = R.drawable.ic_youtube,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4890,10 +5030,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "yt_10",
             category = AchievementCategory.YOUTUBE,
-            titleTr = "Shorts Kalkanı",
-            titleEn = "Shorts Shield",
-            descTr = "YouTube Shorts'ta 10 engelleme",
-            descEn = "10 blocks on YouTube Shorts",
+            titleRes = R.string.ach_yt_10_title,
+            descRes = R.string.ach_yt_10_desc,
             iconRes = R.drawable.ic_shield,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4902,10 +5040,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "yt_50",
             category = AchievementCategory.YOUTUBE,
-            titleTr = "Kırmızı Çizgi Savunması",
-            titleEn = "Red Line Defense",
-            descTr = "YouTube Shorts'ta 50 engelleme",
-            descEn = "50 blocks on YouTube Shorts",
+            titleRes = R.string.ach_yt_50_title,
+            descRes = R.string.ach_yt_50_desc,
             iconRes = R.drawable.ic_target,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4914,10 +5050,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "yt_100",
             category = AchievementCategory.YOUTUBE,
-            titleTr = "Shorts 100",
-            titleEn = "Shorts 100",
-            descTr = "YouTube Shorts'ta 100 engelleme",
-            descEn = "100 blocks on YouTube Shorts",
+            titleRes = R.string.ach_yt_100_title,
+            descRes = R.string.ach_yt_100_desc,
             iconRes = R.drawable.ic_trophy,
             brandColor = Color(0xFFFF0000),
             currentVal = blocksYt,
@@ -4928,10 +5062,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "gen_1",
             category = AchievementCategory.GENERAL,
-            titleTr = "Uyanış",
-            titleEn = "Awakening",
-            descTr = "İlk koruma müdahalesi",
-            descEn = "First protection intervention",
+            titleRes = R.string.ach_gen_1_title,
+            descRes = R.string.ach_gen_1_desc,
             iconRes = R.drawable.ic_tier_seed,
             brandColor = Color(0xFF00FF87),
             currentVal = totalBlocks,
@@ -4940,10 +5072,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "gen_streak_3",
             category = AchievementCategory.GENERAL,
-            titleTr = "3 Günlük Kıvılcım",
-            titleEn = "3-Day Spark",
-            descTr = "3 günlük koruma serisi",
-            descEn = "A 3-day protection streak",
+            titleRes = R.string.ach_gen_streak_3_title,
+            descRes = R.string.ach_gen_streak_3_desc,
             iconRes = R.drawable.ic_tier_fire,
             brandColor = Color(0xFFFF5500),
             currentVal = streakDays,
@@ -4952,10 +5082,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "gen_streak_7",
             category = AchievementCategory.GENERAL,
-            titleTr = "1 Haftalık İrade",
-            titleEn = "1-Week Fortitude",
-            descTr = "7 günlük koruma serisi",
-            descEn = "A 7-day protection streak",
+            titleRes = R.string.ach_gen_streak_7_title,
+            descRes = R.string.ach_gen_streak_7_desc,
             iconRes = R.drawable.ic_tier_bolt,
             brandColor = Color(0xFFFFB700),
             currentVal = streakDays,
@@ -4964,10 +5092,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "gen_streak_21",
             category = AchievementCategory.GENERAL,
-            titleTr = "21 Günlük Seri",
-            titleEn = "21-Day Streak",
-            descTr = "21 günlük koruma serisi",
-            descEn = "A 21-day protection streak",
+            titleRes = R.string.ach_gen_streak_21_title,
+            descRes = R.string.ach_gen_streak_21_desc,
             iconRes = R.drawable.ic_tier_brain,
             brandColor = Color(0xFFFF2A85),
             currentVal = streakDays,
@@ -4976,10 +5102,8 @@ fun getAllAchievements(prefs: SharedPreferences): List<FocusAchievement> {
         FocusAchievement(
             id = "gen_100_blocks",
             category = AchievementCategory.GENERAL,
-            titleTr = "Yüzlük Kalkan",
-            titleEn = "Centurion Shield",
-            descTr = "Toplam 100 engelleme",
-            descEn = "100 blocks in total",
+            titleRes = R.string.ach_gen_100_blocks_title,
+            descRes = R.string.ach_gen_100_blocks_desc,
             iconRes = R.drawable.ic_trophy,
             brandColor = Color(0xFFFFD700),
             currentVal = totalBlocks,
@@ -5107,7 +5231,7 @@ fun FieryGlowingStreakBadge(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (isEn) (if (streakDays == 1) "1 DAY" else "$streakDays DAYS") else "$streakDays GÜN",
+                text = AppText.plural(R.plurals.streak_days_badge, streakDays),
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Black,
                 color = tier.color
@@ -5179,7 +5303,7 @@ fun FocusJourneyDialog(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = if (isEn) "Achievements" else "Başarımlar",
+                                    text = AppText.get(R.string.main_achievements),
                                     fontSize = 17.sp,
                                     lineHeight = 20.sp,
                                     fontWeight = FontWeight.Black,
@@ -5187,7 +5311,7 @@ fun FocusJourneyDialog(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = if (isEn) "Focus Tiers & Special Achievements" else "Odak kademeleri ve özel başarımlar",
+                                    text = AppText.get(R.string.main_focus_tiers_special_achievements),
                                     fontSize = 11.sp,
                                     lineHeight = 14.sp,
                                     color = Color(0xFF00F2FE),
@@ -5224,8 +5348,8 @@ fun FocusJourneyDialog(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         val tabs = listOf(
-                            Triple(0, if (isEn) "Tiers" else "Kademeler", R.drawable.ic_tier_galaxy),
-                            Triple(1, if (isEn) "Special Achievements" else "Özel başarımlar", R.drawable.ic_trophy)
+                            Triple(0, AppText.get(R.string.main_tiers), R.drawable.ic_tier_galaxy),
+                            Triple(1, AppText.get(R.string.main_special_achievements), R.drawable.ic_trophy)
                         )
 
                         tabs.forEach { (idx, label, iconRes) ->
@@ -5312,7 +5436,7 @@ fun FocusJourneyDialog(
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
                                                     Text(
-                                                        text = if (isEn) "CURRENT LEVEL ${currentTier.level}" else "MEVCUT KADEME ${currentTier.level}",
+                                                        text = AppText.get(R.string.main_current_level_x, currentTier.level),
                                                         fontSize = 10.sp,
                                                         fontWeight = FontWeight.Black,
                                                         color = currentTier.color,
@@ -5323,7 +5447,7 @@ fun FocusJourneyDialog(
                                                         color = currentTier.color.copy(alpha = 0.2f)
                                                     ) {
                                                         Text(
-                                                            text = if (isEn) "Day $streakDays" else "$streakDays. gün",
+                                                            text = AppText.get(R.string.main_day_x, streakDays),
                                                             fontSize = 10.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = currentTier.color,
@@ -5332,7 +5456,7 @@ fun FocusJourneyDialog(
                                                     }
                                                 }
                                                 Text(
-                                                    text = if (isEn) currentTier.nameEn else currentTier.nameTr,
+                                                    text = currentTier.name,
                                                     fontSize = 18.sp,
                                                     fontWeight = FontWeight.Black,
                                                     color = Color.White
@@ -5343,7 +5467,7 @@ fun FocusJourneyDialog(
                                         Spacer(modifier = Modifier.height(10.dp))
 
                                         Text(
-                                            text = if (isEn) currentTier.descEn else currentTier.descTr,
+                                            text = currentTier.desc,
                                             fontSize = 12.sp,
                                             color = Color.White.copy(alpha = 0.85f),
                                             lineHeight = 17.sp
@@ -5370,7 +5494,7 @@ fun FocusJourneyDialog(
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = if (isEn) "Focus at this level: ${currentTier.neuroBenefitEn}" else "Bu kademenin odağı: ${currentTier.neuroBenefitTr}",
+                                                    text = AppText.get(R.string.main_focus_at_this_level_x, currentTier.neuroBenefit),
                                                     fontSize = 11.sp,
                                                     lineHeight = 14.sp,
                                                     fontWeight = FontWeight.SemiBold,
@@ -5394,14 +5518,14 @@ fun FocusJourneyDialog(
                                                     modifier = Modifier.weight(1f, fill = false)
                                                 ) {
                                                     Text(
-                                                        text = if (isEn) "Next:" else "Sıradaki:",
+                                                        text = AppText.get(R.string.main_next_2),
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium,
                                                         color = Color.White.copy(alpha = 0.65f)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = if (isEn) "Level ${nextTier.level} · ${nextTier.nameEn}" else "${nextTier.level}. Kademe · ${nextTier.nameTr}",
+                                                        text = AppText.get(R.string.main_level_x_x, nextTier.level, nextTier.name),
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = Color.White,
@@ -5412,9 +5536,7 @@ fun FocusJourneyDialog(
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 val remaining = nextTier.minDays - streakDays
                                                 Text(
-                                                    text = if (isEn) {
-                                                        if (remaining == 1) "1 day left" else "$remaining days left"
-                                                    } else "$remaining gün kaldı",
+                                                    text = AppText.plural(R.plurals.days_left, remaining),
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = currentTier.color,
@@ -5439,7 +5561,7 @@ fun FocusJourneyDialog(
 
                                 // B. Full Timeline Header
                                 Text(
-                                    text = if (isEn) "TIERS ROADMAP" else "KADEME HARİTASI",
+                                    text = AppText.get(R.string.main_tiers_roadmap),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Color.White.copy(alpha = 0.5f),
@@ -5553,7 +5675,7 @@ fun FocusJourneyDialog(
                                                         )
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Text(
-                                                            text = "${tierItem.level}. ${if (isEn) tierItem.nameEn else tierItem.nameTr}",
+                                                            text = "${tierItem.level}. ${tierItem.name}",
                                                             fontSize = 13.sp,
                                                             lineHeight = 16.sp,
                                                             fontWeight = FontWeight.Bold,
@@ -5568,9 +5690,9 @@ fun FocusJourneyDialog(
                                                         else Color.White.copy(alpha = 0.05f)
                                                     ) {
                                                         Text(
-                                                            text = if (tierItem.maxDays == Int.MAX_VALUE) "${tierItem.minDays}+ ${if (isEn) "Days" else "Gün"}"
-                                                                   else if (tierItem.minDays == tierItem.maxDays) "${tierItem.minDays} ${if (isEn) "Day" else "Gün"}"
-                                                                   else "${tierItem.minDays}-${tierItem.maxDays} ${if (isEn) "Days" else "Gün"}",
+                                                            text = if (tierItem.maxDays == Int.MAX_VALUE) "${tierItem.minDays}+ ${AppText.get(R.string.main_days)}"
+                                                                   else if (tierItem.minDays == tierItem.maxDays) "${tierItem.minDays} ${AppText.get(R.string.main_day)}"
+                                                                   else "${tierItem.minDays}-${tierItem.maxDays} ${AppText.get(R.string.main_days)}",
                                                             fontSize = 9.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = if (isCurrent) tierItem.color
@@ -5584,7 +5706,7 @@ fun FocusJourneyDialog(
                                                 Spacer(modifier = Modifier.height(2.dp))
 
                                                 Text(
-                                                    text = if (isEn) tierItem.descEn else tierItem.descTr,
+                                                    text = tierItem.desc,
                                                     fontSize = 11.sp,
                                                     color = Color.White.copy(alpha = 0.75f),
                                                     lineHeight = 14.sp
@@ -5601,7 +5723,7 @@ fun FocusJourneyDialog(
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = if (isEn) tierItem.neuroBenefitEn else tierItem.neuroBenefitTr,
+                                                        text = tierItem.neuroBenefit,
                                                         fontSize = 10.sp,
                                                         lineHeight = 13.sp,
                                                         fontWeight = FontWeight.Medium,
@@ -5627,11 +5749,11 @@ fun FocusJourneyDialog(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     val categories = listOf(
-                                        Triple(AchievementCategory.ALL, if (isEn) "All" else "Hepsi", null),
+                                        Triple(AchievementCategory.ALL, AppText.get(R.string.main_all), null),
                                         Triple(AchievementCategory.INSTAGRAM, "Instagram", R.drawable.ic_instagram),
                                         Triple(AchievementCategory.TIKTOK, "TikTok", R.drawable.ic_tiktok),
                                         Triple(AchievementCategory.YOUTUBE, "YouTube", R.drawable.ic_youtube),
-                                        Triple(AchievementCategory.GENERAL, if (isEn) "Discipline" else "Disiplin", R.drawable.ic_shield)
+                                        Triple(AchievementCategory.GENERAL, AppText.get(R.string.main_discipline), R.drawable.ic_shield)
                                     )
 
                                     categories.forEach { (cat, label, iconRes) ->
@@ -5732,7 +5854,7 @@ fun FocusJourneyDialog(
                                                         horizontalArrangement = Arrangement.SpaceBetween
                                                     ) {
                                                         Text(
-                                                            text = if (isEn) ach.titleEn else ach.titleTr,
+                                                            text = ach.title,
                                                             fontSize = 13.5.sp,
                                                             lineHeight = 16.5.sp,
                                                             fontWeight = FontWeight.Bold,
@@ -5757,7 +5879,7 @@ fun FocusJourneyDialog(
                                                                     )
                                                                     Spacer(modifier = Modifier.width(3.dp))
                                                                     Text(
-                                                                        text = if (isEn) "UNLOCKED" else "AÇILDI",
+                                                                        text = AppText.get(R.string.main_unlocked),
                                                                         fontSize = 9.sp,
                                                                         fontWeight = FontWeight.Black,
                                                                         color = Color(0xFF00FF87)
@@ -5777,7 +5899,7 @@ fun FocusJourneyDialog(
                                                     Spacer(modifier = Modifier.height(2.dp))
 
                                                     Text(
-                                                        text = if (isEn) ach.descEn else ach.descTr,
+                                                        text = ach.desc,
                                                         fontSize = 11.sp,
                                                         lineHeight = 14.sp,
                                                         color = Color.White.copy(alpha = 0.65f)
@@ -5822,7 +5944,7 @@ fun FocusJourneyDialog(
                                 .height(44.dp)
                         ) {
                             Text(
-                                text = if (isEn) "Close" else "Kapat",
+                                text = AppText.get(R.string.main_close),
                                 color = Color(0xFF0A0E1A),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 14.sp
@@ -5843,8 +5965,9 @@ fun HomeScreen(
     onRequestAccessibility: () -> Unit,
     prefs: android.content.SharedPreferences
 ) {
-    val isAccessibilityActive = rememberAccessibilityStatus()
-    val isEn = getAppLanguage(prefs) == "en"
+    val serviceState = rememberProtectionServiceState()
+    val isAccessibilityActive = serviceState == ProtectionServiceState.RUNNING
+    val isEn = getAppLanguage(prefs) != "tr"
     var todayStr by remember { mutableStateOf(InstagramProtectionMetrics.dateString(System.currentTimeMillis())) }
     var todayInterventions by remember { mutableIntStateOf(prefs.getInt("blocks_$todayStr", 0)) }
     var showJourneyDialog by remember { mutableStateOf(false) }
@@ -5947,7 +6070,7 @@ fun HomeScreen(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_splash_logo),
-                        contentDescription = if (isEn) "App logo" else "Uygulama logosu",
+                        contentDescription = AppText.get(R.string.main_app_logo),
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
@@ -6015,9 +6138,11 @@ fun HomeScreen(
             BorderlessHeroStatusSection(
                 isEn = isEn,
                 isAccessibilityActive = isAccessibilityActive,
+                serviceStuck = serviceState == ProtectionServiceState.LISTED_NOT_RUNNING,
                 todayInterventions = todayInterventions,
                 onActivateClick = onRequestAccessibility
             )
+
 
 
 
@@ -6051,7 +6176,7 @@ fun HomeScreen(
 
 @Composable
 fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
-    val isEn = getAppLanguage(prefs) == "en"
+    val isEn = getAppLanguage(prefs) != "tr"
     var rawLogs by remember { mutableStateOf(prefs.getString("recent_shield_logs", "") ?: "") }
 
     LaunchedEffect(Unit) {
@@ -6105,9 +6230,9 @@ fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
                 }
                 val blockMs = parts.getOrNull(3)?.toLongOrNull()
                 val whenLabel = if (blockMs != null && blockMs > 0L) {
-                    RecentBlockTime.label(blockMs, System.currentTimeMillis(), isEn)
+                    RecentBlockTime.label(blockMs, System.currentTimeMillis())
                 } else {
-                    if (isEn) "At $time" else "Saat $time"
+                    AppText.get(R.string.main_at_x, time)
                 }
                 Triple(whenLabel, app, appCount)
             }
@@ -6119,7 +6244,7 @@ fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-                text = if (isEn) "RECENT BLOCKS" else "SON ENGELLEMELER",
+                text = AppText.get(R.string.main_recent_blocks),
             fontSize = 11.5.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Color.White.copy(alpha = 0.5f),
@@ -6131,7 +6256,7 @@ fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
 
         if (logList.isEmpty()) {
             Text(
-                text = if (isEn) "No blocks have been recorded yet." else "Henüz bir engelleme kaydedilmedi.",
+                text = AppText.get(R.string.main_no_blocks_have_been_recorded_yet),
                 fontSize = 12.5.sp,
                 color = Color.White.copy(alpha = 0.5f),
                 modifier = Modifier.padding(vertical = 8.dp)
@@ -6203,6 +6328,48 @@ fun BorderlessShieldActivityLog(prefs: android.content.SharedPreferences) {
                 }
             }
         }
+
+        // Xiaomi, Redmi and POCO: a small, quiet reminder at the end of Home.
+        if (isXiaomiFamily()) {
+            Spacer(modifier = Modifier.height(18.dp))
+            XiaomiAutostartReminder()
+        }
+    }
+}
+
+/**
+ * Tested on a Xiaomi 14 (HyperOS 2): clearing Recents ends the app, and only
+ * with Autostart on does Android bring protection back. Autostart is off on a
+ * new installation and the app cannot read it, so the reminder stays.
+ */
+@Composable
+private fun XiaomiAutostartReminder() {
+    val context = LocalContext.current
+    val amber = Color(0xFFFFB800)
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = amber.copy(alpha = 0.08f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, amber.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(
+                AppText.get(R.string.main_xiaomi_autostart_home),
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+            Text(
+                AppText.get(R.string.main_xiaomi_autostart_button),
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = amber,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable { openAutostartSettings(context) }
+                    .padding(vertical = 4.dp)
+            )
+        }
     }
 }
 
@@ -6215,7 +6382,7 @@ fun ModesAndAppsScreen(
     @Suppress("UNUSED_PARAMETER") onRequestAccessibility: () -> Unit
 ) {
     val context = LocalContext.current
-    val isEn = getAppLanguage(prefs) == "en"
+    val isEn = getAppLanguage(prefs) != "tr"
     val isProtectionRunning = rememberAccessibilityStatus()
     val installedApps = rememberInstalledApps()
     var isInstagramEnabled by remember { mutableStateOf(ProtectionPreferences.isEnabled(prefs, ProtectedApp.INSTAGRAM)) }
@@ -6255,7 +6422,7 @@ fun ModesAndAppsScreen(
             "instagram" -> "Instagram"
             "tiktok" -> "TikTok"
             "youtube" -> "YouTube"
-            else -> if (isEn) "This app" else "Bu uygulama"
+            else -> AppText.get(R.string.main_this_app)
         }
         AlertDialog(
             onDismissRequest = { pendingDisableApp = null },
@@ -6269,7 +6436,7 @@ fun ModesAndAppsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isEn) "Turn off protection?" else "Koruma kapatılsın mı?",
+                        text = AppText.get(R.string.main_turn_off_protection),
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
                         fontSize = 15.sp
@@ -6278,10 +6445,7 @@ fun ModesAndAppsScreen(
             },
             text = { 
                 Text(
-                    if (isEn) 
-                        "$pendingAppName short-content protection will be disabled. Your current daily streak will reset to 0." 
-                    else 
-                        "$pendingAppName kısa içerik koruması kapanacak. Mevcut günlük seriniz 0'a sıfırlanacak.", 
+                    AppText.get(R.string.main_x_short_content_protection_will_be, pendingAppName), 
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     color = Color.White.copy(alpha = 0.9f)
@@ -6326,9 +6490,9 @@ fun ModesAndAppsScreen(
                         if (disabled) {
                             NotificationHelper.showShieldStatusNotification(
                                 context,
-                                if (isEn) "$pendingAppName protection is off" else "$pendingAppName koruması kapalı",
-                                if (isEn) "Short-content protection is disabled and your daily streak was reset." else "Kısa içerik koruması kapatıldı ve günlük seriniz sıfırlandı.",
-                                1004
+                                AppText.get(R.string.main_x_protection_is_off, pendingAppName),
+                                AppText.get(R.string.main_short_content_protection_is_disabled_and),
+                                StatusNotificationPolicy.APP_OFF_ID
                             )
                         } else {
                             android.util.Log.e("ProtectionPreferences", "$pendingAppName koruma tercihi kaydedilemedi.")
@@ -6337,7 +6501,7 @@ fun ModesAndAppsScreen(
                         pendingDisableApp = null
                     }
                 ) {
-                    Text(if (isEn) "Turn off" else "Kapat", color = Color(0xFFFF0055), fontWeight = FontWeight.ExtraBold)
+                    Text(AppText.get(R.string.main_turn_off), color = Color(0xFFFF0055), fontWeight = FontWeight.ExtraBold)
                 }
             },
             dismissButton = {
@@ -6353,7 +6517,7 @@ fun ModesAndAppsScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isEn) "Keep protection on" else "Açık kalsın", fontWeight = FontWeight.ExtraBold)
+                        Text(AppText.get(R.string.main_keep_protection_on), fontWeight = FontWeight.ExtraBold)
                     }
                 }
             },
@@ -6372,29 +6536,14 @@ fun ModesAndAppsScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         DashboardSectionHeader(
-            title = if (isEn) "Protected Apps" else "Korunan Uygulamalar",
-            subtitle = if (isEn) {
-                "Choose apps you want to protect"
-            } else {
-                "Korumak istediğiniz uygulamaları seçin"
-            }
+            title = AppText.get(R.string.main_protected_apps),
+            subtitle = AppText.get(R.string.main_choose_apps_you_want_to_protect)
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 1. KATEGORİ: GÜVENLİK & FELSEFE
-        Text(
-            text = if (isEn) "HOW PROTECTION WORKS" else "KORUMA NASIL ÇALIŞIR?",
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.5f),
-            letterSpacing = 1.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
         // One entry point for every app's scope (no per-app Scope chips).
+        // The card carries its own title, so no section header above it.
         Surface(
             onClick = { showScopeDialog = true },
             shape = RoundedCornerShape(14.dp),
@@ -6420,7 +6569,7 @@ fun ModesAndAppsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isEn) "PROTECTION SCOPE" else "KORUMA KAPSAMI",
+                            text = AppText.get(R.string.main_protection_scope_2),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFFFFB703),
@@ -6428,7 +6577,7 @@ fun ModesAndAppsScreen(
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isEn) "Read" else "Oku",
+                                text = AppText.get(R.string.main_read),
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFFB703)
@@ -6444,10 +6593,7 @@ fun ModesAndAppsScreen(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isEn)
-                            "What is covered and what stays open in Instagram, TikTok and YouTube."
-                        else
-                            "Instagram, TikTok ve YouTube'da neyin kapandığı, neyin açık kaldığı.",
+                        text = AppText.get(R.string.main_what_is_covered_and_what_stays),
                         fontSize = 11.5.sp,
                         lineHeight = 15.sp,
                         color = Color.White.copy(alpha = 0.75f)
@@ -6460,7 +6606,7 @@ fun ModesAndAppsScreen(
 
         // 2. KATEGORİ: HEDEF UYGULAMA KALKANLARI
         Text(
-            text = if (isEn) "APPS" else "UYGULAMALAR",
+            text = AppText.get(R.string.main_apps_2),
             fontSize = 11.5.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Color.White.copy(alpha = 0.5f),
@@ -6573,6 +6719,7 @@ fun BorderlessTargetAppsList(
                     isInstagramSettingsOpen, onInstagramSettingsClick, Color(0xFFE1306C)) {
                     InstagramModeSettingsCard(isEn, instagramMode, onInstagramModeChange)
                 }
+                InstagramOpenInMessagesRow(isEn)
             }
         }
 
@@ -6624,6 +6771,57 @@ fun BorderlessTargetAppsList(
     }
 }
 
+// Opt-in and off by default: Instagram opened from outside skips the covered
+// Home feed and goes to Messages. Same card style as the mode picker above.
+@Composable
+private fun InstagramOpenInMessagesRow(isEn: Boolean) {
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    var on by remember { mutableStateOf(ProtectionPreferences.opensInstagramInMessages(prefs)) }
+    val accent = Color(0xFFE1306C)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 48.dp, bottom = 14.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.025f))
+            .toggleable(
+                value = on,
+                role = androidx.compose.ui.semantics.Role.Switch,
+                onValueChange = { value ->
+                    if (ProtectionPreferences.setOpensInstagramInMessages(prefs, value)) on = value
+                }
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = AppText.get(R.string.main_open_in_messages),
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = AppText.get(R.string.main_when_you_open_instagram_it_goes),
+                color = Color.White.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = on,
+            onCheckedChange = null,
+            colors = appSwitchColors(accent)
+        )
+    }
+}
+
 @Composable
 private fun ProtectionModeDropdownButton(
     isEn: Boolean,
@@ -6636,8 +6834,8 @@ private fun ProtectionModeDropdownButton(
     content: @Composable () -> Unit
 ) {
     val modeLabel = when (mode) {
-        ProtectionMode.BALANCED -> if (isEn) "Balanced" else "Dengeli"
-        ProtectionMode.STRICT -> if (isEn) "Strict" else "Sert"
+        ProtectionMode.BALANCED -> AppText.get(R.string.main_balanced_2)
+        ProtectionMode.STRICT -> AppText.get(R.string.main_strict_2)
     }
     Column(
         modifier = Modifier
@@ -6651,18 +6849,18 @@ private fun ProtectionModeDropdownButton(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .clickable(onClick = onClick)
                 .semantics {
-                    contentDescription = if (isEn) "$appName protection mode" else "$appName koruma modu"
+                    contentDescription = AppText.get(R.string.main_x_protection_mode, appName)
                     stateDescription = modeLabel + if (expanded) {
-                        if (isEn) ", expanded" else ", açık"
+                        AppText.get(R.string.main_expanded)
                     } else {
-                        if (isEn) ", collapsed" else ", kapalı"
+                        AppText.get(R.string.main_collapsed)
                     }
                 }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isEn) "Protection mode" else "Koruma modu",
+                text = AppText.get(R.string.main_protection_mode),
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
@@ -6702,7 +6900,7 @@ private fun InstagramModeSettingsCard(
     mode: ProtectionMode,
     onModeChange: (ProtectionMode) -> Unit
 ) {
-    val detail = ProtectionCopy.modeSummary(ProtectedApp.INSTAGRAM, mode, isEn)
+    val detail = ProtectionCopy.modeSummary(ProtectedApp.INSTAGRAM, mode)
     CompactProtectionModeSettings(isEn, mode, detail, onModeChange, Color(0xFFE1306C))
 }
 
@@ -6712,7 +6910,7 @@ fun YouTubeModeSettingsCard(
     mode: ProtectionMode,
     onModeChange: (ProtectionMode) -> Unit
 ) {
-    val detail = ProtectionCopy.modeSummary(ProtectedApp.YOUTUBE, mode, isEn)
+    val detail = ProtectionCopy.modeSummary(ProtectedApp.YOUTUBE, mode)
     CompactProtectionModeSettings(isEn, mode, detail, onModeChange, Color(0xFFFF5555))
 }
 
@@ -6736,8 +6934,8 @@ private fun CompactProtectionModeSettings(
             for (option in listOf(ProtectionMode.BALANCED, ProtectionMode.STRICT)) {
                 val selected = mode == option
                 val label = when (option) {
-                    ProtectionMode.BALANCED -> if (isEn) "Balanced" else "Dengeli"
-                    ProtectionMode.STRICT -> if (isEn) "Strict" else "Sert"
+                    ProtectionMode.BALANCED -> AppText.get(R.string.main_balanced_2)
+                    ProtectionMode.STRICT -> AppText.get(R.string.main_strict_2)
                 }
                 Box(
                     modifier = Modifier.weight(1f).heightIn(min = 38.dp)
@@ -6841,17 +7039,8 @@ fun BorderlessTargetAppRow(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                // Durum (kapsam üstteki tek kartta)
-                Text(
-                    text = when {
-                        !isChecked -> if (isEn) "Off" else "Kapalı"
-                        else -> if (isEn) "On" else "Açık"
-                    },
-                    fontSize = 11.sp,
-                    color = if (isChecked) brandColor else Color.White.copy(alpha = 0.4f),
-                    fontWeight = FontWeight.Medium
-                )
+                // No "On/Off" line under the name: the switch already shows
+                // it, and screen readers hear it from the switch's state.
             }
         }
 
@@ -6861,19 +7050,14 @@ fun BorderlessTargetAppRow(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             modifier = Modifier.semantics {
-                contentDescription = if (isEn) "$name protection" else "$name koruması"
+                contentDescription = AppText.get(R.string.main_x_protection, name)
                 stateDescription = when {
-                    !isChecked -> if (isEn) "Off" else "Kapalı"
-                    isProtectionRunning -> if (isEn) "On; protection is running" else "Açık; koruma çalışıyor"
-                    else -> if (isEn) "On; Accessibility permission required" else "Açık; erişilebilirlik izni gerekli"
+                    !isChecked -> AppText.get(R.string.main_off)
+                    isProtectionRunning -> AppText.get(R.string.main_on_protection_is_running)
+                    else -> AppText.get(R.string.main_on_accessibility_permission_required)
                 }
             },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = brandColor,
-                uncheckedThumbColor = Color.Gray,
-                uncheckedTrackColor = Color(0xFF1E2A40)
-            )
+            colors = appSwitchColors(brandColor)
         )
     }
 }
@@ -6923,7 +7107,7 @@ data class DayBlockDetail(
 // ------------------------------------------
 @Composable
 fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
-    val isEn = getAppLanguage(prefs) == "en"
+    val isEn = getAppLanguage(prefs) != "tr"
     val initialToday = InstagramProtectionMetrics.dateString(System.currentTimeMillis())
     var totalBlocks by remember { mutableIntStateOf(prefs.getInt("total_blocks", 0)) }
     var todayInterventions by remember {
@@ -6992,10 +7176,14 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
             calendar.set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.MONDAY)
             val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             
-            val dayShortNames = if (isEn) 
-                listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun") 
-            else 
-                listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+            // Short weekday names straight from the platform, in the app's
+            // language (Mon / Pzt / Lun / Пн), Monday first.
+            val dayLocale = java.util.Locale.forLanguageTag(AppText.language().code)
+            val dayShortNames = java.time.DayOfWeek.entries.map { day ->
+                day.getDisplayName(java.time.format.TextStyle.SHORT, dayLocale)
+                    .removeSuffix(".")
+                    .replaceFirstChar { it.titlecase(dayLocale) }
+            }
             
             val newWeeklyDetails = mutableListOf<DayBlockDetail>()
             for (i in 0 until 7) {
@@ -7096,18 +7284,14 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
         Spacer(modifier = Modifier.height(4.dp))
 
         DashboardSectionHeader(
-            title = if (isEn) "Protection Analytics" else "Koruma Analizi",
-            subtitle = if (isEn) {
-                "Blocks, streaks and achievements"
-            } else {
-                "Engellemeler, seri ve başarımlar"
-            }
+            title = AppText.get(R.string.main_protection_analytics),
+            subtitle = AppText.get(R.string.main_blocks_streaks_and_achievements)
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         // Seri ve başarımlar: dönemden bağımsız, en üstte, tek kart
-        val achievementsLabel = if (isEn) "Achievements and streak" else "Başarımlar ve seri"
+        val achievementsLabel = AppText.get(R.string.main_achievements_and_streak)
         Surface(
             onClick = { showJourneyDialog = true },
             shape = RoundedCornerShape(18.dp),
@@ -7116,8 +7300,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {
-                    contentDescription = if (isEn) "$achievementsLabel: $streakDays-day streak"
-                    else "$achievementsLabel: $streakDays günlük seri"
+                    contentDescription = AppText.get(R.string.main_x_x_day_streak, achievementsLabel, streakDays)
                 }
         ) {
             Row(
@@ -7141,9 +7324,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isEn) {
-                            if (streakDays == 1) "1-day streak" else "$streakDays-day streak"
-                        } else "$streakDays günlük seri",
+                        text = AppText.plural(R.plurals.streak_days_label, streakDays),
                         fontSize = 16.sp,
                         lineHeight = 19.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -7151,7 +7332,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isEn) "See your achievements and progress" else "Başarımlarınızı ve ilerlemenizi görün",
+                        text = AppText.get(R.string.main_see_your_achievements_and_progress),
                         fontSize = 10.5.sp,
                         lineHeight = 13.5.sp,
                         color = Color.White.copy(alpha = 0.55f),
@@ -7178,11 +7359,10 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            val tabs = if (isEn) {
-                listOf("Today", "This week", "This month", "All time")
-            } else {
-                listOf("Bugün", "Bu hafta", "Bu ay", "Tümü")
-            }
+            val tabs = listOf(
+                R.string.period_today, R.string.period_this_week,
+                R.string.period_this_month, R.string.period_all_time
+            ).map { AppText.get(it) }
             tabs.forEachIndexed { index, label ->
                 val isSelected = selectedTimeframeTab == index
                 // Surface's own onClick clips the ripple to the rounded shape.
@@ -7280,15 +7460,15 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                         Text(
                             text = when {
                                 quietPeriod -> when (selectedTimeframeTab) {
-                                    0 -> if (isEn) "No attempts today" else "Bugün hiç deneme yok"
-                                    1 -> if (isEn) "No attempts this week" else "Bu hafta hiç deneme yok"
-                                    2 -> if (isEn) "No attempts this month" else "Bu ay hiç deneme yok"
-                                    else -> if (isEn) "No attempts yet" else "Henüz hiç deneme yok"
+                                    0 -> AppText.get(R.string.main_no_attempts_today)
+                                    1 -> AppText.get(R.string.main_no_attempts_this_week)
+                                    2 -> AppText.get(R.string.main_no_attempts_this_month)
+                                    else -> AppText.get(R.string.main_no_attempts_yet)
                                 }
                                 selectedTimeframeTab == 0 ->
-                                    if (isEn) (if (todayInterventions == 1) "1 block" else "$todayInterventions blocks") else "$todayInterventions engelleme"
+                                    AppText.plural(R.plurals.blocks_count, todayInterventions)
                                 else ->
-                                    if (isEn) (if (periodBlocks == 1) "1 block" else "$periodBlocks blocks") else "$periodBlocks engelleme"
+                                    AppText.plural(R.plurals.blocks_count, periodBlocks)
                             },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -7297,12 +7477,11 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                         Text(
                             text = when {
                                 quietPeriod ->
-                                    if (isEn) "Nothing in your protected apps needed stopping."
-                                    else "Korunan uygulamalarda durdurulacak bir şey olmadı."
-                                selectedTimeframeTab == 0 -> if (isEn) "Today, across all protected apps" else "Bugün, tüm korunan uygulamalarda"
-                                selectedTimeframeTab == 1 -> if (isEn) "This week, from Monday to today" else "Bu hafta, pazartesiden bugüne"
-                                selectedTimeframeTab == 2 -> if (isEn) "This month, from the 1st to today" else "Bu ay, ayın 1'inden bugüne"
-                                else -> if (isEn) "Since protection was first turned on" else "Koruma ilk açıldığından beri"
+                                    AppText.get(R.string.main_nothing_in_your_protected_apps_needed)
+                                selectedTimeframeTab == 0 -> AppText.get(R.string.main_today_across_all_protected_apps)
+                                selectedTimeframeTab == 1 -> AppText.get(R.string.main_this_week_from_monday_to_today)
+                                selectedTimeframeTab == 2 -> AppText.get(R.string.main_this_month_from_the_1st_to)
+                                else -> AppText.get(R.string.main_since_protection_was_first_turned_on)
                             },
                             fontSize = 10.5.sp,
                             lineHeight = 13.5.sp,
@@ -7314,7 +7493,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = if (isEn) "BY APP" else "UYGULAMALARA GÖRE",
+                    text = AppText.get(R.string.main_by_app),
                     fontSize = 9.5.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White.copy(alpha = 0.45f),
@@ -7368,11 +7547,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = if (isEn) {
-                            "Measured curtain time. TikTok has no curtain; protection takes you out of the feed."
-                        } else {
-                            "Ölçülen perde süresi. TikTok'ta perde yerine akıştan çıkılır."
-                        },
+                        text = AppText.get(R.string.main_measured_curtain_time_tiktok_has_no),
                         fontSize = 9.sp,
                         lineHeight = 12.sp,
                         color = Color.White.copy(alpha = 0.45f)
@@ -7423,10 +7598,10 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                         // The period is named so the hour is never read as "today".
                         text = PeakHourStats.formatRange(peakHour.hour).let { range ->
                             when (selectedTimeframeTab) {
-                                0 -> if (isEn) "Most attempts today: $range" else "Bugün en çok deneme: $range"
-                                1 -> if (isEn) "Most attempts this week: $range" else "Bu hafta en çok deneme: $range"
-                                2 -> if (isEn) "Most attempts this month: $range" else "Bu ay en çok deneme: $range"
-                                else -> if (isEn) "Most attempts overall: $range" else "Tüm zamanlarda en çok deneme: $range"
+                                0 -> AppText.get(R.string.main_busiest_hour_today_x_2, range)
+                                1 -> AppText.get(R.string.main_busiest_hour_this_week_x, range)
+                                2 -> AppText.get(R.string.main_busiest_hour_this_month_x, range)
+                                else -> AppText.get(R.string.main_busiest_hour_overall_x, range)
                             }
                         },
                         fontSize = 12.sp,
@@ -7434,10 +7609,7 @@ fun ProgressStatusScreen(prefs: android.content.SharedPreferences) {
                         color = Color.White
                     )
                     Text(
-                        text = if (isEn) {
-                            if (peakHour.blocks == 1) "1 attempt was stopped in this hour."
-                            else "${peakHour.blocks} attempts were stopped in this hour."
-                        } else "Bu saatte ${peakHour.blocks} deneme durduruldu.",
+                        text = RecentBlockTime.peakHourBlocks(peakHour.blocks),
                         fontSize = 10.5.sp,
                         lineHeight = 13.5.sp,
                         color = Color.White.copy(alpha = 0.55f)
@@ -7461,7 +7633,7 @@ private fun TodayAppMetric(
     curtainMs: Long? = null,
     isEn: Boolean = false
 ) {
-    val duration = curtainMs?.let { formatMeasuredDuration(it, isEn) }
+    val duration = curtainMs?.let { formatMeasuredDuration(it) }
     Surface(
         shape = RoundedCornerShape(11.dp),
         color = Color(0xFF070A12),
@@ -7469,9 +7641,9 @@ private fun TodayAppMetric(
         modifier = modifier.semantics(mergeDescendants = true) {
             contentDescription = buildString {
                 append(label).append(": ")
-                append(if (isEn) (if (count == 1) "1 block" else "$count blocks") else "$count engelleme")
+                append(AppText.plural(R.plurals.blocks_count, count))
                 if (duration != null) {
-                    append(if (isEn) ", curtain time $duration" else ", perde süresi $duration")
+                    append(AppText.get(R.string.main_curtain_time_x, duration))
                 }
             }
         }
@@ -7549,12 +7721,8 @@ fun CyberWeeklyPillarsChart(
     if (showChartInfo) {
         ScrollableTextDialog(
             isEn = isEn,
-            title = if (isEn) "How the weekly chart works" else "Haftalık grafik nasıl çalışır?",
-            content = if (isEn) {
-                "Each bar shows that day's Instagram, TikTok and YouTube blocks in separate colors. Tap a day to see its breakdown. Protection time measures visible curtains on Instagram and YouTube, not time saved."
-            } else {
-                "Her sütun, o günkü Instagram, TikTok ve YouTube engellemelerini ayrı renklerde gösterir. Ayrıntıları görmek için bir güne dokunun. Koruma süresi Instagram ve YouTube'da görünür perdenin süresidir; kazanılan zaman değildir."
-            },
+            title = AppText.get(R.string.main_how_the_weekly_chart_works),
+            content = AppText.get(R.string.main_each_bar_shows_that_day_s),
             iconRes = R.drawable.ic_info,
             iconTint = Color(0xFF00F2FE),
             onDismiss = { showChartInfo = false }
@@ -7575,7 +7743,7 @@ fun CyberWeeklyPillarsChart(
             ) {
                 if (embedded) {
                     Text(
-                        text = if (isEn) "BY DAY" else "GÜNLERE GÖRE",
+                        text = AppText.get(R.string.main_by_day),
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White.copy(alpha = 0.45f),
@@ -7583,7 +7751,7 @@ fun CyberWeeklyPillarsChart(
                     )
                 } else {
                     Text(
-                        text = if (isEn) "This week" else "Bu hafta",
+                        text = AppText.get(R.string.main_this_week),
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -7595,7 +7763,7 @@ fun CyberWeeklyPillarsChart(
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_info),
-                        contentDescription = if (isEn) "How the chart works" else "Grafik açıklaması",
+                        contentDescription = AppText.get(R.string.main_how_the_chart_works),
                         tint = Color.White.copy(alpha = 0.55f),
                         modifier = Modifier.size(17.dp)
                     )
@@ -7638,7 +7806,7 @@ fun CyberWeeklyPillarsChart(
                         Box(modifier = Modifier.size(7.dp).background(Color(0xFF64748B), CircleShape))
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            if (isEn) "Older records" else "Eski kayıtlar",
+                            AppText.get(R.string.main_older_records),
                             fontSize = 10.5.sp,
                             color = Color.White.copy(alpha = 0.75f),
                             fontWeight = FontWeight.Medium
@@ -7801,7 +7969,7 @@ fun CyberWeeklyPillarsChart(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isEn) "${selectedDetail.dayName} summary" else "${selectedDetail.dayName} özeti",
+                                        text = AppText.get(R.string.main_x_summary, selectedDetail.dayName),
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = selectedDetail.topAppColor
@@ -7818,7 +7986,7 @@ fun CyberWeeklyPillarsChart(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = if (isEn) "Curtain time" else "Perde süresi",
+                                    text = AppText.get(R.string.main_curtain_time),
                                     fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.White.copy(alpha = 0.6f)
@@ -7859,7 +8027,7 @@ fun CyberWeeklyPillarsChart(
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFFE1306C)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(if (isEn) "$insta ($pct%)" else "$insta (%$pct)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            Text(AppText.get(R.string.main_x_x, insta, pct), fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                         }
                                     }
 
@@ -7880,7 +8048,7 @@ fun CyberWeeklyPillarsChart(
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFF00F2FE)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(if (isEn) "$tiktok ($pct%)" else "$tiktok (%$pct)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            Text(AppText.get(R.string.main_x_x_2, tiktok, pct), fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                         }
                                     }
 
@@ -7901,7 +8069,7 @@ fun CyberWeeklyPillarsChart(
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFFFF0000)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(if (isEn) "$yt ($pct%)" else "$yt (%$pct)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            Text(AppText.get(R.string.main_x_x_3, yt, pct), fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                         }
                                     }
 
@@ -7912,7 +8080,7 @@ fun CyberWeeklyPillarsChart(
                                                 Box(modifier = Modifier.size(13.dp).background(Color(0xFF64748B), CircleShape))
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
-                                                    if (isEn) "Older:" else "Eski kayıt:",
+                                                    AppText.get(R.string.main_older),
                                                     fontSize = 11.5.sp,
                                                     color = Color(0xFF94A3B8),
                                                     fontWeight = FontWeight.Bold
@@ -7922,14 +8090,14 @@ fun CyberWeeklyPillarsChart(
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(Color(0xFF64748B)))
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(if (isEn) "$uncategorized ($pct%)" else "$uncategorized (%$pct)", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            Text(AppText.get(R.string.main_x_x_4, uncategorized, pct), fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
                             } else {
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = if (isEn) "Nothing was blocked on this day." else "Seçilen gün için kaydedilmiş engelleme yok.",
+                                    text = AppText.get(R.string.main_nothing_was_blocked_on_this_day),
                                     fontSize = 11.5.sp,
                                     color = Color.White.copy(alpha = 0.5f)
                                 )
@@ -7957,7 +8125,7 @@ private fun WeeklyCurtainDurationRow(
         Text(appName, modifier = Modifier.weight(1f), fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium, color = Color.White)
         Spacer(Modifier.width(8.dp))
-        Text(formatMeasuredDuration(durationMs, isEn), fontSize = 12.sp,
+        Text(formatMeasuredDuration(durationMs), fontSize = 12.sp,
             fontWeight = FontWeight.Bold, color = accent)
     }
 }

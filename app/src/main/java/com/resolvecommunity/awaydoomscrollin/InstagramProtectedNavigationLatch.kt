@@ -82,7 +82,15 @@ internal class InstagramProtectedNavigationLatch(
      * same tab, the user is on a page opened on top of that tab (e.g.
      * Notifications over Home, which keeps Home selected and shows the tab
      * bar or side rail on large screens). Only the tab tap leads back there,
-     * so it must be forwarded unless the user is already on the tab's root.
+     * so it must be forwarded.
+     *
+     * On the tab's root it is forwarded too: the guard consumed the touch, and
+     * Instagram's own reselect scrolls the feed back to the top. Without it,
+     * a Home scrolled until Instagram hid its top bar stayed fully covered,
+     * Stories and the top bar (Messages on older Instagram) unreachable,
+     * because the curtain takes the scroll gesture (OnePlus ticket, Instagram
+     * 447; reproduced on a Galaxy S23 with Instagram 454). The feed moves
+     * under the curtain, so nothing is exposed.
      */
     fun shouldForwardTap(
         request: InstagramProtectedNavigationRequest,
@@ -90,7 +98,7 @@ internal class InstagramProtectedNavigationLatch(
         onTabRoot: Boolean
     ): Boolean {
         if (currentTab != request.tab) return true
-        if (request.sourceTab != null && request.sourceTab != request.tab) return false
+        if (request.sourceTab != null) return request.sourceTab == request.tab
         return !onTabRoot
     }
 

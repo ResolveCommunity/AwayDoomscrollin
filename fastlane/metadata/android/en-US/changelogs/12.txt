@@ -1,0 +1,11 @@
+New
+• French, Italian, Spanish, Russian and Korean.
+• Instagram: optional "Open in Messages".
+• A notification if the phone stops protection.
+• Xiaomi: Autostart reminder so protection comes back by itself.
+Fixed
+• Balanced: Stories are no longer covered for a moment.
+• YouTube: Shorts opened from a list no longer close at once.
+Improved
+• Curtains lift much faster and cover sooner when you go back.
+• Status notifications vibrate only when protection stops.

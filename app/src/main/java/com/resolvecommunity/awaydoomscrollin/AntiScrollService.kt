@@ -59,6 +59,8 @@ class AntiScrollService : AccessibilityService() {
         private const val DIRECT_CONVERSATION_SURFACE_GUARD_TIMEOUT_MS = 650L
         private const val DIRECT_NAVIGATION_GRACE_MS = 2_500L
         private const val DIRECT_RECOVER_COVER_MS = 500L
+        private const val SEARCH_RELEASE_PROBE_MS = 400L
+        private const val SURFACE_LEFT_PROBE_GAP_MS = 64L
         private const val DIRECT_RECOVER_DIALOG_RECHECK_MS = 250L
         private const val INSTAGRAM_RESUME_RESCAN_MS = 48L
         private const val INSTAGRAM_USER_LAUNCH_GRACE_MS = 1_200L
@@ -80,6 +82,9 @@ private const val YOUTUBE_ALLOWED_FLIP_SETTLE_MS = 200L
 /** How long the feed pager's settle scroll can trail a tab tap or page change. */
 private const val YOUTUBE_FEED_PAGER_SETTLE_MS = 800L
 private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
+private const val KEY_INSTAGRAM_SEEN_WINDOWS = "instagram_seen_windows"
+// "top|width|instagramVersionCode" of the last Home curtain, in pixels.
+private const val KEY_SAVED_HOME_CURTAIN_TOP = "instagram_home_curtain_top"
         private const val YOUTUBE_QUICK_IDENTITY_MAX_NODES = 80
         private const val OVERLAY_FOREGROUND_CHECK_MS = 250L
         private const val MAX_TREE_NODES = 240
@@ -91,9 +96,13 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private val searchInputThread = lazy { HandlerThread("instagram-search-input").apply { start() } }
     private var searchInputActive = false
     private var searchInputBypassUntil = 0L
+    /** Read on the reader thread: the request was made on a covered Home. */
+    @Volatile private var searchInputExpectHome = false
     private val searchInputDispatcher = lazy {
         val worker = Handler(searchInputThread.value.looper)
-        val reader = InstagramSearchInputReader({ rootInActiveWindow }, { windows })
+        val reader = InstagramSearchInputReader({ rootInActiveWindow }, { windows },
+            expectHome = { searchInputExpectHome },
+            homeStoriesBlocked = { instagramStoriesBlocked() })
         LatestObservationDispatcher(
             worker = java.util.concurrent.Executor { worker.post(it) },
             owner = java.util.concurrent.Executor { mainHandler.post(it) },
@@ -116,8 +125,19 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             currentInstagramWindowId >= 0 &&
             ((lastInstagramScreen == InstagramScreen.EXPLORE &&
                 instagramOverlay.visibleCurtain()?.first == InstagramScreen.EXPLORE) ||
-                (lastInstagramScreen == InstagramScreen.SEARCH_RESULTS && instagramExploreSearchSeen))
+                (lastInstagramScreen == InstagramScreen.SEARCH_RESULTS && instagramExploreSearchSeen) ||
+                coveredHomeSettled(now))
     }
+
+    /**
+     * A covered standard Home whose cover is not being moved: no Following or
+     * Favorites feed, and no scroll hold of the header (that logic stays on
+     * the official path).
+     */
+    private fun coveredHomeSettled(now: Long): Boolean =
+        lastInstagramScreen == InstagramScreen.HOME_FEED &&
+            instagramOverlay.visibleCurtain()?.first == InstagramScreen.HOME_FEED &&
+            !instagramAlternateFeedActive && scrollCoverTop == null && now >= scrollCoverUntil
 
     private fun requestSearchInputObservation(invalidate: Boolean = false): Boolean {
         if (!canObserveSearchInput()) {
@@ -125,6 +145,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             return false
         }
         searchInputActive = true
+        searchInputExpectHome = lastInstagramScreen == InstagramScreen.HOME_FEED
         searchInputDispatcher.value.request(invalidate)
         return true
     }
@@ -144,6 +165,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     private fun handleSearchInputEvent(event: AccessibilityEvent): Boolean {
         if (!canObserveSearchInput()) return false
+        if (lastInstagramScreen == InstagramScreen.HOME_FEED) {
+            // Home: only the stream of content changes from Home's own window
+            // goes to the reader. Taps, scrolls, window changes and anything
+            // from another window (a Story, a dialog) keep the official path.
+            if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                event.windowId != currentInstagramWindowId) return false
+            return requestSearchInputObservation()
+        }
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
             // Keep native intent handling and invalidate the old read. Leave
             // this scope active until that handling changes it, so a foreground
@@ -161,14 +190,25 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             fallBackFromSearchInput()
             return
         }
-        if (observation.surface == InstagramSearchInputSurface.EXPLORE) {
+        if (observation.surface == InstagramSearchInputSurface.EXPLORE ||
+            observation.surface == InstagramSearchInputSurface.HOME) {
             // Only skip rediscovery of exactly the already covered geometry.
             // Resizing, scrolling chrome and returns still use the official path.
+            val expected = if (observation.surface == InstagramSearchInputSurface.HOME)
+                InstagramScreen.HOME_FEED else InstagramScreen.EXPLORE
             val cover = observation.cover
-            if (lastInstagramScreen != InstagramScreen.EXPLORE || cover == null ||
+            if (lastInstagramScreen != expected || cover == null ||
                 instagramOverlay.visibleCurtain()?.second != cover.rect()) {
+                if (ProtectionFlightRecorder.ENABLED && expected == InstagramScreen.HOME_FEED) {
+                    ProtectionFlightRecorder.record(this, "instagram.home.reader",
+                        "fallback cover=$cover curtain=${instagramOverlay.visibleCurtain()?.second}")
+                }
                 fallBackFromSearchInput()
             }
+            return
+        }
+        if (observation.surface != InstagramSearchInputSurface.FOCUSED_SEARCH) {
+            fallBackFromSearchInput()
             return
         }
         // One final foreground check on the owner, after queued navigation events
@@ -684,6 +724,42 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     // the opened post/Reel. Keep that short hand-off native so the old Home
     // curtain cannot flash over it.
     private var instagramNotificationContentLaunchUntil = 0L
+    /** Last Home curtain, see [InstagramHomeGeometry.tabPrecoverTop]. */
+    private var lastHomeCurtainTop = -1
+    private var lastHomeCurtainWindowId = -1
+    private var lastHomeCurtainWidth = 0
+    private val saveHomeCurtainTop = Runnable {
+        val version = instagramVersionCode() ?: return@Runnable
+        if (lastHomeCurtainTop < 0) return@Runnable
+        val value = "$lastHomeCurtainTop|$lastHomeCurtainWidth|$version"
+        val prefs = getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getString(KEY_SAVED_HOME_CURTAIN_TOP, null) != value) {
+            prefs.edit().putString(KEY_SAVED_HOME_CURTAIN_TOP, value).apply()
+        }
+    }
+
+    /** The saved Home curtain top for this screen width and Instagram build, if any. */
+    private fun savedHomeCurtainTop(width: Int): Int? {
+        val saved = getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_SAVED_HOME_CURTAIN_TOP, null) ?: return null
+        val parts = saved.split('|')
+        if (parts.size != 3) return null
+        val version = instagramVersionCode() ?: return null
+        return parts[0].toIntOrNull()?.takeIf {
+            parts[1].toIntOrNull() == width && parts[2].toLongOrNull() == version
+        }
+    }
+
+    private fun instagramVersionCode(): Long? = runCatching {
+        val info = packageManager.getPackageInfo(INSTAGRAM_PACKAGE, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode
+        else @Suppress("DEPRECATION") info.versionCode.toLong()
+    }.getOrNull()
+
+    /** Debug trace only: last Home tray/header geometry recorded. */
+    private var lastHomeGeometryKey = ""
+    /** See [InstagramNotificationViewerProbePolicy]; true so the first scan probes. */
+    private var instagramWindowChangedSinceViewerProbe = true
     private var instagramNotificationAttemptStartedAt = 0L
     private var instagramNotificationViewerDetectedAt = 0L
     private var lastVerifiedInstagramCurtain: Pair<InstagramScreen, Rect>? = null
@@ -747,10 +823,17 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private val youtubeSurfaceScan = Runnable {
         youtubeSurfaceScanScheduled = false
         youtubeSurfaceScanAt = 0L
+        // A curtain lifted just now is still on screen until its relayout
+        // frame runs; a scan here would keep it there for the whole scan.
+        if (SystemClock.uptimeMillis() < youtubeOverlay.parkCommitPendingUntil) {
+            queueYouTubeSurfaceScan(8L)
+            return@Runnable
+        }
         runYouTubeScan("event")
     }
     private var youtubeLastScanFinishedAt = 0L
     private var youtubeLastClickAt = 0L
+    private var youtubeClicklessReturnSince = 0L
     private var youtubeLastSelectedDestination = YouTubeNavigationDestination.UNKNOWN
     /** Notifications and the pages opened from it, until a tab or Search is verified. */
     private var youtubeNotificationsVisit = false
@@ -1212,6 +1295,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        AppText.init(this)
         instagramStructuralNodesRequested = null
         if (!AccessibilityConsent.isAccepted(this)) {
             Log.w(TAG, "Accessibility service disabled: in-app disclosure has not been accepted")
@@ -1220,21 +1304,20 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         InstagramProtectionMetrics.discardInterruptedSession(this)
         YouTubeProtectionMetrics.discardInterruptedSession(this)
+        restoreInstagramWindowMemory()
         AccessibilityStreakPolicy.onServiceConnected(this)
+        ProtectionStopWatch.markRunning(this)
+        mainHandler.removeCallbacks(watchdogHeartbeat)
+        watchdogHeartbeat.run()
         serviceShutdownNotified = false
-        NotificationHelper.cancelShieldNotification(this, 1002)
+        NotificationHelper.cancelShieldNotification(this, StatusNotificationPolicy.STOPPED_ID)
         NotificationHelper.cancelShieldNotification(this, 1003)
 
-        val isEn = isEnglish()
         NotificationHelper.showShieldStatusNotification(
             this,
-            if (isEn) "Protection active" else "Koruma etkin",
-            if (isEn) {
-                "AwayDoomscrollin' is protecting the feeds you selected in Instagram, TikTok and YouTube."
-            } else {
-                "AwayDoomscrollin' Instagram, TikTok ve YouTube'da seçtiğiniz akışları koruyor."
-            },
-            1001
+            AppText.get(R.string.notif_protection_active_title),
+            AppText.get(R.string.notif_protection_active_text),
+            StatusNotificationPolicy.ACTIVE_ID
         )
         Log.d(TAG, "Accessibility protection connected")
         SupportDiagnostics.record(this, SupportEvent.SERVICE_CONNECTED)
@@ -1309,10 +1392,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (event == null || !AccessibilityConsent.isAccepted(this)) return
         maybeRecordHeartbeat()
 
-        val reportedPackage = event.packageName?.toString()
+        val reportedPackage = ProtectedApp.canonicalPackage(event.packageName?.toString())
         if (reportedPackage != null && event.windowId >= 0) {
             windowPackages[event.windowId] = reportedPackage
         }
+        // Open in Messages acts only when Instagram opens fresh, in a window not
+        // seen before; returning to a known window is a resume (see the policy).
+        val instagramWindowFresh = reportedPackage == INSTAGRAM_PACKAGE &&
+            instagramWindowMemory.add(event.windowId)
+        if (instagramWindowFresh) saveInstagramWindowMemory()
         // A live Recents card keeps publishing the app's own events; they must
         // not re-mount curtains over the switcher. The return check resumes.
         if (taskSwitcherOwner != null &&
@@ -1396,72 +1484,13 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
                 AccessibilityEvent.TYPE_WINDOWS_CHANGED) &&
-            !instagramProfileIngress.pending && !instagramProfileIngress.awaitingCurtainDraw &&
-            instagramOverlay.visibleCurtain() == null) {
-            when (lastInstagramScreen) {
-                // Only a search opened from Explore leaves onto Explore. Other
-                // search lists (Close friends, settings) return to safe pages.
-                InstagramScreen.SEARCH_RESULTS -> if (instagramExploreSearchSeen) {
-                    val searchRoot = rootInActiveWindow
-                    // The editor check comes first: it is visible for every
-                    // event while the user stays on search, so one lookup ends
-                    // the probe instead of six (~150 ms per event measured).
-                    if (searchRoot != null &&
-                        searchRoot.packageName?.toString() == INSTAGRAM_PACKAGE &&
-                        !igVisible(searchRoot, "action_bar_search_edit_text") &&
-                        !hasFastDirectSafeReturn(searchRoot) &&
-                        !hasVisibleProfileHeaderMarkers(searchRoot) &&
-                        !igVisible(searchRoot, "row_search_user_container") &&
-                        !igVisible(searchRoot, "search_row") && !igVisible(searchRoot, "echo_text")) {
-                        clearInstagramResumeProtection()
-                        currentInstagramWindowId = searchRoot.windowId
-                        stopSearchInputObservation()
-                        searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
-                        supportCurtainReason = "back"
-                        showInstagramCurtain(
-                            calculateExploreBounds(searchRoot, instagramWindowBounds(searchRoot)),
-                            InstagramScreen.EXPLORE)
-                        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
-                            this, "instagram.search.back", "precover=editor-gone")
-                        scanAfterPrecoverDraw()
-                    }
-                }
-                InstagramScreen.SAVED_COLLECTION -> {
-                    // Balanced allows Saved, but Back returns to the feed whose
-                    // bookmark opened it; cover that feed on its first frames.
-                    precoverCollectionReturn()
-                }
-                InstagramScreen.NOTIFICATIONS -> {
-                    // Notifications are an allowed native surface; opening a
-                    // row can publish a post/Reel in another Instagram window,
-                    // so nothing is pre-covered from the row tap. Leaving with
-                    // Back is different: on the first event after it, the Home
-                    // header is already visible in the active root while the
-                    // notification list and its Back control are gone (on the
-                    // notification page neither header is visible). The scan
-                    // recognised Home ~550 ms later, long enough to open a
-                    // Story from the uncovered tray in Strict.
-                    val probeNow = SystemClock.uptimeMillis()
-                    if (!instagramExitInProgress && probeNow >= instagramNotificationContentLaunchUntil) {
-                        val homeRoot = rootInActiveWindow
-                        if (homeRoot != null && homeRoot.packageName?.toString() == INSTAGRAM_PACKAGE &&
-                            igVisible(homeRoot, "main_feed_action_bar") &&
-                            !igVisible(homeRoot, "newsfeed_you") &&
-                            !igVisible(homeRoot, "action_bar_button_back")) {
-                            clearInstagramResumeProtection()
-                            currentInstagramWindowId = homeRoot.windowId
-                            val bounds = calculateHomeFeedBounds(homeRoot, instagramWindowBounds(homeRoot))
-                            clampCurtainBottomToNavigation(homeRoot, bounds)
-                            supportCurtainReason = "back"
-                            showInstagramCurtain(bounds, InstagramScreen.HOME_FEED)
-                            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
-                                this, "instagram.notifications.back", "precover=home-header")
-                            queueInstagramScan(0L)
-                        }
-                    }
-                }
-                else -> Unit
-            }
+            surfaceLeftProbeApplies()) {
+            // Coalesced: one pending probe however many events arrive. Run per
+            // event, its two remote queries (16-80 ms each while Instagram
+            // draws) queued Notifications' ~10 events a second up, so the Back
+            // that returns to Home was handled 0.8-1.1 s late and the feed
+            // showed for up to 1.5 s (Galaxy S23, Instagram 454).
+            scheduleSurfaceLeftProbe()
         }
         if (instagramProfileIngress.coalesceStructuralEvent(
                 instagramEvent = reportedPackage == INSTAGRAM_PACKAGE,
@@ -1529,6 +1558,19 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         trackPackageTransition(packageName)
         if (returningToYouTube && ProtectionPreferences.isEnabled(this, ProtectedApp.YOUTUBE)) {
             scheduleYouTubeOverlayForegroundCheck()
+        }
+        if (instagramWindowFresh) {
+            // Decided by the window alone: the service gets no launcher events,
+            // and leaving Instagram from an uncovered screen (Messages) is never
+            // seen, so "returning from another app" misses real launches.
+            val armed = InstagramOpenInMessagesPolicy.armsOnEntry(
+                settingOn = ProtectionPreferences.opensInstagramInMessages(this),
+                protectionOn = ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM),
+                openedFresh = true)
+            instagramOpenInMessagesArmedAt = if (armed) SystemClock.uptimeMillis() else 0L
+            instagramOpenInMessagesWindow = event.windowId
+            mainHandler.removeCallbacks(instagramQuickHomeCheck)
+            if (armed) mainHandler.postAtFrontOfQueue(instagramQuickHomeCheck)
         }
         if (returningToInstagram) {
             // The first Instagram event can arrive while SystemUI is still the
@@ -1631,6 +1673,115 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/$id")
             .any { it.isVisibleToUser && isSelectedRecursive(it, 2) }
 
+    // Surface-left precover (Notifications, Explore search, Saved). The probe
+    // reads the current root only, never the event, so one pending run covers
+    // any number of events. It runs at most once per SURFACE_LEFT_PROBE_GAP_MS
+    // after the previous run ended.
+    private fun surfaceLeftProbeApplies(): Boolean =
+        !instagramProfileIngress.pending && !instagramProfileIngress.awaitingCurtainDraw &&
+            instagramOverlay.visibleCurtain() == null &&
+            (lastInstagramScreen == InstagramScreen.SEARCH_RESULTS ||
+                lastInstagramScreen == InstagramScreen.SAVED_COLLECTION ||
+                lastInstagramScreen == InstagramScreen.NOTIFICATIONS)
+
+    private var surfaceLeftProbePending = false
+    private var surfaceLeftProbeEndedAt = 0L
+    private val surfaceLeftProbe = Runnable {
+        surfaceLeftProbePending = false
+        try {
+            if (surfaceLeftProbeApplies()) runSurfaceLeftProbe()
+        } finally {
+            surfaceLeftProbeEndedAt = SystemClock.uptimeMillis()
+        }
+    }
+
+    private fun scheduleSurfaceLeftProbe() {
+        if (surfaceLeftProbePending) return
+        surfaceLeftProbePending = true
+        val wait = (surfaceLeftProbeEndedAt + SURFACE_LEFT_PROBE_GAP_MS - SystemClock.uptimeMillis())
+            .coerceAtLeast(0L)
+        mainHandler.postDelayed(surfaceLeftProbe, wait)
+    }
+
+    private fun runSurfaceLeftProbe() {
+        when (lastInstagramScreen) {
+            // Only a search opened from Explore leaves onto Explore. Other
+            // search lists (Close friends, settings) return to safe pages.
+            InstagramScreen.SEARCH_RESULTS -> if (instagramExploreSearchSeen) {
+                val searchRoot = rootInActiveWindow
+                    ?.takeIf { it.packageName?.toString() == INSTAGRAM_PACKAGE }
+                // The editor check comes first: it is visible for every
+                // event while the user stays on search, so one lookup ends
+                // the probe instead of six (~150 ms per event measured).
+                val editorVisible = searchRoot != null &&
+                    igVisible(searchRoot, "action_bar_search_edit_text")
+                // Instagram 454 gives Explore's own search bar the same id,
+                // so after Back the editor never disappears and the grid
+                // stayed uncovered until the 0.7 s scan (Galaxy S23). The
+                // Explore header without a Back control is Explore itself:
+                // the search page has Back and no Explore header.
+                val returnedToExplore = searchRoot != null && editorVisible &&
+                    igVisible(searchRoot, "explore_action_bar") &&
+                    !igVisible(searchRoot, "action_bar_button_back")
+                if (searchRoot != null && (returnedToExplore || (!editorVisible &&
+                    !hasFastDirectSafeReturn(searchRoot) &&
+                    !hasVisibleProfileHeaderMarkers(searchRoot) &&
+                    !igVisible(searchRoot, "row_search_user_container") &&
+                    !igVisible(searchRoot, "search_row") && !igVisible(searchRoot, "echo_text")))) {
+                    clearInstagramResumeProtection()
+                    currentInstagramWindowId = searchRoot.windowId
+                    stopSearchInputObservation()
+                    searchInputBypassUntil = SystemClock.uptimeMillis() + 500L
+                    supportCurtainReason = "back"
+                    showInstagramCurtain(
+                        calculateExploreBounds(searchRoot, instagramWindowBounds(searchRoot)),
+                        InstagramScreen.EXPLORE)
+                    if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                        this, "instagram.search.back",
+                        if (returnedToExplore) "precover=explore-header" else "precover=editor-gone")
+                    scanAfterPrecoverDraw()
+                }
+            }
+            InstagramScreen.SAVED_COLLECTION -> {
+                // Balanced allows Saved, but Back returns to the feed whose
+                // bookmark opened it; cover that feed on its first frames.
+                precoverCollectionReturn()
+            }
+            InstagramScreen.NOTIFICATIONS -> {
+                // Notifications are an allowed native surface; opening a
+                // row can publish a post/Reel in another Instagram window,
+                // so nothing is pre-covered from the row tap. Leaving with
+                // Back is different: on the first event after it, the Home
+                // header is already visible in the active root while the
+                // notification list and its Back control are gone (on the
+                // notification page neither header is visible). The scan
+                // recognised Home ~550 ms later, long enough to open a
+                // Story from the uncovered tray in Strict.
+                val probeNow = SystemClock.uptimeMillis()
+                if (!instagramExitInProgress && probeNow >= instagramNotificationContentLaunchUntil) {
+                    val homeRoot = rootInActiveWindow
+                    if (homeRoot != null && homeRoot.packageName?.toString() == INSTAGRAM_PACKAGE &&
+                        igVisible(homeRoot, "main_feed_action_bar") &&
+                        !igVisible(homeRoot, "newsfeed_you") &&
+                        !igVisible(homeRoot, "action_bar_button_back")) {
+                        clearInstagramResumeProtection()
+                        currentInstagramWindowId = homeRoot.windowId
+                        val bounds = calculateHomeFeedBounds(homeRoot, instagramWindowBounds(homeRoot))
+                        clampCurtainBottomToNavigation(homeRoot, bounds)
+                        supportCurtainReason = "back"
+                        showInstagramCurtain(bounds, InstagramScreen.HOME_FEED)
+                        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                            this, "instagram.notifications.back", "precover=home-header")
+                        // A scan right away held the main thread ~600 ms before
+                        // the curtain's first frame; scan once it has drawn.
+                        scanAfterPrecoverDraw()
+                    }
+                }
+            }
+            else -> Unit
+        }
+    }
+
     private fun maybeRecordHeartbeat(now: Long = System.currentTimeMillis()) {
         if (now - lastHeartbeatMs >= 60_000L) {
             lastHeartbeatMs = now
@@ -1640,6 +1791,109 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private var queuedClick: AccessibilityEvent? = null
     private var directNavigationUntil = 0L
     private var directNavigationSourceWindowId = -1
+
+    // Profile tab tap in Balanced (InstagramTabReleasePolicy): the feed curtain
+    // is lifted on the tap; until the profile is verified, scans that still see
+    // the old feed wait instead of covering it again.
+    private var instagramTabReleaseUntil = 0L
+    private var instagramTabReleaseClickAt = 0L
+    private val instagramTabRecoverCover = Runnable { recoverTabReleaseCover() }
+
+    // The curtain is lifted when the profile is in the tree, not on the tap
+    // itself: a profile Instagram still has to build must not show the old
+    // feed for a frame. One lookup per frame instead of the full scan.
+    private val instagramTabReleaseProbe = object : Runnable {
+        override fun run() {
+            val now = SystemClock.uptimeMillis()
+            if (now >= instagramTabReleaseUntil) return
+            val root = rootInActiveWindow
+            if (root != null && root.packageName?.toString() == INSTAGRAM_PACKAGE &&
+                (igVisible(root, "profile_header_container") || igVisible(root, "profile_tabs_container"))) {
+                clearNodeLookupCache()
+                instagramOverlay.hide()
+                mainHandler.postDelayed(instagramTabRecoverCover, InstagramTabReleasePolicy.RECOVER_MS)
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                    this@AntiScrollService, "instagram.tab.release",
+                    "tab=PROFILE afterClickMs=${now - instagramTabReleaseClickAt}")
+                return
+            }
+            clearNodeLookupCache()
+            // Not there yet: look again next frame; the regular scan still
+            // runs and lifts the curtain on the verified profile either way.
+            if (now - instagramTabReleaseClickAt < InstagramTabReleasePolicy.PROBE_MS) {
+                mainHandler.postDelayed(this, 16L)
+            }
+        }
+    }
+
+    // A tap on Explore's search field: the Explore curtain lifts as soon as the
+    // focused search page is there, by the same evidence the search reader
+    // uses (focused field, Search's own Back, no keyword tabs). Waiting for the
+    // click handling and the reader kept it over the search page for ~0.4 s.
+    private var instagramSearchReleaseClickAt = 0L
+    private val instagramSearchReleaseProbe = object : Runnable {
+        override fun run() {
+            val now = SystemClock.uptimeMillis()
+            if (instagramOverlay.visibleCurtain()?.first != InstagramScreen.EXPLORE) return
+            val root = rootInActiveWindow
+            val focused = root != null && root.packageName?.toString() == INSTAGRAM_PACKAGE &&
+                isFocusedExploreSearch(root)
+            clearNodeLookupCache()
+            if (focused) {
+                instagramOverlay.hide()
+                queueInstagramScan(0L)
+                if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+                    this@AntiScrollService, "instagram.search.release",
+                    "afterClickMs=${now - instagramSearchReleaseClickAt}")
+                return
+            }
+            if (now - instagramSearchReleaseClickAt < SEARCH_RELEASE_PROBE_MS) {
+                mainHandler.postDelayed(this, 16L)
+            }
+        }
+    }
+
+    private fun isFocusedExploreSearch(root: AccessibilityNodeInfo): Boolean {
+        val focus = runCatching { root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }.getOrNull()
+            ?: return false
+        if (focus.packageName?.toString() != INSTAGRAM_PACKAGE || focus.windowId != root.windowId ||
+            !focus.isVisibleToUser || !focus.isFocused ||
+            focus.viewIdResourceName != "$INSTAGRAM_PACKAGE:id/action_bar_search_edit_text" ||
+            focus.className?.toString()?.contains("EditText", ignoreCase = true) != true) return false
+        // Keyword result tabs carry the protected recommendation grid.
+        if (cachedNodeLookup(root, "$INSTAGRAM_PACKAGE:id/search_tab_bar_layout").isNotEmpty()) return false
+        return igVisible(root, "action_bar_button_back")
+    }
+
+    private fun recoverTabReleaseCover() {
+        if (SystemClock.uptimeMillis() >= instagramTabReleaseUntil) return
+        // The profile (or any other page) was verified meanwhile.
+        if (lastInstagramScreen != InstagramScreen.HOME_FEED &&
+            lastInstagramScreen != InstagramScreen.EXPLORE &&
+            lastInstagramScreen != InstagramScreen.UNKNOWN) return
+        val root = rootInActiveWindow
+        if (root == null || root.packageName?.toString() != INSTAGRAM_PACKAGE) return
+        instagramTabReleaseUntil = 0L
+        val retained = lastVerifiedInstagramCurtain?.takeIf { (screen, _) ->
+            InstagramSurfacePolicy.needsCurtain(screen) && instagramOverlay.visibleCurtain() == null
+        } ?: return
+        if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(
+            this, "instagram.recover.cover", "screen=${retained.first} reason=tab-release")
+        supportCurtainReason = "restore"
+        showInstagramCurtain(Rect(retained.second), retained.first)
+        queueInstagramScan(0L)
+    }
+
+    /** The bottom tab a click came from: the tab itself or a child of it. */
+    private fun tappedInstagramTab(source: AccessibilityNodeInfo?): InstagramTab? {
+        var node = source
+        repeat(3) {
+            val current = node ?: return null
+            tabForId(compactId(current.viewIdResourceName))?.let { return it }
+            node = current.parent
+        }
+        return null
+    }
 
     /**
      * Re-cover safety net for the fast DM release: if the messaging intent
@@ -1687,9 +1941,26 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private var setCurtainVerifiedWindowId = -1
     private val instagramScan = Runnable {
         scanSchedule.clear()
+        // The coalesced surface-left probe waits up to SURFACE_LEFT_PROBE_GAP_MS
+        // after its last run. On a busy Notifications page a full scan due in
+        // that gap ran first (~650 ms) and the Back to Home was covered only
+        // by that scan, ~1.4 s late (Galaxy S23, Strict). A scan queued before
+        // the Back's first event missed it the same way. Run it first; its
+        // first lookup is the one the scan starts with anyway (cached), and a
+        // precover then holds this scan until its curtain has drawn.
+        if (surfaceLeftProbePending || surfaceLeftProbeApplies()) {
+            mainHandler.removeCallbacks(surfaceLeftProbe)
+            surfaceLeftProbe.run()
+        }
         val precoverRemaining = precoverDrawPendingUntil - SystemClock.uptimeMillis()
         if (precoverRemaining > 0L) {
             queueInstagramScan(precoverRemaining)
+            return@Runnable
+        }
+        // A curtain lifted just now is still on screen until its relayout
+        // frame runs; a scan here would keep it there for the whole scan.
+        if (SystemClock.uptimeMillis() < instagramOverlay.parkCommitPendingUntil) {
+            queueInstagramScan(8L)
             return@Runnable
         }
         val storyLaunchRemaining = instagramStoryLaunchUntil - SystemClock.uptimeMillis()
@@ -1704,7 +1975,11 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         queuedClick = null
         val started = SystemClock.uptimeMillis()
         try {
-            if (!requestSearchInputObservation()) scanInstagram(click)
+            // On a covered Home a tap keeps the full scan: its click context
+            // (which tab, which control) belongs to the official path.
+            val readerTakesScan = (click == null || lastInstagramScreen != InstagramScreen.HOME_FEED) &&
+                requestSearchInputObservation()
+            if (!readerTakesScan) scanInstagram(click)
         } finally {
             @Suppress("DEPRECATION")
             click?.recycle()
@@ -1923,6 +2198,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // must NOT kill the guard: the header collapse happens exactly in
             // those frames. Silence decisions while unknown, keep ticking.
             val screenIsProfile = lastInstagramScreen == InstagramScreen.PROFILE
+            val otherCurtain = instagramOverlay.visibleCurtain()?.first
+            if (otherCurtain != null && otherCurtain != InstagramScreen.PROFILE) {
+                // A tab tap mounted Home's or Explore's curtain before the
+                // state left PROFILE. Remounting the profile cover here turned
+                // it back into the profile rectangle and then hid it, so
+                // Explore's grid showed for ~0.6 s in Strict (Galaxy S23).
+                profileGeometryWatchActive = false
+                return
+            }
             if (!screenIsProfile &&
                 lastInstagramScreen != InstagramScreen.UNKNOWN &&
                 instagramOverlay.visibleProfileBounds() == null) {
@@ -2298,6 +2582,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             armDirectWindowTransition(event, eventNow)
         }
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            // A viewer can arrive as a new window: let the next Notifications
+            // scan probe all windows again.
+            instagramWindowChangedSinceViewerProbe = true
+        }
         if (ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM) == ProtectionMode.STRICT &&
             lastInstagramScreen == InstagramScreen.NOTIFICATIONS &&
             event.eventType in setOf(
@@ -2315,6 +2605,33 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
             val freshClick = eventNow - event.eventTime in 0L..1_500L
+            if (freshClick) {
+                // First, before any tree query of the click handling below:
+                // the release is only as fast as the work in front of it.
+                // Any later tap ends an earlier profile release, so a quick
+                // Home tap is covered by the normal path at once.
+                instagramTabReleaseUntil = 0L
+                mainHandler.removeCallbacks(instagramTabRecoverCover)
+                mainHandler.removeCallbacks(instagramTabReleaseProbe)
+                if (InstagramTabReleasePolicy.releasesOnTap(
+                        instagramOverlay.visibleCurtain()?.first,
+                        tappedInstagramTab(event.source),
+                        ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM))) {
+                    instagramTabReleaseUntil = SystemClock.uptimeMillis() + InstagramTabReleasePolicy.GRACE_MS
+                    instagramTabReleaseClickAt = event.eventTime
+                    mainHandler.removeCallbacks(instagramTabReleaseProbe)
+                    instagramTabReleaseProbe.run()
+                }
+                mainHandler.removeCallbacks(instagramSearchReleaseProbe)
+                // The click of Explore's search field carries no source node on
+                // Instagram (Galaxy S23); its class is enough to start looking,
+                // the probe itself checks the focused field by id.
+                if (instagramOverlay.visibleCurtain()?.first == InstagramScreen.EXPLORE &&
+                    event.className?.toString()?.contains("EditText", ignoreCase = true) == true) {
+                    instagramSearchReleaseClickAt = event.eventTime
+                    instagramSearchReleaseProbe.run()
+                }
+            }
             if (freshClick && lastInstagramScreen == InstagramScreen.NOTIFICATIONS &&
                 isInstagramNotificationContentIntent(event.source)) {
                 instagramNotificationBackCount = 0
@@ -2612,7 +2929,32 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
             if (handleBalancedInstagramReelScroll(event)) return
             if (lastInstagramScreen == InstagramScreen.NOTIFICATIONS) {
+                // Back already pre-covered Home. The scrolls that follow are
+                // Instagram's return animation, not the user: each one used to
+                // re-check six Notifications ids and re-measure Home (120-240 ms
+                // on a Galaxy S23), so the curtain was drawn up to 0.5 s late.
+                if (instagramOverlay.visibleHomeBounds() != null) {
+                    queueInstagramScan(16L)
+                    return
+                }
                 val root = rootInActiveWindow
+                if (root?.packageName?.toString() == INSTAGRAM_PACKAGE &&
+                    !igVisible(root, "activity_feed_root") && surfaceLeftProbeApplies()) {
+                    // The current list is gone: this scroll is the first frame
+                    // of the return to Home. Run the coalesced Back probe now
+                    // instead of after the remaining lookups and the queue.
+                    mainHandler.removeCallbacks(surfaceLeftProbe)
+                    surfaceLeftProbePending = false
+                    try {
+                        runSurfaceLeftProbe()
+                    } finally {
+                        surfaceLeftProbeEndedAt = SystemClock.uptimeMillis()
+                    }
+                    if (instagramOverlay.visibleHomeBounds() != null) {
+                        queueInstagramScan(16L)
+                        return
+                    }
+                }
                 if (root?.packageName?.toString() == INSTAGRAM_PACKAGE && hasFastNotificationsSurface(root)) {
                     if (InstagramNotificationEntryPolicy.blocksCommentLikes(
                             ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM))) {
@@ -2699,9 +3041,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             }
             instagramOverlay.updateEntryGuards(instagramEntryTargets.filter { it.second }.map { it.first }, isEnglish())
         }
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+        // The conversation pre-arm does nothing in either mode today. Ask for the
+        // root only when it can act: that remote query ran for every Instagram
+        // event on every screen (16-80 ms each on a Galaxy S23 while Instagram
+        // is busy) and helped queue events up for seconds.
+        if ((event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) &&
+            InstagramDmInteractionPolicy.interceptsChatTouches(
+                ProtectionPreferences.getMode(this, ProtectedApp.INSTAGRAM))) {
             val root = rootInActiveWindow
             if (root?.packageName?.toString() == INSTAGRAM_PACKAGE) {
                 prearmDirectConversationSurface(root, SystemClock.uptimeMillis())
@@ -3004,7 +3352,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 // root while the Reel/comment viewer is published in a
                 // separate accessibility window. Only acknowledge return
                 // after every Instagram window has been probed.
-                val separateViewer = findInstagramNotificationViewerRoot(root)
+                val probeViewer = InstagramNotificationViewerProbePolicy.shouldProbe(
+                    now = scanNow,
+                    exitHoldUntil = instagramNotificationExitHoldUntil,
+                    contentLaunchUntil = instagramNotificationContentLaunchUntil,
+                    exitInProgress = instagramExitInProgress,
+                    windowChangedSinceProbe = instagramWindowChangedSinceViewerProbe)
+                if (probeViewer) instagramWindowChangedSinceViewerProbe = false
+                val separateViewer = if (probeViewer) findInstagramNotificationViewerRoot(root) else null
                 if (separateViewer == null) {
                     instagramNotificationEventLocked = false
                     instagramNotificationLastEventExitAt = 0L
@@ -3032,6 +3387,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     viewerScreen,
                     useGlobalBackOnly = viewerScreen == InstagramScreen.REELS)
                 return
+            }
+            // The list is gone. If Home's header is what replaced it, this is
+            // the Back to Home: cover it now instead of after the full scan
+            // (~0.7 s with the feed visible when Home appeared just after the
+            // probe ran). The probe itself rejects viewers and launches.
+            if (surfaceLeftProbeApplies()) {
+                runSurfaceLeftProbe()
+                if (instagramOverlay.visibleHomeBounds() != null) return
             }
             val notificationReel = hasFastReelsViewer(root, directLaunchPending = true)
             val notificationComment = hasFastCommentSheetInRoot(root)
@@ -3251,7 +3614,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 queueInstagramScan(nextCheck)
                 return
             }
-            if (hasFastDirectSafeReturn(root)) {
+            if (hasFastDirectSafeReturn(root, lookForRenamedList = true)) {
                 directDetailsLaunchPendingUntil = 0L
             } else {
                 // The aggregate Media/Reposts gallery is protected regardless
@@ -3487,6 +3850,16 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // A native DM click precedes replacement of Home's accessibility tree.
             queueInstagramScan(32L)
             return
+        }
+        if (InstagramTabReleasePolicy.waitsForSwap(screen, now < instagramTabReleaseUntil)) {
+            // A profile tab tap precedes the replacement of the feed's tree.
+            queueInstagramScan(32L)
+            return
+        }
+        if (screen != InstagramScreen.UNKNOWN && screen != InstagramScreen.HOME_FEED &&
+            screen != InstagramScreen.EXPLORE) {
+            instagramTabReleaseUntil = 0L
+            mainHandler.removeCallbacks(instagramTabRecoverCover)
         }
         if (screen != InstagramScreen.UNKNOWN && screen != InstagramScreen.HOME_FEED) {
             directNavigationUntil = 0L
@@ -4754,7 +5127,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     private fun hasFastNotificationsSurface(root: AccessibilityNodeInfo): Boolean =
         listOf(
-            "activity_feed", "activity_feed_root", "newsfeed_you",
+            // Instagram 454 has activity_feed_root: check it first.
+            "activity_feed_root", "activity_feed", "newsfeed_you",
             "newsfeed_recycler", "notifications_recycler",
             "follow_requests_header"
         ).any { id -> igVisible(root, id) }
@@ -4915,8 +5289,30 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             ancestryIds, ancestryLabels, insideKnownGuard, hasReelDescendant)
     }
 
-    private fun hasFastDirectSafeReturn(root: AccessibilityNodeInfo): Boolean {
-        val inbox = igVisible(root, "inbox_refreshable_thread_list_recyclerview") &&
+    /**
+     * The Direct inbox's thread list: the old id, or Instagram 454's generic
+     * list_container under the inbox's own header (InstagramSurfacePolicy).
+     */
+    private fun instagramInboxListBounds(
+        root: AccessibilityNodeInfo,
+        // The renamed list costs two header lookups. Callers outside the inbox
+        // (every Home/Explore scan passes through the inbox shortcut) skip it,
+        // so those scans keep their previous cost.
+        lookForRenamedList: Boolean = true
+    ): Rect? =
+        findVisibleNodeBounds(root, "$INSTAGRAM_PACKAGE:id/${InstagramSurfacePolicy.INBOX_LIST_ID}")
+            ?: if (lookForRenamedList &&
+                InstagramSurfacePolicy.INBOX_HEADER_IDS.any { igVisible(root, it) }) {
+                findVisibleNodeBounds(root, "$INSTAGRAM_PACKAGE:id/list_container")
+            } else null
+
+    private fun hasFastDirectSafeReturn(
+        root: AccessibilityNodeInfo,
+        // Off for the search-left precover: leaving Explore's search never
+        // lands on the inbox, and the extra lookups would delay that cover.
+        lookForRenamedList: Boolean = false
+    ): Boolean {
+        val inbox = instagramInboxListBounds(root, lookForRenamedList) != null &&
             (igVisible(root, "direct_inbox_action_bar") || igVisible(root, "direct_inbox_search_bar") ||
                 igVisible(root, "search_row"))
         val conversation = igVisible(root, "direct_thread_header") && igVisible(root, "message_list")
@@ -5439,8 +5835,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             if (igSelected(root, "clips_tab")) return reject("reels-selected")
             if (visible("action_bar_button_back")) return reject("back-present")
         }
-        val listBounds = findVisibleNodeBounds(root,
-            "$INSTAGRAM_PACKAGE:id/inbox_refreshable_thread_list_recyclerview") ?: return reject("list-missing")
+        // The renamed list is only looked for where the inbox is plausible:
+        // the inbox itself, a Messages tab tap in progress, or (with
+        // requireSelectedMainTab) the Direct tab already found selected.
+        val inboxPlausible = requireSelectedMainTab ||
+            lastInstagramScreen == InstagramScreen.DIRECT_MESSAGES ||
+            SystemClock.uptimeMillis() < directNavigationUntil
+        val listBounds = instagramInboxListBounds(root, lookForRenamedList = inboxPlausible)
+            ?: return reject("list-missing")
         val display = currentDisplayBounds()
         if (!InstagramInboxPolicy.isStableInboxLayout(
                 listBounds.toInstagramGeometrySample(),
@@ -5724,7 +6126,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             id.takeIf(String::isNotEmpty)?.let(ids::add)
             val bounds = Rect().also(node::getBoundsInScreen)
             if (!bounds.isEmpty) ancestryBounds.add(bounds)
-            if (id == "inbox_refreshable_thread_list_recyclerview") {
+            // Only the old, inbox-specific id proves the list from the
+            // ancestry alone; list_container is confirmed on the live tree
+            // below, where its inbox header can be checked.
+            if (id == InstagramSurfacePolicy.INBOX_LIST_ID) {
                 ancestryListBounds = Rect(bounds)
             }
             current = node.parent
@@ -5733,8 +6138,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val liveListBounds = if (ancestryListBounds == null &&
             liveRoot?.packageName?.toString() == INSTAGRAM_PACKAGE &&
             liveRoot.windowId == event.windowId) {
-            val candidate = findVisibleNodeBounds(liveRoot,
-                "$INSTAGRAM_PACKAGE:id/inbox_refreshable_thread_list_recyclerview")
+            val candidate = instagramInboxListBounds(liveRoot)
             val hasHeader = listOf(
                 "direct_inbox_action_bar", "direct_inbox_search_bar", "search_row"
             ).any { id ->
@@ -6248,7 +6652,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 }
 
                 // Skip post/tray descendants; their chrome is sufficient for classification.
-                if (InstagramSurfacePolicy.skipInboxRows(id) ||
+                if (InstagramSurfacePolicy.skipInboxRows(id,
+                        inboxHeaderSeen = InstagramSurfacePolicy.INBOX_HEADER_IDS.any(ids::contains)) ||
                     InstagramSurfacePolicy.skipProtectedProfileGridChildren(id,
                         measuredProfileGrid = protectedProfileGrid,
                         profileHeaderVisible = protectedProfileGrid) ||
@@ -6357,7 +6762,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             screenHeight = screen.height()
         )
         if (!feedSwipe) return false
-        val packageInForeground = rootInActiveWindow?.packageName?.toString() == TIKTOK_PACKAGE
+        val packageInForeground = ProtectedApp.TIKTOK.owns(rootInActiveWindow?.packageName?.toString())
         if (!TikTokInterventionPolicy.shouldExit(
                 protectionEnabled = protectionEnabled,
                 isScrollEvent = true,
@@ -6395,7 +6800,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     // A video opened from a profile or search returns there after the first Back instead.
     private val tikTokFeedExitRetry = Runnable {
         val root = rootInActiveWindow ?: return@Runnable
-        if (root.packageName?.toString() != TIKTOK_PACKAGE) return@Runnable
+        if (!ProtectedApp.TIKTOK.owns(root.packageName?.toString())) return@Runnable
         if (scanTikTokLayout(root).feedPagerVisible) {
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
@@ -6405,7 +6810,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     // checked with a small throttle; when another top tab ends up selected, select For You.
     private fun maybeSnapBackFromBlockedTopTab(force: Boolean = false) {
         val root = rootInActiveWindow ?: return
-        if (root.packageName?.toString() != TIKTOK_PACKAGE) return
+        if (!ProtectedApp.TIKTOK.owns(root.packageName?.toString())) return
         if (!ProtectionPreferences.isEnabled(this, ProtectedApp.TIKTOK)) return
         val now = System.currentTimeMillis()
         if (!force && !TikTokInterventionPolicy.topTabCheckElapsed(now, lastTikTokTopTabCheckMs)) {
@@ -7493,11 +7898,25 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // with a click, so an unclassified frame without a recent click is the
         // feed coming back. A false guess lasts one frame: the next verified
         // secondary page lifts the curtain without a settle delay.
-        val clicklessSecondaryReturn =
-            (youtubeLastVerifiedScreen == YouTubeCurtainScreen.SEARCH ||
-                youtubeLastVerifiedScreen == YouTubeCurtainScreen.NOTIFICATIONS) &&
+        // YouTube reports the page change of a tapped notification or search
+        // result before the tap's click event (Galaxy S23: the click arrived
+        // ~20 ms after the first unclassified frame, so a notification's pop-up
+        // got the Home curtain). The guess is confirmed on a re-scan, after
+        // the events already queued behind this frame have been handled.
+        val clicklessCandidate =
+            signals.screen == YouTubeCurtainScreen.UNKNOWN &&
+                (youtubeLastVerifiedScreen == YouTubeCurtainScreen.SEARCH ||
+                    youtubeLastVerifiedScreen == YouTubeCurtainScreen.NOTIFICATIONS) &&
                 !youtubeNotificationChildOpen &&
                 now - youtubeLastClickAt >= YOUTUBE_CLICK_INTENT_MS
+        if (!clicklessCandidate) {
+            youtubeClicklessReturnSince = 0L
+        } else if (youtubeClicklessReturnSince == 0L) {
+            youtubeClicklessReturnSince = now
+            queueYouTubeSurfaceScan(YouTubeSurfacePolicy.CLICKLESS_RETURN_CONFIRM_MS + 16L)
+        }
+        val clicklessSecondaryReturn = clicklessCandidate &&
+            YouTubeSurfacePolicy.clicklessReturnConfirmed(youtubeClicklessReturnSince, now)
         if (!youtubeCurtainState.isPending && signals.screen == YouTubeCurtainScreen.UNKNOWN &&
             !returningWithinAllowedPages &&
             (!lastVerifiedAllowedSurface || clicklessSecondaryReturn) &&
@@ -7582,9 +8001,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         // held for a short settle window; showing is immediate. Verified
         // secondary pages (Notifications, Search) are definitive: their curtain
         // lifts on the first verified frame so the return never feels late.
+        // The You page with its own tab selected is a main tab, not a window
+        // flipping away; the settle window kept the Home curtain over it for
+        // 0.6 s (Galaxy S23).
         val definitiveSecondary = signals.screen == YouTubeCurtainScreen.SEARCH ||
             signals.screen == YouTubeCurtainScreen.NOTIFICATIONS ||
-            youtubeCurtainState.resolvedOnFullScreenAllowedPage
+            youtubeCurtainState.resolvedOnFullScreenAllowedPage ||
+            (signals.screen == YouTubeCurtainScreen.YOU &&
+                signals.selectedDestination == YouTubeNavigationDestination.YOU)
         val showSurface = if (effectiveSurface == null) {
             if (definitiveSecondary) {
                 youtubeAllowedFlipSince = 0L
@@ -9061,9 +9485,12 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             return
         }
         if (root?.packageName?.toString() != INSTAGRAM_PACKAGE || !hasFastNotificationsSurface(root)) return
-        val rows = instagramNotificationListNodes(root).filter {
-            compactId(it.viewIdResourceName) == "activity_feed_newsfeed_story_row" && it.isVisibleToUser
-        }
+        // One id query in Instagram's process. Walking the list node by node
+        // (up to 160 remote getChild calls) took 0.6-1.1 s per scan on a
+        // Galaxy S23 and ran on every scan in Strict, so a Back from
+        // Notifications waited ~1 s with the Home feed visible.
+        val rows = root.findAccessibilityNodeInfosByViewId(
+            "$INSTAGRAM_PACKAGE:id/activity_feed_newsfeed_story_row").filter { it.isVisibleToUser }
         val targets = instagramNotificationMediaGuardBounds(rows)
         instagramNotificationMotion.reset()
         instagramNotificationGestureReplayUntil = 0L
@@ -9197,7 +9624,22 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         } else {
             val bottom = stableMainNavigationTop(
                 root, window, InstagramScreen.HOME_FEED)
-            val top = (statusBarInset() + dp(56)).coerceIn(window.top, bottom - 1)
+            val conservativeTop = (statusBarInset() + dp(56)).coerceIn(window.top, bottom - 1)
+            // Both modes: a Home left with its top bar hidden starts at the
+            // window top in Strict too. Strict never starts below the header
+            // cover (a top remembered from Balanced would show the Stories).
+            val inMemory = lastHomeCurtainTop.takeIf {
+                lastHomeCurtainWindowId == root.windowId && lastHomeCurtainWidth == window.width()
+            }
+            // Android renumbers windows when this service restarts (an app
+            // update, an OEM restart), so the in-memory top no longer matches
+            // and the first Home tap covered the Stories for ~0.9 s. The saved
+            // top is used then, for the same screen width and Instagram build.
+            val remembered = (inMemory ?: savedHomeCurtainTop(window.width()))?.takeIf {
+                !instagramStoriesBlocked() || it <= conservativeTop
+            }
+            val top = InstagramHomeGeometry.tabPrecoverTop(
+                window.top, conservativeTop, bottom, remembered, minHeight = dp(120))
             Rect(window.left, top, window.right, bottom)
         }
         if (tab == InstagramTab.SEARCH && lastInstagramScreen == InstagramScreen.HOME_FEED) {
@@ -9215,6 +9657,10 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         }
         clearInstagramResumeProtection()
         stopProfileCurtainEnsure()
+        // The Strict-profile geometry watch would otherwise remount the
+        // profile rectangle over this destination curtain (see its loop).
+        profileGeometryWatchActive = false
+        mainHandler.removeCallbacks(profileGeometryWatch)
         currentInstagramWindowId = root.windowId
         // show() updates an existing window in place. Removing it here opens
         // a compositor frame between protected Home and Explore destinations.
@@ -9273,7 +9719,7 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         val appName = when (targetPackage) {
             TIKTOK_PACKAGE -> "TikTok"
             YOUTUBE_PACKAGE -> "YouTube Shorts"
-            else -> if (isEnglish()) "Instagram Reels & Feed" else "Instagram Reels ve Akış"
+            else -> "Instagram Reels & Feed" // stored, read back only as "Instagram"
         }
 
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(now))
@@ -9477,7 +9923,20 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             // the feed for a measurement frame.
             ?: findAttachedHomeStoriesBounds(root, displayBounds)
         }
-        val bounds = contentBounds(root, displayBounds, stories?.bottom, home = true)
+        val header = verifiedHomeHeaderBounds(root, displayBounds)
+        val anchor = stories?.let {
+            InstagramHomeGeometry.storiesAnchor(it.top, it.bottom, header?.bottom)
+        }
+        if (ProtectionFlightRecorder.ENABLED && stories != null) {
+            val key = "${stories.top}/${stories.bottom}/${header?.bottom}"
+            if (key != lastHomeGeometryKey) {
+                lastHomeGeometryKey = key
+                ProtectionFlightRecorder.record(this, "instagram.home.geometry",
+                    "tray=${stories.top}-${stories.bottom} header=${header?.bottom} anchor=$anchor")
+            }
+        }
+        val bounds = contentBounds(root, displayBounds, anchor, home = true,
+            knownHeader = header, headerKnown = true)
         if (SystemClock.uptimeMillis() < scrollCoverUntil && instagramOverlay.visibleHomeBounds() != null) {
             scrollCoverTop?.let { bounds.top = minOf(bounds.top, it) }
         }
@@ -9557,8 +10016,19 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                     bounds.top >= window.top && bounds.bottom < window.centerY()
             }
 
-    private fun contentBounds(root: AccessibilityNodeInfo, window: Rect, anchor: Int?, home: Boolean): Rect {
-        val header = if (home) verifiedHomeHeaderBounds(root, window) else null
+    private fun contentBounds(
+        root: AccessibilityNodeInfo,
+        window: Rect,
+        anchor: Int?,
+        home: Boolean,
+        knownHeader: Rect? = null,
+        headerKnown: Boolean = false
+    ): Rect {
+        val header = when {
+            !home -> null
+            headerKnown -> knownHeader
+            else -> verifiedHomeHeaderBounds(root, window)
+        }
         val screen = if (home) InstagramScreen.HOME_FEED else InstagramScreen.EXPLORE
         val bottom = stableMainNavigationTop(root, window, screen)
         // Only chrome/tray boundaries determine the mask. Never use a post/list's
@@ -10069,8 +10539,197 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
                 InstagramScreen.PROFILE, InstagramScreen.DIRECT_MESSAGES)) {
             premountReelsTabGuard()
         }
+        handleInstagramOpenInMessages(screen, windowId)
         return decision
     }
+
+    /** Set when Instagram comes to the front with "Open in Messages" on; 0 when idle. */
+    private var instagramOpenInMessagesArmedAt = 0L
+
+    /** The new Instagram window that armed the redirect; it acts only there. */
+    private var instagramOpenInMessagesWindow = -1
+
+    /** Instagram windows already seen; a few, since viewers open their own windows. */
+    private val instagramWindowMemory = InstagramOpenInMessagesPolicy.WindowMemory()
+
+    private fun bootCount(): Int =
+        android.provider.Settings.Global.getInt(
+            contentResolver, android.provider.Settings.Global.BOOT_COUNT, -1)
+
+    // SharedPreferences "instagram_seen_windows": "bootCount|id,id,..." of the
+    // Instagram windows already seen, so a restarted service keeps telling a
+    // resumed Instagram from a fresh launch. Written only when a new window appears.
+    private fun saveInstagramWindowMemory() {
+        getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_INSTAGRAM_SEEN_WINDOWS, instagramWindowMemory.save(bootCount()))
+            .apply()
+    }
+
+    /** On (re)connect: restore what this boot has seen, plus the Instagram window on screen now. */
+    private fun restoreInstagramWindowMemory() {
+        val boot = bootCount()
+        instagramWindowMemory.restore(
+            getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_INSTAGRAM_SEEN_WINDOWS, null), boot)
+        var added = false
+        runCatching {
+            windows.filter { it.root?.packageName?.toString() == INSTAGRAM_PACKAGE }
+                .forEach { if (instagramWindowMemory.add(it.id)) added = true }
+        }
+        if (added) saveInstagramWindowMemory()
+    }
+
+    private fun handleInstagramOpenInMessages(screen: InstagramScreen, windowId: Int) {
+        if (instagramOpenInMessagesArmedAt == 0L) return
+        when (InstagramOpenInMessagesPolicy.decide(
+            instagramOpenInMessagesArmedAt, SystemClock.uptimeMillis(), screen,
+            inArmedWindow = windowId == instagramOpenInMessagesWindow)) {
+            InstagramOpenInMessagesPolicy.Decision.Wait -> Unit
+            InstagramOpenInMessagesPolicy.Decision.Done -> instagramOpenInMessagesArmedAt = 0L
+            InstagramOpenInMessagesPolicy.Decision.OpenMessages -> {
+                instagramOpenInMessagesArmedAt = 0L
+                // Not inside the scan that classified Home, but ahead of the
+                // scans already queued: on a Galaxy S9+ they delayed the tap by
+                // 870 ms while the Home curtain stayed up.
+                mainHandler.postAtFrontOfQueue(openInstagramMessages)
+            }
+        }
+    }
+
+    /**
+     * Opens Messages before the full scan has classified Home: the scan walks
+     * the whole tree while the Home curtain is up. Acts only on the plain
+     * Home feed; anything else is left to the scan, exactly as before.
+     */
+    private val instagramQuickHomeCheck: Runnable = object : Runnable {
+        override fun run() {
+            val armedAt = instagramOpenInMessagesArmedAt
+            if (armedAt <= 0L) return
+            val root = rootInActiveWindow
+            if (root?.packageName?.toString() != INSTAGRAM_PACKAGE) {
+                // The first event can arrive while the launcher is still the root.
+                if (SystemClock.uptimeMillis() - armedAt < InstagramOpenInMessagesPolicy.QUICK_HOME_CHECK_MS) {
+                    mainHandler.postDelayed(this, 16L)
+                }
+                return
+            }
+            if (!ProtectionPreferences.isEnabled(this@AntiScrollService, ProtectedApp.INSTAGRAM)) return
+            // Only in the new window that armed it; the scan decides elsewhere.
+            if (root.windowId != instagramOpenInMessagesWindow) return
+            clearNodeLookupCache()
+            val plainHome = InstagramOpenInMessagesPolicy.plainHomeAtEntry(
+                isVisible = { igVisible(root, it) },
+                feedTabSelected = { igSelected(root, "feed_tab") })
+            clearNodeLookupCache()
+            if (!plainHome) return
+            instagramOpenInMessagesArmedAt = 0L
+            if (ProtectionFlightRecorder.ENABLED) {
+                ProtectionFlightRecorder.record(this@AntiScrollService, "instagram.open-messages",
+                    "quick afterEntryMs=${SystemClock.uptimeMillis() - armedAt}")
+            }
+            openInstagramMessages.run()
+        }
+    }
+
+    private val openInstagramMessages = Runnable {
+        val root = rootInActiveWindow ?: return@Runnable
+        if (root.packageName?.toString() != INSTAGRAM_PACKAGE) return@Runnable
+        if (!ProtectionPreferences.isEnabled(this, ProtectedApp.INSTAGRAM)) return@Runnable
+        // The same id in the bottom bar and in the large-screen side rail.
+        val opened = performInstagramTabAction(root, "direct_tab")
+        if (ProtectionFlightRecorder.ENABLED) {
+            ProtectionFlightRecorder.record(this, "instagram.open-messages", "ok=$opened")
+        }
+        SupportDiagnostics.record(this, SupportEvent.INSTAGRAM_OPENED_MESSAGES, mapOf("ok" to opened))
+        if (opened) {
+            instagramMessagesProbeStartedAt = SystemClock.uptimeMillis()
+            instagramMessagesInboxSeenAt = 0L
+            mainHandler.postAtFrontOfQueue(instagramMessagesProbe)
+        }
+    }
+
+    /**
+     * After our own Messages tap the Home curtain stays until the inbox is
+     * recognized. The full scan needs ~30 lookups (294 ms on a Galaxy S23),
+     * so the curtain sat over the already drawn inbox. This asks only for the
+     * inbox's own list and bar, ahead of queued scans, and lifts the curtain
+     * the moment they are on screen. Until then the curtain stays: the feed
+     * is never shown. Bounded; the regular scan takes over after it.
+     */
+    private var instagramMessagesProbeStartedAt = 0L
+
+    private val instagramMessagesProbe: Runnable = object : Runnable {
+        override fun run() {
+            val started = instagramMessagesProbeStartedAt
+            if (started == 0L) return
+            val elapsed = SystemClock.uptimeMillis() - started
+            if (elapsed > InstagramOpenInMessagesPolicy.RELEASE_PROBE_MS) {
+                instagramMessagesProbeStartedAt = 0L
+                instagramMessagesInboxSeenAt = 0L
+                queueInstagramScan(0L)
+                return
+            }
+            clearNodeLookupCache()
+            val root = rootInActiveWindow
+            // Home and Messages sit side by side in a pager: the inbox must
+            // fill the window's width, not be sliding in beside the feed.
+            val inboxSettled = root?.packageName?.toString() == INSTAGRAM_PACKAGE && run {
+                val window = instagramWindowBounds(root)
+                // Some Instagram versions (454 on a Galaxy Note 10 Lite) give
+                // the inbox list no id; the inbox bar then shows the position.
+                val list = findVisibleNodeBounds(root,
+                    "$INSTAGRAM_PACKAGE:id/inbox_refreshable_thread_list_recyclerview")
+                    ?: findVisibleNodeBounds(root, "$INSTAGRAM_PACKAGE:id/direct_inbox_action_bar")
+                // During the app-open animation the reported window bounds and
+                // the nodes are scaled out of step: on a Note 10 Lite the window
+                // stayed scaled while the nodes were full screen, on an S23 the
+                // nodes were scaled. The root node is scaled with the list, so
+                // any of the three references counts.
+                val display = currentDisplayBounds()
+                val rootNode = Rect().also(root::getBoundsInScreen)
+                list != null && listOf(window, display, rootNode).any { ref ->
+                    InstagramOpenInMessagesPolicy.inboxSettled(list.left, list.right, ref.left, ref.right, dp(4))
+                } &&
+                    (igVisible(root, "direct_inbox_action_bar") || igVisible(root, "direct_inbox_search_bar")) &&
+                    !igVisible(root, "main_feed_action_bar")
+            }
+            // The tree switches as the tap returns; Instagram draws the inbox
+            // on a following frame. It must still be there a few frames later,
+            // so the curtain never leaves before the feed does. Re-asked ahead
+            // of queued scans: a delayed check let a full scan run first.
+            if (root != null && inboxSettled && instagramMessagesInboxSeenAt == 0L) {
+                instagramMessagesInboxSeenAt = SystemClock.uptimeMillis()
+            }
+            if (root != null && inboxSettled &&
+                SystemClock.uptimeMillis() - instagramMessagesInboxSeenAt <
+                InstagramOpenInMessagesPolicy.RELEASE_CONFIRM_MS
+            ) {
+                clearNodeLookupCache()
+                mainHandler.postAtFrontOfQueue(this)
+                return
+            }
+            if (root != null && inboxSettled) {
+                instagramMessagesInboxSeenAt = 0L
+                instagramMessagesProbeStartedAt = 0L
+                clearDirectDetailsScrollGuard()
+                clearInstagramResumeProtection()
+                instagramOverlay.hide()
+                observeInstagramScreen(InstagramScreen.DIRECT_MESSAGES, root.windowId)
+                clearNodeLookupCache()
+                if (ProtectionFlightRecorder.ENABLED) {
+                    ProtectionFlightRecorder.record(this@AntiScrollService,
+                        "instagram.open-messages", "released afterMs=$elapsed")
+                }
+                return
+            }
+            // Not (or no longer) the settled inbox: start over.
+            instagramMessagesInboxSeenAt = 0L
+            clearNodeLookupCache()
+            mainHandler.postAtFrontOfQueue(this)
+        }
+    }
+
+    private var instagramMessagesInboxSeenAt = 0L
 
     /** Consecutive foreground checks that found a focused, unreadable app window. */
     private var unreadableForegroundChecks = 0
@@ -10115,6 +10774,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         if (instagramUnreadableForeground) {
             if (focusedAppWindowUnreadable()) return false
             instagramUnreadableForeground = false
+        }
+        if (InstagramTabReleasePolicy.waitsForSwap(screen,
+                SystemClock.uptimeMillis() < instagramTabReleaseUntil)) {
+            // Every other show path (fast probes, reader fallbacks) obeys the
+            // profile-tab release too; the recover runnable clears it first.
+            if (ProtectionFlightRecorder.ENABLED) ProtectionFlightRecorder.record(this,
+                "instagram.curtain.reject", "screen=$screen reason=tab-release")
+            queueInstagramScan(32L)
+            return false
         }
         if (screen == InstagramScreen.PROFILE) {
             if (ProtectionFlightRecorder.ENABLED) {
@@ -10167,6 +10835,15 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
         instagramOverlay.supportReason = reason
         return instagramOverlay.show(bounds, screen, isEnglish()).also { shown ->
             if (shown) lastVerifiedInstagramCurtain = screen to Rect(bounds)
+            if (shown && screen == InstagramScreen.HOME_FEED) {
+                // Where Home was left; the Home tab precover starts there.
+                lastHomeCurtainTop = bounds.top
+                lastHomeCurtainWindowId = currentInstagramWindowId
+                lastHomeCurtainWidth = bounds.width()
+                // Saved once it stops changing (a scroll moves it many times).
+                mainHandler.removeCallbacks(saveHomeCurtainTop)
+                mainHandler.postDelayed(saveHomeCurtainTop, 1_000L)
+            }
             if (shown) {
                 setCurtainVerifiedAtMs = now
                 setCurtainVerifiedWindowId = currentInstagramWindowId
@@ -10519,16 +11196,27 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
 
     private fun isEnglish(): Boolean {
         val prefs = getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString("app_language", null) == "en"
+        return getAppLanguage(prefs) != "tr"
     }
 
     private var serviceShutdownNotified = false
+
+    /** Keeps ProtectionWatchdog's alarm a minute ahead while protection runs. */
+    private val watchdogHeartbeat = object : Runnable {
+        override fun run() {
+            ProtectionWatchdog.heartbeat(this@AntiScrollService)
+            mainHandler.postDelayed(this, ProtectionWatchdog.HEARTBEAT_MS)
+        }
+    }
 
     override fun onUnbind(intent: Intent?): Boolean {
         if (ProtectionFlightRecorder.ENABLED) {
             ProtectionFlightRecorder.record(this, "service.unbind")
         }
         SupportDiagnostics.record(this, SupportEvent.SERVICE_UNBOUND)
+        ProtectionStopWatch.markStopped(this)
+        mainHandler.removeCallbacks(watchdogHeartbeat)
+        ProtectionWatchdog.disarm(this)
         hideInstagramProtection()
         youtubeOverlay.hideAll()
         AccessibilityStreakPolicy.onServiceDisconnected(this)
@@ -10543,6 +11231,8 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
             ProtectionFlightRecorder.record(this, "service.destroy")
         }
         SupportDiagnostics.record(this, SupportEvent.SERVICE_DESTROYED)
+        ProtectionStopWatch.markStopped(this)
+        ProtectionWatchdog.disarm(this)
         hideInstagramProtection()
         youtubeOverlay.hideAll()
         AccessibilityStreakPolicy.onServiceDisconnected(this)
@@ -10556,13 +11246,14 @@ private const val YOUTUBE_BARS_RESTORE_INTERVAL_MS = 700L
     private fun notifyProtectionDisabled() {
         if (serviceShutdownNotified) return
         serviceShutdownNotified = true
-        val isEn = isEnglish()
+        // Unbinding is mostly the user turning the switch off: say so, without
+        // a buzz. Stops the user did not make are the watchdog's, and vibrate.
         NotificationHelper.showShieldStatusNotification(
             this,
-            if (isEn) "Protection is not running" else "Koruma çalışmıyor",
-            if (isEn) "Protection is disabled. If not re-enabled, your daily streak will reset in 24 hours."
-            else "Koruma devre dışı bırakıldı. Tekrar açmazsanız günlük seriniz 24 saat içinde sıfırlanır.",
-            1002
+            AppText.get(R.string.notif_protection_stopped_title),
+            AppText.get(R.string.notif_protection_stopped_text),
+            StatusNotificationPolicy.STOPPED_ID,
+            quiet = true
         )
     }
 

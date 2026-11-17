@@ -16,6 +16,13 @@ internal object YouTubeScreenClassifier {
          */
         feedTab: YouTubeFeedTab? = null
     ): YouTubeCurtainScreen {
+        // Without the logo, only a strip with a readable selected tab is the
+        // feed's. A channel page's strip (Home, Videos, Shorts, Posts) has the
+        // same id; scrolling its Posts tab hides Back and the bottom bar too,
+        // and that strip then covered the channel like Home (Galaxy S23,
+        // November 2026). The feed strip always reports its selected tab.
+        @Suppress("NAME_SHADOWING")
+        val feedTab = feedTab?.takeIf { homeToolbarVisible || it != YouTubeFeedTab.UNKNOWN }
         // Full-screen reel structure is different from a shelf embedded in a feed.
         if (fullScreenShortsVisible) return YouTubeCurtainScreen.SHORTS
         // Secondary screens can retain the underlying feed's selected bottom tab.

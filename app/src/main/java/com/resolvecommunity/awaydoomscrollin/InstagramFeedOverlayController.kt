@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -14,12 +13,10 @@ import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.os.Build
 import android.os.SystemClock
-import androidx.core.content.ContextCompat
 
 /**
  * Covers only Instagram's feed viewport. The Instagram action bar and bottom
@@ -52,6 +49,34 @@ internal class InstagramFeedOverlayController(
          * closer together than this are duplicates of the same frame.
          */
         private const val FORCED_LAYOUT_MIN_INTERVAL_MS = 96L
+
+        /** Upper bound of [parkCommitPendingUntil] if frames stop coming. */
+        private const val PARK_COMMIT_MAX_MS = 150L
+    }
+
+    /**
+     * A parked curtain leaves the screen only after this thread runs the
+     * relayout of its next frame. A full scan started before that held the
+     * thread and kept the lifted curtain on screen for the whole scan: 1.1 s
+     * over Instagram's search page on a Galaxy S23, i.e. until the user moved
+     * something. The service starts no scan before this time (two frames
+     * after the park, at most [PARK_COMMIT_MAX_MS]).
+     */
+    var parkCommitPendingUntil = 0L
+        private set
+    private var parkCommitGeneration = 0
+
+    private fun holdScansUntilParkCommitted() {
+        val generation = ++parkCommitGeneration
+        parkCommitPendingUntil = SystemClock.uptimeMillis() + PARK_COMMIT_MAX_MS
+        val choreographer = android.view.Choreographer.getInstance()
+        // The first callback runs in the frame whose traversal applies the
+        // park; the second one runs only after that traversal finished.
+        choreographer.postFrameCallback {
+            choreographer.postFrameCallback {
+                if (generation == parkCommitGeneration) parkCommitPendingUntil = 0L
+            }
+        }
     }
 
     private val windowManager by lazy {
@@ -534,6 +559,14 @@ internal class InstagramFeedOverlayController(
                         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                         setOnClickListener { }
                         setOnTouchListener { target, event ->
+                            if (ProtectionFlightRecorder.ENABLED &&
+                                (event.actionMasked == MotionEvent.ACTION_DOWN ||
+                                    event.actionMasked == MotionEvent.ACTION_UP)) {
+                                // How long this thread took to get the touch.
+                                ProtectionFlightRecorder.record(service, "instagram.tab.touch",
+                                    "tab=$tab action=${event.actionMasked} ageMs=" +
+                                        "${SystemClock.uptimeMillis() - event.eventTime}")
+                            }
                             if (event.actionMasked == MotionEvent.ACTION_UP) {
                                 target.performClick()
                                 Log.d(TAG, "IG_NAVIGATION_TOUCH tab=$tab")
@@ -590,8 +623,7 @@ internal class InstagramFeedOverlayController(
                     val view = View(service).apply {
                         setBackgroundColor(Color.TRANSPARENT)
                         isClickable = true
-                        contentDescription = if (isEnglish) "AwayDoomscrollin': Reels blocked"
-                            else "AwayDoomscrollin': Reels engellendi"
+                        contentDescription = AppText.get(R.string.ig_awaydoomscrollin_reels_blocked)
                         setOnClickListener { }
                         setOnTouchListener { target, event ->
                             when (event.actionMasked) {
@@ -775,8 +807,7 @@ internal class InstagramFeedOverlayController(
             val view = View(service).apply {
                 setBackgroundColor(Color.TRANSPARENT)
                 isClickable = true
-                contentDescription = if (isEnglish) "AwayDoomscrollin': protected content transition"
-                    else "AwayDoomscrollin': korunan içerik geçişi"
+                contentDescription = AppText.get(R.string.ig_awaydoomscrollin_protected_content_transition)
                 setOnClickListener { }
                 setOnTouchListener { target, event ->
                     if (event.actionMasked == MotionEvent.ACTION_UP) target.performClick()
@@ -864,7 +895,7 @@ internal class InstagramFeedOverlayController(
             return false
         }
 
-        val copyKey = "${screen.name}:$isEnglish"
+        val copyKey = "${screen.name}:${AppText.language().code}"
         isNotificationShadeSuspended = false
         // The split Strict-profile lower piece belongs to the profile surface
         // only. A direct tab or destination switch to any other protected feed
@@ -1097,6 +1128,7 @@ internal class InstagramFeedOverlayController(
                 false
             }
             if (parked) {
+                holdScansUntilParkCommitted()
                 parkedOverlay = view
                 parkedCopyKey = parkCopyKey
                 parkedMessageTextView = parkMessage
@@ -1216,30 +1248,19 @@ internal class InstagramFeedOverlayController(
 
         shieldContent = content
 
-        val iconBadge = FrameLayout(service).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.argb(32, 0, 242, 254)) // 12.5% Neon Cyan glow
-                setStroke(dp(1), Color.argb(64, 0, 242, 254)) // 25% Neon Cyan border
-            }
-            val iconView = ImageView(service).apply {
-                setImageDrawable(ContextCompat.getDrawable(service, R.drawable.ic_shield_check))
-                setColorFilter(Color.rgb(0, 242, 254)) // Neon Cyan #00F2FE
-                contentDescription = null
-            }
-            addView(iconView, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        // Text only, no icon or logo: the curtain says calmly what is closed
+        // and what is still open. A shield badge read like a security alert
+        // at the very moment the user is tempted. The app's cyan colors only
+        // the line about what is still open, the way forward.
+        val message = textView(copy.message, 18f, Color.rgb(241, 245, 249), Typeface.NORMAL).apply {
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
-        content.addView(iconBadge, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
-            bottomMargin = dp(18)
-        })
-
-        val message = textView(copy.message, 20f, Color.rgb(241, 245, 249), Typeface.BOLD)
         messageTextView = message
         content.addView(message)
 
-        val detail = textView(copy.detail, 14f, Color.rgb(148, 163, 184), Typeface.NORMAL).apply {
+        val detail = textView(copy.detail, 14f, CURTAIN_OPEN_TEXT_COLOR, Typeface.NORMAL).apply {
             setLineSpacing(dp(3).toFloat(), 1f)
-            setPadding(0, dp(10), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
         detailTextView = detail
         content.addView(detail)
@@ -1257,43 +1278,26 @@ internal class InstagramFeedOverlayController(
     }
 
     private fun copyFor(screen: InstagramScreen, isEnglish: Boolean): OverlayCopy {
-        if (isEnglish) {
-            val message = when (screen) {
-                InstagramScreen.EXPLORE -> "Explore is protected"
-                InstagramScreen.PROFILE -> "Profile is protected"
-                InstagramScreen.DIRECT_SHARED_MEDIA -> "Shared media is protected"
-                else -> "Feed is protected"
-            }
-            val detail = when (screen) {
-                InstagramScreen.HOME_FEED -> "Home feed is paused. Messages remain available."
-                InstagramScreen.EXPLORE -> "The suggested feed is paused. You can still search for accounts."
-                InstagramScreen.PROFILE -> "Posts are hidden. Profile information remains available."
-                InstagramScreen.DIRECT_SHARED_MEDIA -> "Shared media gallery is paused. Messages remain available."
-                InstagramScreen.REELS -> ""
-                InstagramScreen.STORY -> "Returning from Stories…"
-                InstagramScreen.COMMENTS_OR_DETAIL -> "Returning from the post viewer…"
-                else -> "This content is paused."
-            }
-            return OverlayCopy(message, detail)
-        }
-
+        // Neutral words: say what is closed and what is still open. Never
+        // "blocked", "protected" or the app's name: the user set this up.
+        // Texts live in res/values*/strings.xml (curtain_ig_*).
         val message = when (screen) {
-            InstagramScreen.EXPLORE -> "Keşfet korunuyor"
-            InstagramScreen.PROFILE -> "Profil korunuyor"
-            InstagramScreen.DIRECT_SHARED_MEDIA -> "Medya galerisi korunuyor"
-            else -> "Akış korunuyor"
+            InstagramScreen.HOME_FEED -> R.string.curtain_ig_home_title
+            InstagramScreen.EXPLORE -> R.string.curtain_ig_explore_title
+            InstagramScreen.PROFILE -> R.string.curtain_ig_profile_title
+            InstagramScreen.DIRECT_SHARED_MEDIA -> R.string.curtain_ig_media_title
+            InstagramScreen.STORY -> R.string.curtain_ig_stories_title
+            else -> R.string.curtain_ig_other_title
         }
         val detail = when (screen) {
-            InstagramScreen.HOME_FEED -> "Ana Sayfa akışı kapalı. Mesajlar açık kalır."
-            InstagramScreen.EXPLORE -> "Önerilen akış kapalı. Hesap aramaya devam edebilirsiniz."
-            InstagramScreen.PROFILE -> "Gönderiler gizli. Profil bilgileri açık kalır."
-            InstagramScreen.DIRECT_SHARED_MEDIA -> "Paylaşılan medya galerisi kapalı. Mesajlar açık kalır."
-            InstagramScreen.REELS -> ""
-            InstagramScreen.STORY -> "Hikâyeden geri dönülüyor…"
-            InstagramScreen.COMMENTS_OR_DETAIL -> "Gönderiden geri dönülüyor…"
-            else -> "Bu içerik kapalı."
+            InstagramScreen.HOME_FEED -> R.string.curtain_ig_messages_open
+            InstagramScreen.EXPLORE -> R.string.curtain_ig_explore_detail
+            InstagramScreen.PROFILE -> R.string.curtain_ig_profile_detail
+            InstagramScreen.DIRECT_SHARED_MEDIA -> R.string.curtain_ig_messages_open
+            InstagramScreen.STORY, InstagramScreen.COMMENTS_OR_DETAIL -> R.string.curtain_going_back
+            else -> null
         }
-        return OverlayCopy(message, detail)
+        return OverlayCopy(AppText.get(message), detail?.let { AppText.get(it) } ?: "")
     }
 
     private fun textView(text: String, sizeSp: Float, color: Int, style: Int) =

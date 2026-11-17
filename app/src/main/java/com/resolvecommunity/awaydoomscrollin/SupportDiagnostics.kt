@@ -57,11 +57,25 @@ internal object SupportDiagnostics {
         scheduleFlush(appContext)
     }
 
-    /** The log is on unless the user turned it off in About. */
-    fun isEnabled(context: Context): Boolean = enabledCache ?: context.applicationContext
-        .getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
-        .getBoolean(KEY_ENABLED, true)
-        .also { enabledCache = it }
+    /**
+     * Off on a new installation until the user turns it on in About. An
+     * installation updated from 1.4.x that never touched the switch keeps the
+     * log it was told about (on); the choice is then saved, so it is decided
+     * only once.
+     */
+    fun isEnabled(context: Context): Boolean = enabledCache ?: run {
+        val app = context.applicationContext
+        val prefs = app.getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.contains(KEY_ENABLED)) {
+            val updated = runCatching {
+                val info = app.packageManager.getPackageInfo(app.packageName, 0)
+                info.lastUpdateTime > info.firstInstallTime
+            }.getOrDefault(false)
+            val existingUser = updated && prefs.getBoolean("onboarding_completed", false)
+            prefs.edit().putBoolean(KEY_ENABLED, SupportLogDefault.enabledFor(existingUser)).apply()
+        }
+        prefs.getBoolean(KEY_ENABLED, false)
+    }.also { enabledCache = it }
 
     /**
      * Turning the log off also deletes what it holds: off means nothing about
@@ -73,6 +87,11 @@ internal object SupportDiagnostics {
             .edit().putBoolean(KEY_ENABLED, enabled).apply()
         enabledCache = enabled
         if (!enabled) clear(appContext)
+    }
+
+    /** Tests: forget the cached switch so the next read decides from preferences. */
+    internal fun forgetCachedSwitchForTest() {
+        enabledCache = null
     }
 
     /**
@@ -94,10 +113,20 @@ internal object SupportDiagnostics {
         if (seen == 0L && System.currentTimeMillis() - newest.timestamp > SupportLogBuffer.MAX_AGE_MS) return
         val at = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(newest.timestamp))
         record(appContext, SupportEvent.SERVICE_PREVIOUS_EXIT,
-            mapOf("reason" to exitReason(newest.reason), "at" to at))
+            mapOf("reason" to exitReason(newest.reason), "at" to at,
+                "desc" to exitDescription(appContext, newest.description)))
     }
 
-    private fun exitReason(code: Int): String = when (code) {
+    /**
+     * Android's description of an exit names the component that ended the
+     * process (a vendor cleaner, the user, an update). Our package name is
+     * dropped and spaces become underscores so the log keeps the words.
+     */
+    fun exitDescription(context: Context, description: String?): String? =
+        description?.replace(context.packageName, "")
+            ?.trim()?.replace(Regex("\\s+"), "_")?.takeIf { it.isNotEmpty() }
+
+    fun exitReason(code: Int): String = when (code) {
         ApplicationExitInfo.REASON_USER_REQUESTED -> "user"
         ApplicationExitInfo.REASON_USER_STOPPED -> "user-stopped"
         ApplicationExitInfo.REASON_LOW_MEMORY -> "low-memory"
@@ -108,6 +137,8 @@ internal object SupportDiagnostics {
         ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "updated"
         ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission"
         ApplicationExitInfo.REASON_FREEZER -> "frozen"
+        ApplicationExitInfo.REASON_EXIT_SELF -> "self"
+        ApplicationExitInfo.REASON_OTHER -> "system-other"
         else -> "other-$code"
     }
 
@@ -190,11 +221,21 @@ internal object SupportDiagnostics {
         val prefs = context.getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
         val created = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(now))
         val metrics = context.resources.displayMetrics
-        val serviceOn = runCatching {
-            Settings.Secure.getString(context.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-                .contains("${context.packageName}/", ignoreCase = true)
-        }.getOrDefault(false)
+        // "On" in Settings is not enough: HyperOS can keep the switch on while
+        // the service no longer runs (see ProtectionServiceStatus).
+        val serviceState = runCatching { ProtectionServiceStatus.read(context) }
+            .getOrDefault(ProtectionServiceState.OFF)
+        val master = ProtectionServiceStatus.masterSwitch(context)?.toString() ?: "?"
+        val permissionEn = when (serviceState) {
+            ProtectionServiceState.RUNNING -> "on"
+            ProtectionServiceState.OFF -> "off"
+            ProtectionServiceState.LISTED_NOT_RUNNING -> "on in Settings, but not running"
+        } + " (master switch $master)"
+        val permissionTr = when (serviceState) {
+            ProtectionServiceState.RUNNING -> "açık"
+            ProtectionServiceState.OFF -> "kapalı"
+            ProtectionServiceState.LISTED_NOT_RUNNING -> "ayarlarda açık ama çalışmıyor"
+        } + " (ana anahtar $master)"
         // Phones that stop protection in the background usually do it through
         // battery optimization or a background restriction on the app.
         val batteryUnrestricted = runCatching {
@@ -231,6 +272,7 @@ internal object SupportDiagnostics {
             return "$on ($mode)"
         }
         val appVersion = version(context.packageName)
+        val tiktok = InstalledApps.installedPackage(context, ProtectedApp.TIKTOK) ?: TIKTOK
         val language = appLanguage(prefs, en)
         val screen = "${metrics.widthPixels}x${metrics.heightPixels}"
         val phone = "${Build.MANUFACTURER} ${Build.MODEL}"
@@ -238,28 +280,35 @@ internal object SupportDiagnostics {
         return if (en) listOf(
             "AwayDoomscrollin' troubleshooting log ($created)",
             "App version: $appVersion · Phone: $phone · $android",
-            "Instagram ${version(INSTAGRAM)} · TikTok ${version(TIKTOK)} · YouTube ${version(YOUTUBE)}",
+            "Instagram ${version(INSTAGRAM)} · TikTok ${version(tiktok)} · YouTube ${version(YOUTUBE)}",
             "Protection: Instagram ${protection(ProtectedApp.INSTAGRAM, true)} · TikTok ${protection(ProtectedApp.TIKTOK, false)} · YouTube ${protection(ProtectedApp.YOUTUBE, true)}",
-            "Accessibility permission: ${if (serviceOn) "on" else "off"} · Screen: $screen · App language: $language",
+            "Accessibility permission: $permissionEn · Screen: $screen · App language: $language",
             batteryLine
         ) else listOf(
             "AwayDoomscrollin' sorun giderme kaydı ($created)",
             "Uygulama sürümü: $appVersion · Telefon: $phone · $android",
-            "Instagram ${version(INSTAGRAM)} · TikTok ${version(TIKTOK)} · YouTube ${version(YOUTUBE)}",
+            "Instagram ${version(INSTAGRAM)} · TikTok ${version(tiktok)} · YouTube ${version(YOUTUBE)}",
             "Koruma: Instagram ${protection(ProtectedApp.INSTAGRAM, true)} · TikTok ${protection(ProtectedApp.TIKTOK, false)} · YouTube ${protection(ProtectedApp.YOUTUBE, true)}",
-            "Erişilebilirlik izni: ${if (serviceOn) "açık" else "kapalı"} · Ekran: $screen · Uygulama dili: $language",
+            "Erişilebilirlik izni: $permissionTr · Ekran: $screen · Uygulama dili: $language",
             batteryLine
         )
     }
 
-    private fun appLanguage(prefs: android.content.SharedPreferences, en: Boolean): String =
-        when (prefs.getString("app_language", null) ?: Locale.getDefault().language) {
-            "tr" -> if (en) "Turkish" else "Türkçe"
-            "en" -> if (en) "English" else "İngilizce"
-            else -> Locale.getDefault().displayLanguage
-        }
+    // The log is read by support, so the language is named in the log's own
+    // language (English or Turkish), not in the app's.
+    private fun appLanguage(prefs: android.content.SharedPreferences, en: Boolean): String {
+        val code = prefs.getString("app_language", null) ?: Locale.getDefault().language
+        return Locale(code).getDisplayLanguage(if (en) Locale.ENGLISH else Locale("tr"))
+            .ifBlank { code }
+    }
 
     private const val INSTAGRAM = "com.instagram.android"
     private const val TIKTOK = "com.zhiliaoapp.musically"
     private const val YOUTUBE = "com.google.android.youtube"
+}
+
+/** Whether the troubleshooting log starts on, for a switch the user never touched. */
+internal object SupportLogDefault {
+    /** On only for an installation that already had it on before 1.5.0. */
+    fun enabledFor(updatedExistingUser: Boolean): Boolean = updatedExistingUser
 }

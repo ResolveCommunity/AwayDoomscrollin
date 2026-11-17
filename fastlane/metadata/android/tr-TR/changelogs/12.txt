@@ -1,0 +1,11 @@
+Eklendi
+• Fransızca, İtalyanca, İspanyolca, Rusça ve Korece.
+• Instagram: İsteğe bağlı "Mesajlar'da aç".
+• Telefon korumayı durdurursa bildirim geliyor.
+• Xiaomi: Koruma kendiliğinden geri gelsin diye Otomatik başlatma hatırlatması.
+Düzeltildi
+• Dengeli: Hikâyeler artık bir an bile kapanmıyor.
+• YouTube: Listeden açılan Shorts artık hemen kapanmıyor.
+İyileştirildi
+• Perdeler çok daha hızlı kalkıyor, geri dönünce daha erken geliyor.
+• Durum bildirimleri yalnızca koruma durunca titreşiyor.

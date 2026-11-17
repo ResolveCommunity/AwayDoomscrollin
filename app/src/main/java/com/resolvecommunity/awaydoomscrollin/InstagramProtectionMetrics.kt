@@ -116,18 +116,18 @@ internal object InstagramProtectionMetrics {
         context.getSharedPreferences(ProtectionPreferences.PREFS_NAME, Context.MODE_PRIVATE)
 }
 
-fun formatMeasuredDuration(durationMs: Long, isEn: Boolean): String {
+/** Measured curtain time, short units in the app's language (duration_*). */
+fun formatMeasuredDuration(durationMs: Long, language: AppLanguage = AppText.language()): String {
     val totalSeconds = (durationMs.coerceAtLeast(0L) / 1000L)
     if (totalSeconds < 60L) {
-        return if (isEn) "${totalSeconds}s" else "$totalSeconds sn"
+        return AppText.getIn(language, R.string.duration_seconds, totalSeconds)
     }
     val minutes = totalSeconds / 60L
     val hours = minutes / 60L
     val remainingMinutes = minutes % 60L
     return when {
-        hours == 0L -> if (isEn) "$minutes min" else "$minutes dk"
-        remainingMinutes == 0L -> if (isEn) "$hours hr" else "$hours sa"
-        isEn -> "$hours hr $remainingMinutes min"
-        else -> "$hours sa $remainingMinutes dk"
+        hours == 0L -> AppText.getIn(language, R.string.duration_minutes, minutes)
+        remainingMinutes == 0L -> AppText.getIn(language, R.string.duration_hours, hours)
+        else -> AppText.getIn(language, R.string.duration_hours_minutes, hours, remainingMinutes)
     }
 }

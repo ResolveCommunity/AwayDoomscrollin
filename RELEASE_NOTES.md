@@ -1,114 +1,153 @@
-# AwayDoomscrollin' v1.4.1
+# AwayDoomscrollin' v1.5.0
 
-Version name: 1.4.1 · Version code: 11
+Version name: 1.5.0 · Version code: 12
 
 ## English
 
-This update fixes the issues reported after v1.4.0, opens YouTube
-Subscriptions in Balanced mode and adds a troubleshooting log for support.
+### Added
 
-- YouTube, Balanced: Subscriptions are open. They only show channels you
-  chose to follow, so you can watch them and manage your subscriptions again.
-  In YouTube's new layout Subscriptions is in the row of tabs above the Home
-  feed; that row now stays uncovered, while Music, Live and More stay covered
-  like Home. The Home feed stays covered in both modes, and Strict keeps
-  Subscriptions covered too. A Short opened from Subscriptions follows the
-  usual Balanced rule: you can watch it, and swiping to the next one takes
-  you back.
-- YouTube: in the new layout, dragging the top bar upward no longer uncovers
-  the Home feed.
-- Troubleshooting log: a new card in About lets you copy a short record of
-  what protection did over the last 24 hours and paste it into your email to
-  support. It contains no names, messages or text from the screen, and it is
-  never sent anywhere unless you send it yourself, even with usage data
-  sharing turned on. A switch on the same card turns the log off and deletes
-  it.
-- Foldables and tablets: on Instagram's large-screen layout the side menu is
-  no longer covered, so Messages and Search stay reachable from Home, and the
-  Home feed is covered all the way down. Tapping Home from Notifications
-  works again on large and outer screens.
-- Instagram, Balanced: a Reel sent in a chat or opened from a profile no
-  longer closes as soon as it opens. The Reel you are watching stays open after a visit to the recent apps
-  screen, the home screen, another app or the Reel's camera, and after
-  folding, unfolding or rotating. A different Reel opened on top of it, for
-  example from its audio page, is still blocked.
-- Instagram: its own pop-ups (such as new feature announcements) and Android
-  permission prompts are no longer hidden under the curtain.
-- Protection now also works when Instagram or YouTube is opened in a pop-up
-  window.
-- Pixel: after the recent apps screen, the Home curtain no longer stays
-  shrunk to the size of the app's card.
-- YouTube: the notification permission prompt and YouTube's own update page
-  are no longer covered, and YouTube's own pop-up windows are no longer
-  hidden under the curtain.
-- YouTube: if YouTube was left on the Shorts tab, opening it again no longer
-  plays the Shorts feed in Balanced mode.
-- YouTube, Strict: tapping Create no longer shows a curtain over the camera.
-- Android 9 and 10: tapping Following in TikTok no longer closes TikTok, and
-  a YouTube Short opened from search in Balanced mode no longer closes at
-  once. Moving on to the next Short is still detected.
-- TikTok: protection does less work while TikTok is open, so it reacts
-  faster on older phones.
-- Instagram: a page that opens in its own window, such as "Create a new
-  password" after signing in, is no longer hidden under the Home curtain.
-- Honor floating window: the YouTube curtain stays inside the window instead
-  of covering the rest of the screen.
+- Languages: the app is now available in French, Italian, Spanish, Russian
+  and Korean, besides English and Turkish. You can choose the language in the
+  app.
+- Instagram, Open in Messages (optional, off by default, in the Apps tab
+  under Instagram): when Instagram opens and lands on Home, the app taps
+  Messages for you, so you start in your messages instead of the feed.
+  Moving around inside Instagram, notifications and links are left alone.
+- "Protection is not running" notification: if the phone stops protection
+  in the background, this notification now appears about a minute later, so
+  Reels no longer come back unnoticed. Tapping it opens Accessibility
+  settings, where turning AwayDoomscrollin' off and on brings protection
+  back. Protection is also checked again after the phone restarts or the app
+  updates.
+- Xiaomi, Redmi and POCO: on a Xiaomi test phone, clearing Recent apps
+  stopped protection, and it came back by itself only when Autostart was on.
+  On these phones, setup now strongly recommends both Autostart and running in
+  the background, with a button for each, Home shows a small reminder under
+  Recent blocks, and the "Protection is not running" notification leads to
+  Autostart.
+- TikTok: the regional TikTok app used in Korea, Japan and Southeast Asia is
+  now recognized and protected like TikTok. TikTok Lite is not supported
+  yet.
+- Send feedback: a bug report can include the troubleshooting log with one
+  tick (recommended), and the screen says where our reply will arrive.
+- Troubleshooting log: when the phone stops the app, the log now says why
+  (for example, Recent apps were cleared).
+- After an update, a short summary of what changed is shown once.
+
+### Fixed
+
+- A lifted curtain no longer stays on screen until you touch or scroll.
+- Home no longer says protection is on when the phone has stopped it but left
+  its switch on; it now says to turn the switch off and on again.
+- Instagram, Explore search: the cover stays below the keyboard and leaves
+  the search page sooner. Thanks to Nelson Joppi (njoppi2) for this
+  contribution.
+- Instagram: going back from search to Explore now covers the grid right
+  away.
+- Instagram, Balanced: switching to Home no longer covers your Stories for a
+  moment.
+- Instagram: if you scrolled Home until Instagram hid its top bar, the
+  curtain could keep Stories and the top bar covered. Tapping Home now brings
+  them back, and the first posts no longer show while the feed refreshes.
+- YouTube, Balanced: a Short opened from a channel or a shelf no longer
+  closes at once.
+- YouTube: opening a notification that shows a pop-up no longer flashes the
+  Home curtain.
+- YouTube: scrolling a channel's posts or their comments no longer covers
+  the channel with the Home curtain.
+- Achievement notices: the tier message now reads naturally in every
+  language.
+
+### Improved
+
+- Faster curtains: on our test phones the curtain now lifts within about 0.1
+  to 0.3 seconds when you open Messages, a profile or your notifications (up
+  to 1 to 3 seconds before), and covers the feed sooner when you go back from
+  notifications or search. Protection also does much less work in the
+  background, so it responds sooner on slower phones.
+- Notifications: status notifications vibrate only when the phone stops
+  protection. "Protection active" and the notice after you turn protection
+  off yourself are silent, and the vibration follows Android's notification
+  settings, so you can turn it off there.
+- Troubleshooting log: on a new installation it is now off until you turn it
+  on in About. If it was on before this update, it stays on.
 
 Detection depends on accessibility information from other apps. Changes to
 those apps, Android or device software can still affect protection.
 
 ## Türkçe
 
-Bu güncelleme v1.4.0'dan sonra bildirilen sorunları gideriyor, Dengeli modda
-YouTube Aboneliklerini açıyor ve destek için bir sorun giderme kaydı ekliyor.
+### Eklenenler
 
-- YouTube, Dengeli: Abonelikler açık. Orada yalnızca takip etmeyi seçtiğiniz
-  kanallar görünür; videolarını izleyebilir ve aboneliklerinizi yeniden
-  yönetebilirsiniz. YouTube'un yeni düzeninde Abonelikler, Ana Sayfa
-  akışının üstündeki sekmelerde yer alıyor; bu sekmeler artık açık kalıyor,
-  Müzik, Canlı ve Diğer ise Ana Sayfa gibi kapalı. Ana Sayfa akışı iki modda
-  da kapalı kalır, Sert mod Abonelikleri de kapatmaya devam eder.
-  Aboneliklerden açtığınız bir Short Dengeli modun kuralına uyar:
-  izleyebilirsiniz, sonrakine geçince geri dönülür.
-- YouTube: Yeni düzende üst çubuğu yukarı sürüklemek artık Ana Sayfa akışını
-  açmıyor.
-- Sorun giderme kaydı: Hakkında'daki yeni kartla korumanın son 24 saatte ne
-  yaptığını gösteren kısa bir kaydı kopyalayıp destek e-postanıza
-  yapıştırabilirsiniz. Kayıt isim, mesaj ya da ekrandaki yazıları içermez;
-  kullanım verisi paylaşımı açık olsa bile siz göndermedikçe hiçbir yere
-  iletilmez. Aynı karttaki anahtarla kaydı kapatabilirsiniz; kapatınca kayıt
-  silinir.
-- Katlanabilir telefon ve tabletler: Instagram'ın geniş ekran düzeninde yan
-  menü artık perdenin altında kalmıyor; Ana Sayfa'dan Mesajlar'a ve Arama'ya
-  ulaşabilirsiniz. Ana Sayfa akışı en alta kadar kapalı. Geniş ve dış
-  ekranlarda Bildirimler'deyken Ana Sayfa'ya dokunmak yeniden çalışıyor.
-- Instagram, Dengeli: Sohbette gönderilen ya da profilden açılan bir Reel
-  artık açılır açılmaz kapanmıyor. İzlediğiniz Reel, son uygulamalar
-  ekranına, ana ekrana, başka bir uygulamaya ya da Reel'in kamerasına gidip
-  döndüğünüzde, telefonu katlayıp açtığınızda veya döndürdüğünüzde açık
-  kalıyor. Üstüne açılan başka bir Reel, örneğin ses sayfasından açılan, yine
-  engelleniyor.
-- Instagram: Instagram'ın kendi açılır pencereleri (yeni özellik duyuruları
-  gibi) ve Android izin pencereleri artık perdenin altında kalmıyor.
-- Instagram ya da YouTube açılır pencerede açıldığında da koruma artık
-  çalışıyor.
-- Pixel: Son uygulamalar ekranından dönünce Ana Sayfa perdesi artık
-  uygulama kartının boyutunda kalmıyor.
-- YouTube: Bildirim izni penceresi ve YouTube'un kendi güncelleme sayfası
-  artık perdelenmiyor; YouTube'un kendi açılır pencereleri de perdenin
-  altında kalmıyor.
-- YouTube: Shorts sekmesinde bırakılan YouTube yeniden açıldığında, Dengeli
-  modda Shorts akışı artık oynamıyor.
-- YouTube, Sert: Oluştur'a dokununca kameranın üstünde artık perde çıkmıyor.
-- Android 9 ve 10: TikTok'ta Takipte sekmesine dokunmak artık TikTok'u
-  kapatmıyor; Dengeli modda aramadan açılan bir YouTube Short'u da artık
-  hemen kapanmıyor. Sonraki Short'a geçiş yine algılanıyor.
-- TikTok: TikTok açıkken koruma telefonu daha az yoruyor; eski telefonlarda
-  daha hızlı tepki veriyor.
-- Instagram: Giriş sonrası çıkan "Yeni bir şifre oluştur" gibi ayrı
-  pencerede açılan sayfalar artık Ana Sayfa perdesinin altında kalmıyor.
-- Honor'da kayan pencere: YouTube perdesi ekranın geri kalanını kaplamıyor,
-  pencerenin içinde kalıyor.
+- Diller: Uygulama artık İngilizce ve Türkçenin yanında Fransızca,
+  İtalyanca, İspanyolca, Rusça ve Korece de kullanılabiliyor. Dili
+  uygulamanın içinden seçebilirsiniz.
+- Instagram, Mesajlar'da aç (isteğe bağlı, varsayılan olarak kapalı,
+  Uygulamalar sekmesinde Instagram'ın altında): Instagram açılıp Ana
+  Sayfa'da başladığında uygulama sizin yerinize Mesajlar'a dokunur; akış
+  yerine mesajlarınızla başlarsınız. Instagram içinde gezinmek, bildirimler
+  ve bağlantılar etkilenmez.
+- "Koruma çalışmıyor" bildirimi: Telefon korumayı arka planda durdurursa bu
+  bildirim artık yaklaşık bir dakika sonra geliyor; Reels fark edilmeden
+  geri gelmiyor. Bildirime dokununca Erişilebilirlik ayarları açılıyor;
+  AwayDoomscrollin' orada kapatılıp açılınca koruma geri geliyor. Telefon
+  yeniden başlayınca ya da uygulama güncellenince koruma tekrar
+  denetleniyor.
+- Xiaomi, Redmi ve POCO: Bir Xiaomi test telefonunda Son uygulamalar'ı
+  temizlemek korumayı durdurdu; koruma yalnızca Otomatik başlatma açıkken
+  kendiliğinden geri geldi. Bu telefonlarda kurulum artık Otomatik
+  başlatmayı ve arka planda çalışmayı şiddetle tavsiye ediyor ve ikisi için
+  de bir düğme sunuyor; Ana Sayfa, Son engellemeler'in altında küçük bir
+  hatırlatma gösteriyor; "Koruma çalışmıyor" bildirimi de Otomatik
+  başlatmaya götürüyor.
+- TikTok: Kore, Japonya ve Güneydoğu Asya'da kullanılan bölgesel TikTok
+  uygulaması artık tanınıyor ve TikTok gibi korunuyor. TikTok Lite henüz
+  desteklenmiyor.
+- Geri bildirim gönder: Hata bildirimine sorun giderme kaydı tek bir
+  işaretle eklenebiliyor (önerilir); ekran yanıtımızın nereye geleceğini de
+  söylüyor.
+- Sorun giderme kaydı: Telefon uygulamayı durdurduğunda kayıt artık nedenini
+  de yazıyor (örneğin Son uygulamalar temizlendi).
+- Güncellemeden sonra neler değiştiğini anlatan kısa bir özet bir kez
+  gösteriliyor.
+
+### Düzeltilenler
+
+- Kalkan perde artık siz dokunana ya da kaydırana kadar ekranda kalmıyor.
+- Telefon korumayı durdurup anahtarını açık bıraktığında Ana Sayfa artık
+  korumayı açık göstermiyor; anahtarı kapatıp yeniden açmayı söylüyor.
+- Instagram, Keşfet araması: Perde klavyenin altında kalıyor ve arama
+  sayfasından daha çabuk kalkıyor. Bu katkı için Nelson Joppi'ye (njoppi2)
+  teşekkür ederiz.
+- Instagram: Aramadan Keşfet'e geri dönünce ızgara artık hemen kapanıyor.
+- Instagram, Dengeli: Ana Sayfa'ya geçerken hikâyeleriniz artık bir an bile
+  kapanmıyor.
+- Instagram: Ana Sayfa'yı Instagram üst çubuğu gizleyene kadar
+  kaydırdıysanız perde hikâyeleri ve üst çubuğu kapalı tutabiliyordu. Artık
+  Ana Sayfa'ya dokununca ikisi de geri geliyor; akış yenilenirken ilk
+  gönderiler de görünmüyor.
+- YouTube, Dengeli: Bir kanaldan ya da raftan açılan Short artık hemen
+  kapanmıyor.
+- YouTube: Açılır pencere gösteren bir bildirimi açmak artık Ana Sayfa
+  perdesini bir anlığına göstermiyor.
+- YouTube: Bir kanalın gönderilerinde ya da yorumlarında kaydırmak artık
+  kanalı Ana Sayfa perdesiyle kapatmıyor.
+- Başarım bildirimleri: Kademe mesajı artık her dilde doğal okunuyor.
+
+### İyileştirmeler
+
+- Daha hızlı perdeler: Test telefonlarımızda Mesajlar'ı, bir profili ya da
+  bildirimlerinizi açtığınızda perde artık 0,1 ile 0,3 saniye içinde
+  kalkıyor (önceden 1 ile 3 saniyeyi bulabiliyordu); bildirimlerden ya da
+  aramadan geri döndüğünüzde akışı daha erken kapatıyor. Koruma arka planda
+  da çok daha az iş yapıyor, bu yüzden yavaş telefonlarda daha çabuk tepki
+  veriyor.
+- Bildirimler: Durum bildirimleri yalnızca telefon korumayı durdurduğunda
+  titreşiyor. "Koruma etkin" bildirimi ve korumayı kendiniz kapattığınızda
+  gelen bildirim sessiz; titreşim Android'in bildirim ayarlarına uyuyor,
+  oradan kapatabilirsiniz.
+- Sorun giderme kaydı: Yeni kurulumda artık siz Hakkında bölümünden açana
+  kadar kapalı. Bu güncellemeden önce açıksa açık kalıyor.
 
 Algılama, diğer uygulamaların sunduğu erişilebilirlik bilgilerine bağlıdır.
 Uygulama, Android veya telefon yazılımındaki değişiklikler korumayı

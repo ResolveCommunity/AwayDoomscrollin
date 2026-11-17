@@ -50,6 +50,18 @@ internal object YouTubeSurfacePolicy {
     fun isPopUpOverMain(activeHasTabBar: Boolean, otherVisibleYouTubeWindows: Int): Boolean =
         !activeHasTabBar && otherVisibleYouTubeWindows > 0
 
+    /** Delay before an unclassified frame after Search/Notifications counts as a Back to the feed. */
+    const val CLICKLESS_RETURN_CONFIRM_MS = 48L
+
+    /**
+     * True once the frame that looked like a Back from Search/Notifications
+     * has held past the confirm delay without a click. A tap there reports
+     * the page change before its click event, so the first frame alone is no
+     * evidence.
+     */
+    fun clicklessReturnConfirmed(firstSeenMs: Long, nowMs: Long): Boolean =
+        firstSeenMs > 0L && nowMs - firstSeenMs >= CLICKLESS_RETURN_CONFIRM_MS
+
     fun suspendForUnreadableFocus(alreadySuspended: Boolean, consecutiveChecks: Int): Boolean =
         InstagramSurfacePolicy.isUnreadableForeground(consecutiveChecks) ||
             (alreadySuspended && consecutiveChecks > 0)
@@ -76,6 +88,11 @@ internal object YouTubeSurfacePolicy {
      * ("Accueil", "Abonnements : De nouveaux contenus...", "Vous"), its order
      * is not, and child order does not mirror in right-to-left layouts. A bar
      * without Create (four items) keeps the same ends.
+     *
+     * Known limit: the current four-item bar is Home, Shorts, Create, You, so
+     * its third item (Create) is read as Subscriptions here. Unmapping it was
+     * tried for 1.5.0 and made the Strict curtain stay over the opening
+     * camera longer (0.8 s instead of 0.63 s, Galaxy S23); left as in 1.4.x.
      */
     fun navigationDestinationAt(index: Int, count: Int): YouTubeNavigationDestination = when {
         count < 4 || index !in 0 until count -> YouTubeNavigationDestination.UNKNOWN

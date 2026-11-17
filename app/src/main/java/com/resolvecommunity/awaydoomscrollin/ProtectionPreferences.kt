@@ -5,11 +5,28 @@ import android.content.SharedPreferences
 
 enum class ProtectedApp(
     val packageName: String,
-    val preferenceKey: String
+    val preferenceKey: String,
+    /** The same app published under another package name in some regions. */
+    val alternatePackages: List<String> = emptyList()
 ) {
     INSTAGRAM("com.instagram.android", "is_instagram_enabled"),
-    TIKTOK("com.zhiliaoapp.musically", "is_tiktok_enabled"),
-    YOUTUBE("com.google.android.youtube", "is_youtube_enabled")
+    // TikTok in Korea, Japan and Southeast Asia ("trill") is the same app under
+    // another package name. TikTok Lite is a different app and is not covered.
+    TIKTOK("com.zhiliaoapp.musically", "is_tiktok_enabled", listOf("com.ss.android.ugc.trill")),
+    YOUTUBE("com.google.android.youtube", "is_youtube_enabled");
+
+    val packageNames: List<String> = listOf(packageName) + alternatePackages
+
+    fun owns(pkg: String?): Boolean = pkg == packageName || (pkg != null && pkg in alternatePackages)
+
+    companion object {
+        // Read for every accessibility event: one map lookup, nothing allocated.
+        private val mainPackageOf: Map<String, String> =
+            entries.flatMap { app -> app.alternatePackages.map { it to app.packageName } }.toMap()
+
+        /** A regional package name becomes the app's main one, so protection treats both alike. */
+        fun canonicalPackage(pkg: String?): String? = pkg?.let { mainPackageOf[it] ?: it }
+    }
 }
 
 enum class ProtectionMode {
@@ -24,6 +41,18 @@ enum class ProtectionMode {
 
 object ProtectionPreferences {
     const val PREFS_NAME = "away_doomscroll_prefs"
+
+    /** Opt-in, off by default: Instagram opened from outside goes to Messages. */
+    const val INSTAGRAM_OPEN_IN_MESSAGES_KEY = "instagram_open_in_messages"
+
+    fun opensInstagramInMessages(prefs: SharedPreferences): Boolean =
+        prefs.getBoolean(INSTAGRAM_OPEN_IN_MESSAGES_KEY, false)
+
+    fun opensInstagramInMessages(context: Context): Boolean =
+        opensInstagramInMessages(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
+
+    fun setOpensInstagramInMessages(prefs: SharedPreferences, enabled: Boolean): Boolean =
+        prefs.edit().putBoolean(INSTAGRAM_OPEN_IN_MESSAGES_KEY, enabled).commit()
 
     private fun modeKey(app: ProtectedApp): String =
         "protection_mode_${app.name.lowercase()}"

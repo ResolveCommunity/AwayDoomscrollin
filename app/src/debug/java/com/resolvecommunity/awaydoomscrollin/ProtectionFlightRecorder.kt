@@ -98,6 +98,58 @@ internal object ProtectionFlightRecorder {
         // immediately preceding events here.
         record(context, "session.begin", "version=$versionName sdk=${Build.VERSION.SDK_INT} " +
             "device=${sanitize(Build.MANUFACTURER, 40)}/${sanitize(Build.MODEL, 60)}")
+        startStallWatch(context.applicationContext ?: return)
+    }
+
+    private val stallWatchStarted = AtomicBoolean(false)
+
+    /**
+     * Debug only: a background thread posts a no-op to the main looper every
+     * 50 ms. When it is not run within 150 ms the main thread is stuck; the
+     * main thread's stack is sampled every 50 ms meanwhile and the stall is
+     * recorded with its length and the app frames it was in. Remote tree
+     * queries that are each under the lookup threshold, binder calls and
+     * long callbacks show up here although nothing else logs them.
+     */
+    private fun startStallWatch(context: Context) {
+        if (!stallWatchStarted.compareAndSet(false, true)) return
+        val looper = android.os.Looper.getMainLooper()
+        val handler = android.os.Handler(looper)
+        Thread({
+            while (true) {
+                try {
+                    val posted = SystemClock.elapsedRealtime()
+                    val ran = java.util.concurrent.atomic.AtomicLong(0L)
+                    handler.post { ran.set(SystemClock.elapsedRealtime()) }
+                    val samples = LinkedHashMap<String, Int>()
+                    while (ran.get() == 0L) {
+                        Thread.sleep(50)
+                        if (SystemClock.elapsedRealtime() - posted >= 150) {
+                            val frames = looper.thread.stackTrace
+                            val ours = frames.filter { it.className.startsWith("com.resolvecommunity") }
+                                .take(3).joinToString(" < ") {
+                                    "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}"
+                                }
+                            val top = frames.firstOrNull()?.let {
+                                "${it.className.substringAfterLast('.')}.${it.methodName}"
+                            } ?: "?"
+                            val key = "$top | $ours"
+                            samples[key] = (samples[key] ?: 0) + 1
+                        }
+                    }
+                    val stalled = ran.get() - posted
+                    if (stalled >= 150) {
+                        record(context, "looper.stall", "ms=$stalled " + samples.entries
+                            .sortedByDescending { it.value }.take(3)
+                            .joinToString(" ; ") { "${it.value}x ${it.key}" })
+                    }
+                    Thread.sleep(50)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                } catch (_: Throwable) {
+                }
+            }
+        }, "protection-stall-watch").apply { isDaemon = true }.start()
     }
 
     private fun sanitize(value: String?, maxChars: Int): String = value.orEmpty()
